@@ -299,6 +299,48 @@ v1 requires manual status updates (no database triggers):
 
 **Future**: Will be unlocked when Mutability Registry v2 publishes an explicit journal mutability policy.
 
+### 7. Project Field Mutability Blocks (Temporary)
+
+**Certain project artifact fields are blocked from UPDATE until Mutability Registry v2 is published.**
+
+**Blocked Fields**:
+- ❌ **project.tags** → UNDECIDED_BLOCKED
+- ❌ **project.summary** → UNDECIDED_BLOCKED
+- ❌ **project.priority** → UNDECIDED_BLOCKED
+
+**Governance**: See [Mutability_Gaps_Decision_Packet_v1.md](../../governance/Mutability_Gaps_Decision_Packet_v1.md)
+
+**What This Means**:
+- ✅ **artifact.create with these fields** → Allowed (set on creation)
+- ✅ **artifact.update with other fields** → Allowed (e.g., `label`, `lifecycle_stage`)
+- ❌ **artifact.update with blocked fields** → BLOCKED with `FIELD_MUTABILITY_UNDECIDED` error
+
+**Error Response**:
+```json
+{
+  "ok": false,
+  "_gw_route": "error",
+  "error": {
+    "code": "FIELD_MUTABILITY_UNDECIDED",
+    "message": "One or more fields are blocked from UPDATE per Mutability Gaps Decision Packet v1.",
+    "details": {
+      "blocked_fields": ["tags", "summary", "priority"],
+      "registry_status": "UNDECIDED_BLOCKED",
+      "hint": "These fields cannot be updated until Mutability Registry v2 publishes explicit policy."
+    }
+  }
+}
+```
+
+**Reason**: The decision on whether these fields should be mutable has been explicitly deferred in Phase 2 design. Open questions include:
+- Are tags editable or append-only?
+- Can users edit summary/priority or are they set-once?
+- What are the UX implications of making these mutable?
+
+Until these questions are answered and locked in Mutability Registry v2, the safe default is **BLOCK**.
+
+**Future**: Will be unlocked when Mutability Registry v2 publishes explicit mutability policies for these fields.
+
 ---
 
 ## Migration Path to v2

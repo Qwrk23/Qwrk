@@ -427,11 +427,12 @@ Leaf 1 (READY) → Leaf 2 (BLOCKED) → Leaf 3 (BLOCKED) → Leaf 4 (BLOCKED) �
 
 **Acceptance Criteria**:
 1. artifact.save creates new artifacts correctly
-2. artifact.save updates existing artifacts correctly
+2. artifact.save updates existing artifacts correctly (mutable fields only)
 3. artifact.save validates type-specific schemas
 4. artifact.save returns correct response envelopes
 5. Journal INSERT-ONLY doctrine enforced (UPDATE blocked per Doctrine_Journal_InsertOnly_Temporary)
-6. All 11 KGB test cases PASS
+6. Project field mutability blocks enforced (tags/summary/priority blocked per Mutability_Gaps_Decision_Packet_v1)
+7. All 12 KGB test cases PASS
 
 **content.tree_node**:
 ```json

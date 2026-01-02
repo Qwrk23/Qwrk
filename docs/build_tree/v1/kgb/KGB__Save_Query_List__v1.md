@@ -38,7 +38,7 @@ This document defines the Known-Good Baseline (KGB) tests for validating the `ar
 | Test Case | Purpose | Status |
 |-----------|---------|--------|
 | TC-01 | Create new project artifact | 🟢 |
-| TC-02 | Update existing project artifact | 🟢 |
+| TC-02 | Update existing project artifact (mutable fields only) | 🟢 |
 | TC-03 | Create snapshot artifact (immutable) | 🟢 |
 | TC-04 | Validate type-specific schema enforcement | 🟢 |
 | TC-05 | Verify response envelope structure | 🟢 |
@@ -48,6 +48,7 @@ This document defines the Known-Good Baseline (KGB) tests for validating the `ar
 | TC-09 | Test artifact.list integration | 🟢 |
 | TC-10 | Validate RLS enforcement | 🟢 |
 | TC-11 | Validate Journal INSERT-ONLY doctrine (UPDATE blocked) | 🟢 |
+| TC-12 | Validate Project field mutability blocks (tags/summary/priority) | 🟢 |
 
 ---
 
@@ -114,6 +115,8 @@ SELECT * FROM qxb_artifact_project WHERE artifact_id = '<generated-uuid>';
 
 **Purpose**: Verify artifact.save updates an existing project artifact when artifact_id is provided
 
+**Note**: This test only updates `label` (decided-mutable field). Fields `summary`, `priority`, and `tags` are blocked from UPDATE per Mutability Gaps Decision Packet v1 (see TC-12 for validation).
+
 **Request Envelope**:
 ```json
 {
@@ -123,9 +126,7 @@ SELECT * FROM qxb_artifact_project WHERE artifact_id = '<generated-uuid>';
   "artifact_id": "<artifact-id-from-tc01>",
   "artifact_type": "project",
   "artifact_payload": {
-    "label": "KGB Test Project TC-01 (Updated)",
-    "summary": "Updated summary for KGB validation",
-    "priority": 5
+    "label": "KGB Test Project TC-01 (Updated)"
   }
 }
 ```
@@ -143,8 +144,7 @@ SELECT * FROM qxb_artifact_project WHERE artifact_id = '<generated-uuid>';
     "lifecycle_status": "active",
     "workspace_id": "test-workspace-uuid",
     "lifecycle_stage": "active",
-    "summary": "Updated summary for KGB validation",
-    "priority": 5,
+    "summary": "Test project for KGB validation",
     "tags": ["kgb", "test", "tc-01"]
   }
 }
@@ -153,14 +153,13 @@ SELECT * FROM qxb_artifact_project WHERE artifact_id = '<generated-uuid>';
 **Validation**:
 - ✅ artifact_id unchanged
 - ✅ label updated
-- ✅ summary updated
-- ✅ priority updated
-- ✅ tags preserved (not overwritten)
+- ✅ summary preserved (not updated - field is blocked)
+- ✅ tags preserved (not updated - field is blocked)
 - ✅ updated_at is recent timestamp
 
 **Database Verification**:
 ```sql
-SELECT label, summary, priority, updated_at
+SELECT label, summary, tags, updated_at
 FROM qxb_artifact_project
 WHERE artifact_id = '<artifact-id-from-tc01>';
 ```
@@ -641,17 +640,94 @@ WHERE artifact_id = '<artifact-id-from-request-1>';
 
 ---
 
+### TC-12: Validate Project Field Mutability Blocks (tags/summary/priority)
+
+**Purpose**: Verify artifact.update correctly blocks UPDATE operations on project fields marked UNDECIDED_BLOCKED per Mutability Gaps Decision Packet v1
+
+**Blocked Fields**:
+- `tags` (UNDECIDED_BLOCKED)
+- `summary` (UNDECIDED_BLOCKED)
+- `priority` (UNDECIDED_BLOCKED)
+
+**Setup**:
+- Use existing project artifact from TC-01
+- Attempt to update blocked fields via artifact.update
+
+**Request** (attempt UPDATE on blocked fields):
+```json
+{
+  "gw_user_id": "test-user-uuid",
+  "gw_workspace_id": "test-workspace-uuid",
+  "gw_action": "artifact.update",
+  "artifact_id": "<artifact-id-from-tc01>",
+  "artifact_type": "project",
+  "artifact_payload": {
+    "tags": ["updated", "tags"],
+    "summary": "Attempting to update blocked summary field",
+    "priority": 10
+  }
+}
+```
+
+**Expected Response** (BLOCKED):
+```json
+{
+  "ok": false,
+  "_gw_route": "error",
+  "error": {
+    "code": "FIELD_MUTABILITY_UNDECIDED",
+    "message": "One or more fields are blocked from UPDATE per Mutability Gaps Decision Packet v1.",
+    "details": {
+      "artifact_type": "project",
+      "artifact_id": "<artifact-id-from-tc01>",
+      "operation_attempted": "UPDATE",
+      "blocked_fields": ["tags", "summary", "priority"],
+      "registry_status": "UNDECIDED_BLOCKED",
+      "source": "Mutability Gaps Decision Packet v1",
+      "hint": "These fields cannot be updated until Mutability Registry v2 publishes explicit policy. Use allowed fields only."
+    }
+  }
+}
+```
+
+**Validation**:
+- ✅ UPDATE attempt blocked with `FIELD_MUTABILITY_UNDECIDED` error code
+- ✅ Error message references Mutability Gaps Decision Packet v1
+- ✅ Error details list all blocked fields attempted
+- ✅ Error details include registry_status: "UNDECIDED_BLOCKED"
+- ✅ Hint instructs user to await Mutability Registry v2
+- ✅ Original project artifact remains unchanged in database
+
+**Database Verification**:
+```sql
+-- Verify project artifact NOT updated
+SELECT tags, summary, priority
+FROM qxb_artifact_project
+WHERE artifact_id = '<artifact-id-from-tc01>';
+
+-- Expected: tags still ["kgb", "test", "tc-01"] (not ["updated", "tags"])
+-- Expected: summary still "Test project for KGB validation" (not "Attempting to update...")
+-- Expected: priority still NULL (not 10)
+```
+
+**Governance Reference**:
+- See: [Mutability_Gaps_Decision_Packet_v1.md](../../../governance/Mutability_Gaps_Decision_Packet_v1.md)
+- See: [Mutability_Registry_v1.md](../../../governance/Mutability_Registry_v1.md)
+
+---
+
 ## Acceptance Criteria
 
 For the Build Tree TEST node to pass:
 
-- ✅ All 11 test cases execute successfully
+- ✅ All 12 test cases execute successfully
 - ✅ All validation checkpoints pass
 - ✅ No unexpected errors in workflow execution
 - ✅ Database state is consistent after all tests
 - ✅ Response envelopes match Gateway contract
 - ✅ RLS enforcement verified
 - ✅ Journal INSERT-ONLY doctrine enforced (TC-11)
+- ✅ Project field mutability blocks enforced (TC-12)
 
 ---
 
@@ -665,7 +741,7 @@ For the Build Tree TEST node to pass:
 
 ### Step 2: Execute Test Cases in Order
 
-Run TC-01 through TC-11 sequentially.
+Run TC-01 through TC-12 sequentially.
 
 For each test case:
 1. Send request envelope to Gateway
@@ -706,7 +782,7 @@ Create test run report:
 | Test Case | Status | Notes |
 |-----------|--------|-------|
 | TC-01 | PASS | Artifact created successfully |
-| TC-02 | PASS | Update applied correctly |
+| TC-02 | PASS | Update applied correctly (mutable fields only) |
 | TC-03 | PASS | Snapshot created |
 | TC-04 | PASS | Schema validation working |
 | TC-05 | PASS | Envelopes match contract |
@@ -716,6 +792,7 @@ Create test run report:
 | TC-09 | PASS | List integration working |
 | TC-10 | PASS | RLS enforced correctly |
 | TC-11 | PASS | Journal UPDATE blocked (INSERT-ONLY doctrine) |
+| TC-12 | PASS | Project blocked fields rejected (tags/summary/priority) |
 
 ### Overall Status
 
@@ -744,4 +821,4 @@ Workflow is production-ready.
 **Version**: v1
 **Status**: Active
 **Last Updated**: 2026-01-02
-**Total Test Cases**: 11
+**Total Test Cases**: 12
