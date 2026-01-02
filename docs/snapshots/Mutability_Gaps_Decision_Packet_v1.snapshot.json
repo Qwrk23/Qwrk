@@ -1,0 +1,330 @@
+{
+  "gw_action": "artifact.create",
+  "gw_workspace_id": "[REPLACE_WITH_WORKSPACE_UUID]",
+  "owner_user_id": "[REPLACE_WITH_OWNER_UUID]",
+  "artifact_type": "snapshot",
+  "title": "Mutability Gaps — Decision Packet (v1)",
+  "summary": "Formal documentation of unresolved mutability decisions requiring explicit policy locks",
+  "priority": 5,
+  "tags": {
+    "type": ["decision_packet", "governance", "mutability"],
+    "scope": ["project", "journal", "tags", "summary", "priority"],
+    "status": ["open", "pending_decision"]
+  },
+  "content": {
+    "packet_type": "mutability_gaps",
+    "version": 1,
+    "created_date": "2026-01-02",
+    "status": "open"
+  },
+  "extension": {
+    "payload": {
+      "packet_version": 1,
+      "status": "open",
+      "created_date": "2026-01-02",
+      "default_policy": "BLOCK_UNTIL_DECIDED",
+      "default_policy_rationale": "Safe default prevents inconsistent behavior and ensures deliberate design choices rather than accidental permissions",
+      "questions": [
+        {
+          "decision_id": "D1",
+          "question": "Are project.tags mutable?",
+          "field_path": "tags",
+          "artifact_types": ["project", "(potentially all types)"],
+          "current_status": "Not addressed in Mutability Registry v1",
+          "options": [
+            {
+              "option_id": "A",
+              "label": "IMMUTABLE (CREATE_ONLY)",
+              "description": "Tags can only be set at artifact creation. No updates allowed.",
+              "pros": [
+                "Simple semantics, prevents tag drift, audit trail preserved",
+                "Clear categorization at creation time"
+              ],
+              "cons": [
+                "Users cannot recategorize artifacts as project evolves",
+                "Typos in tags cannot be corrected",
+                "Organizational taxonomy changes require creating new artifacts"
+              ]
+            },
+            {
+              "option_id": "B",
+              "label": "MUTABLE with REPLACE semantics",
+              "description": "Tags can be updated by replacing entire tags object.",
+              "implementation_note": "User provides new tags object, which fully replaces existing tags",
+              "pros": [
+                "Simple update logic (no merge complexity)",
+                "Users can recategorize artifacts",
+                "Typo correction possible"
+              ],
+              "cons": [
+                "Risk of accidentally removing tags if partial update intended",
+                "No audit trail of tag history (unless versioning added later)"
+              ]
+            },
+            {
+              "option_id": "C",
+              "label": "MUTABLE with MERGE semantics",
+              "description": "Tags can be updated by merging provided keys with existing tags.",
+              "implementation_note": "Provided keys overwrite existing values, unprovided keys remain unchanged. Special handling needed for array-valued tags.",
+              "pros": [
+                "PATCH-like flexibility (only change what's needed)",
+                "Lower risk of accidental tag removal"
+              ],
+              "cons": [
+                "More complex merge logic, especially for nested/array values",
+                "Ambiguity about array merging (append vs replace)",
+                "Higher implementation complexity"
+              ]
+            },
+            {
+              "option_id": "D",
+              "label": "BLOCK_UNTIL_DECIDED",
+              "description": "Block all tags UPDATE operations until explicit decision is made.",
+              "recommended": true,
+              "pros": [
+                "Safe, prevents accidental permissions",
+                "Forces deliberate design choice"
+              ],
+              "cons": [
+                "Users cannot update tags at all (must recreate artifacts)"
+              ]
+            }
+          ],
+          "decision_criteria": [
+            "How critical is tag recategorization to user workflow?",
+            "Is tags field used for filtering/search (high stakes) or just metadata (lower stakes)?",
+            "What is the expected tags schema (flat key-value vs nested vs arrays)?",
+            "Should tag history be preserved for audit purposes?"
+          ],
+          "recommended_default": "D (BLOCK_UNTIL_DECIDED)"
+        },
+        {
+          "decision_id": "D2",
+          "question": "Are project.summary and project.priority mutable?",
+          "field_paths": ["summary", "priority"],
+          "artifact_types": ["project"],
+          "current_status": "Not addressed in Mutability Registry v1",
+          "options": [
+            {
+              "option_id": "A",
+              "label": "IMMUTABLE (CREATE_ONLY)",
+              "description": "Summary and priority can only be set at artifact creation. No updates allowed.",
+              "pros": [
+                "Enforces upfront planning, prevents scope drift",
+                "Preserves original project intent"
+              ],
+              "cons": [
+                "Projects evolve; preventing updates is restrictive",
+                "Typos cannot be corrected",
+                "Priority cannot be adjusted as needs change"
+              ]
+            },
+            {
+              "option_id": "B",
+              "label": "MUTABLE (UPDATE_ALLOWED with PATCH semantics)",
+              "description": "Summary and priority can be updated independently.",
+              "implementation_note": "If summary/priority provided in UPDATE, replace. If not provided, leave unchanged (PATCH semantics)",
+              "pros": [
+                "Flexible, allows project metadata to evolve",
+                "Typo correction and reprioritization possible",
+                "Aligns with typical project management workflows"
+              ],
+              "cons": [
+                "No audit trail of summary/priority history (unless versioning added)",
+                "Risk of losing original intent if frequently updated"
+              ],
+              "sub_decisions": [
+                {
+                  "question": "Should there be constraints?",
+                  "considerations": [
+                    "summary: String length limits? Non-empty constraint?",
+                    "priority: Integer range constraint (e.g., 1-5)?",
+                    "Audit trail: Should updates be logged separately?"
+                  ]
+                }
+              ]
+            },
+            {
+              "option_id": "C",
+              "label": "BLOCK_UNTIL_DECIDED",
+              "description": "Block all summary/priority UPDATE operations until explicit decision is made.",
+              "recommended": true,
+              "pros": [
+                "Safe, prevents accidental permissions",
+                "Forces deliberate design choice"
+              ],
+              "cons": [
+                "Users cannot update project metadata (must recreate artifacts)"
+              ]
+            }
+          ],
+          "decision_criteria": [
+            "Are summary/priority considered 'metadata' (flexible) or 'core identity' (immutable)?",
+            "How frequently will users need to update these fields?",
+            "Is priority used for critical workflows (e.g., auto-scheduling) or just sorting?",
+            "Should original values be preserved for audit/history?"
+          ],
+          "recommended_default": "C (BLOCK_UNTIL_DECIDED)"
+        },
+        {
+          "decision_id": "D3",
+          "question": "Is journal append-only or patchable?",
+          "field_path": "(all fields)",
+          "artifact_types": ["journal"],
+          "current_status": "UNDECIDED_BLOCKED in Mutability Registry v1. Temporary doctrine enforces append-only.",
+          "current_enforcement": "Doctrine: Journal INSERT-ONLY (Temporary)",
+          "options": [
+            {
+              "option_id": "A",
+              "label": "PERMANENTLY APPEND-ONLY (CREATE_ONLY)",
+              "description": "Journal artifacts are fully immutable after creation. No updates allowed.",
+              "semantic_model": "Journals as 'frozen reflections' — once written, entries become historical record",
+              "pros": [
+                "Preserves authenticity (entries reflect state at time of writing)",
+                "Privacy-friendly (users can trust past entries won't be retroactively altered)",
+                "Audit trail integrity (no tampering with history)",
+                "Aligns with 'append-only log' mental model"
+              ],
+              "cons": [
+                "Typos cannot be corrected (must create new entry)",
+                "No way to delete embarrassing/sensitive entries",
+                "Requires 'correction by appending' pattern"
+              ],
+              "user_pattern": "To correct/amend previous entry, create new journal artifact with parent_artifact_id linking to original"
+            },
+            {
+              "option_id": "B",
+              "label": "PATCHABLE (UPDATE_ALLOWED with constraints)",
+              "description": "Users can edit existing journal entries with restrictions.",
+              "sub_options": [
+                {
+                  "sub_option_id": "B1",
+                  "label": "Full Edit (entry_text + payload mutable)",
+                  "description": "Both entry_text and payload can be updated via PATCH semantics",
+                  "pros": [
+                    "Maximum flexibility, typo correction easy",
+                    "Users can refine/expand entries over time"
+                  ],
+                  "cons": [
+                    "Loss of authenticity (what was originally written?)",
+                    "Privacy concern (did I really write this, or edit it later?)",
+                    "Requires audit trail/versioning to preserve history"
+                  ]
+                },
+                {
+                  "sub_option_id": "B2",
+                  "label": "Metadata-Only Edit (payload mutable, entry_text immutable)",
+                  "description": "Only payload (tags, mood, structured data) can be updated. Entry text is frozen.",
+                  "pros": [
+                    "Preserves core entry text as written",
+                    "Allows metadata corrections (fix tags, update mood)"
+                  ],
+                  "cons": [
+                    "Typos in entry_text still cannot be corrected",
+                    "Added complexity (field-level mutability rules)"
+                  ]
+                },
+                {
+                  "sub_option_id": "B3",
+                  "label": "Time-Bounded Edit (updates allowed within X hours/days)",
+                  "description": "Users can edit journal entries only within a grace period (e.g., 24 hours after creation)",
+                  "pros": [
+                    "Balances flexibility (typo correction) with authenticity (eventual immutability)",
+                    "Aligns with 'cooling off' period before entries become permanent"
+                  ],
+                  "cons": [
+                    "Requires timestamp-based enforcement logic",
+                    "Adds state complexity (mutable → immutable transition)",
+                    "Users may rush to edit before deadline"
+                  ]
+                }
+              ]
+            },
+            {
+              "option_id": "C",
+              "label": "BLOCK_UNTIL_DECIDED",
+              "description": "Block all journal UPDATE operations until explicit decision is made.",
+              "current_default": true,
+              "recommended": true,
+              "pros": [
+                "Safe default, prevents accidental permissions",
+                "Buys time for user feedback and design refinement"
+              ],
+              "cons": [
+                "Users cannot correct typos or update entries at all"
+              ]
+            }
+          ],
+          "decision_criteria": [
+            "What is the primary use case for journals? (private reflection? collaboration? notes?)",
+            "How important is authenticity/audit trail vs. flexibility/UX?",
+            "Are journals owner-private only, or can they be shared? (privacy implications)",
+            "Should deleted/edited journal entries leave a trace (soft delete/edit history)?",
+            "User feedback: Do users expect journals to be editable or frozen?"
+          ],
+          "recommended_default": "C (BLOCK_UNTIL_DECIDED)"
+        }
+      ],
+      "decision_process": {
+        "steps": [
+          "User Research/Feedback: Gather input from Master Joel and/or actual users about workflow needs",
+          "Design Decision Document: Create versioned spec (e.g., Decision__Project_Tags_Mutability__v1.0__YYYY-MM-DD.md)",
+          "Document Rationale: Explain chosen option, tradeoffs accepted, and rejected alternatives",
+          "Update Mutability Registry: Publish Mutability Registry v2 with explicit rules for decided fields/types",
+          "Update Workflows: Modify NQxb_Artifact_Update_v1 (or successor) to enforce new rules",
+          "KGB Regression: Verify existing artifacts are not broken by new policy",
+          "Master Joel Approval: Final sign-off per truth hierarchy",
+          "Close Decision: Mark decision as LOCKED in Decision Packet v2"
+        ]
+      },
+      "summary_table": [
+        {
+          "decision_id": "D1",
+          "field_type": "project.tags",
+          "current_status": "Not addressed",
+          "options_count": 4,
+          "recommended_default": "D: BLOCK_UNTIL_DECIDED"
+        },
+        {
+          "decision_id": "D2",
+          "field_type": "project.summary, project.priority",
+          "current_status": "Not addressed",
+          "options_count": 3,
+          "recommended_default": "C: BLOCK_UNTIL_DECIDED"
+        },
+        {
+          "decision_id": "D3",
+          "field_type": "journal (all fields)",
+          "current_status": "UNDECIDED_BLOCKED",
+          "options_count": 3,
+          "sub_options_count": 3,
+          "recommended_default": "C: BLOCK_UNTIL_DECIDED (current)"
+        }
+      ],
+      "related_documents": [
+        "Mutability_Registry_v1.md",
+        "Doctrine_Journal_InsertOnly_Temporary.md",
+        "NQxb_Artifact_Update_v1.json",
+        "CLAUDE.md"
+      ],
+      "snapshot_metadata": {
+        "purpose": "Immutable reference for open mutability decisions",
+        "binding": false,
+        "note": "This packet documents options and tradeoffs but does NOT make decisions. Decisions must be locked via formal process.",
+        "superseded_by": null,
+        "changelog": [
+          {
+            "date": "2026-01-02",
+            "event": "Decision Packet v1 created",
+            "actions": [
+              "Documented 3 unresolved mutability decisions (tags, summary/priority, journal)",
+              "Presented options and tradeoffs for each decision",
+              "Recommended BLOCK_UNTIL_DECIDED default for all",
+              "Created snapshot artifact for immutable reference"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

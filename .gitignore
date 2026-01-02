@@ -1,0 +1,229 @@
+# New Qwrk Kernel - Git Ignore File
+# Prevents committing sensitive data and unnecessary files to GitHub
+
+# ============================================
+# CRITICAL: NEVER COMMIT CREDENTIALS
+# ============================================
+
+# Supabase credentials
+**/Supabase_Credentials*
+**/*credentials*
+**/*secrets*
+**/*_credentials_*
+**/*_secrets_*
+
+# Environment files
+.env
+.env.*
+!.env.example
+*.env
+
+# API keys and tokens
+**/*api_key*
+**/*apikey*
+**/*token*
+**/*auth*secret*
+
+# ============================================
+# Binary Office Documents (Convert to MD)
+# ============================================
+
+# Microsoft Office
+*.docx
+*.xlsx
+*.pptx
+*.doc
+*.xls
+*.ppt
+
+# Office temporary files
+~$*
+*.tmp
+
+# ============================================
+# Archive & Backup Directories
+# ============================================
+
+# Archive folders (use Git history instead)
+Archive/
+Archived/
+**/Archive/**
+**/Archived/**
+**/*_Archive/
+**/*_Archived/
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# ============================================
+# Operating System Files
+# ============================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory
+
+# ============================================
+# IDE / Editor Files
+# ============================================
+
+# Visual Studio Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# JetBrains IDEs
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-v][a-z]
+[._]sw[a-p]
+
+# ============================================
+# Node.js / npm (if used)
+# ============================================
+
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+
+# ============================================
+# Python (if used)
+# ============================================
+
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+env/
+ENV/
+
+# ============================================
+# Logs
+# ============================================
+
+logs/
+*.log
+**/*.log
+
+# ============================================
+# Temporary Files
+# ============================================
+
+temp/
+tmp/
+*.tmp
+*.temp
+
+# ============================================
+# Test / Development Files
+# ============================================
+
+# Test data that shouldn't be committed
+test_data/
+**/*_test_data/
+
+# Development notes (personal)
+NOTES.md
+TODO_PERSONAL.md
+scratch/
+
+# ============================================
+# Build Artifacts (if applicable)
+# ============================================
+
+dist/
+build/
+out/
+*.cache
+
+# ============================================
+# Database Files (Local Development)
+# ============================================
+
+# SQLite databases (local testing)
+*.sqlite
+*.sqlite3
+*.db
+
+# Database dumps (may contain sensitive data)
+*.sql.gz
+*.dump
+
+# ============================================
+# Specific to New Qwrk
+# ============================================
+
+# Personal workspace snapshots (may contain sensitive data)
+**/*_personal_workspace*
+
+# Local test workflows (not production)
+**/*_local_test*
+**/*_dev_only*
+
+# Superseded versions (use Git history)
+**/*__vPREV__*
+
+# ============================================
+# ALLOWED: Keep These Files
+# ============================================
+
+# README files are always included
+!README.md
+!**/README.md
+
+# Markdown documentation is allowed
+!*.md
+
+# JSON workflow files are allowed (no credentials embedded)
+!*.json
+
+# SQL schema files are allowed (no credentials embedded)
+!*.sql
+
+# .gitignore itself
+!.gitignore
+
+# ============================================
+# Special Cases
+# ============================================
+
+# Allow CLAUDE.md specifically (governance)
+!CLAUDE.md
+!docs/governance/CLAUDE.md
+
+# Allow snapshot JSON files (design snapshots)
+!docs/snapshots/*.json
+!**/*.snapshot.json
+
+# ============================================
+# End of .gitignore
+# ============================================

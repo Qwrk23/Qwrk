@@ -1,0 +1,162 @@
+{
+  "gw_action": "artifact.save",
+  "gw_workspace_id": "[REPLACE_WITH_WORKSPACE_UUID]",
+  "owner_user_id": "[REPLACE_WITH_OWNER_UUID]",
+  "artifact_type": "snapshot",
+  "title": "Mutability Registry (v1)",
+  "summary": "Memory audit consolidation - binding, immutable reference for artifact field mutation rules",
+  "extension": {
+    "payload": {
+      "version": 1,
+      "created_reason": "Memory audit consolidation",
+      "locked_date": "2026-01-01",
+      "operation_definitions": {
+        "CREATE_ONLY": "Field can only be set during artifact creation (INSERT). No updates allowed after creation.",
+        "UPDATE_ALLOWED": "Field can be updated via artifact.save with PATCH semantics (only explicitly provided fields are modified).",
+        "PROMOTE_ONLY": "Field can only be changed via artifact.promote operation, not via artifact.save/update.",
+        "SYSTEM_ONLY": "Field is managed exclusively by the system. Never user-mutable.",
+        "UNDECIDED_BLOCKED": "Mutability policy has not been locked. Updates are blocked until explicit decision is made."
+      },
+      "rules": [
+        {
+          "artifact_type": "snapshot",
+          "field_path": "(all fields)",
+          "operation": "CREATE_ONLY",
+          "notes": "Fully immutable after creation",
+          "source": "Phase 1 — Kernel Semantics Lock (D2)"
+        },
+        {
+          "artifact_type": "snapshot",
+          "field_path": "extension.payload",
+          "operation": "CREATE_ONLY",
+          "notes": "Frozen payload, no updates allowed",
+          "source": "Phase 2 — Type Schemas (D2.3)"
+        },
+        {
+          "artifact_type": "restart",
+          "field_path": "(all fields)",
+          "operation": "CREATE_ONLY",
+          "notes": "Fully immutable after creation",
+          "source": "Phase 1 — Kernel Semantics Lock (D3)"
+        },
+        {
+          "artifact_type": "restart",
+          "field_path": "extension.payload",
+          "operation": "CREATE_ONLY",
+          "notes": "Frozen payload, no updates allowed",
+          "source": "Phase 2 — Type Schemas (D2.4)"
+        },
+        {
+          "artifact_type": "project",
+          "field_path": "lifecycle_status",
+          "operation": "PROMOTE_ONLY",
+          "notes": "Must change only via artifact.promote, not via update",
+          "source": "Phase 3 — Gateway Contract (P3-D1)"
+        },
+        {
+          "artifact_type": "project",
+          "field_path": "extension.operational_state",
+          "operation": "UPDATE_ALLOWED",
+          "notes": "PATCH semantics allowed",
+          "source": "Phase 1 Invariants, Phase 2 — Type Schemas (D2.2)"
+        },
+        {
+          "artifact_type": "project",
+          "field_path": "extension.state_reason",
+          "operation": "UPDATE_ALLOWED",
+          "notes": "PATCH semantics allowed",
+          "source": "Phase 1 Invariants, Phase 2 — Type Schemas (D2.2)"
+        },
+        {
+          "artifact_type": "journal",
+          "field_path": "(all fields)",
+          "operation": "UNDECIDED_BLOCKED",
+          "notes": "Mutability policy not yet locked",
+          "source": "Phase 2 — Deferred Unknowns"
+        },
+        {
+          "artifact_type": "(all types)",
+          "field_path": "artifact_id",
+          "operation": "SYSTEM_ONLY",
+          "notes": "Never user-mutable, set at creation by system",
+          "source": "North Star — Canonical Spine"
+        },
+        {
+          "artifact_type": "(all types)",
+          "field_path": "workspace_id",
+          "operation": "SYSTEM_ONLY",
+          "notes": "Never user-mutable, set at creation",
+          "source": "Workspace-first invariants"
+        },
+        {
+          "artifact_type": "(all types)",
+          "field_path": "owner_user_id",
+          "operation": "SYSTEM_ONLY",
+          "notes": "Never user-mutable, set at creation",
+          "source": "Ownership invariants"
+        },
+        {
+          "artifact_type": "(all types)",
+          "field_path": "artifact_type",
+          "operation": "SYSTEM_ONLY",
+          "notes": "Never user-mutable, set at creation",
+          "source": "North Star — Canonical Spine"
+        },
+        {
+          "artifact_type": "(all types)",
+          "field_path": "created_at",
+          "operation": "SYSTEM_ONLY",
+          "notes": "Never user-mutable, set at creation",
+          "source": "North Star — Canonical Spine"
+        },
+        {
+          "artifact_type": "(all types)",
+          "field_path": "updated_at",
+          "operation": "SYSTEM_ONLY",
+          "notes": "Never user-mutable, auto-updated by triggers",
+          "source": "North Star — Canonical Spine"
+        },
+        {
+          "artifact_type": "(all types)",
+          "field_path": "version",
+          "operation": "SYSTEM_ONLY",
+          "notes": "Never user-mutable, managed by system (reserved for optimistic locking)",
+          "source": "North Star — Canonical Spine"
+        },
+        {
+          "artifact_type": "(all types)",
+          "field_path": "deleted_at",
+          "operation": "UNDECIDED_BLOCKED",
+          "notes": "Soft delete mutability not yet locked",
+          "source": "Explicit non-decision"
+        }
+      ],
+      "enforcement_notes": {
+        "immutable_types": "snapshot and restart artifact types are fully immutable after creation. Gateway's artifact.save workflow enforces this via Check_Immutability node, which returns IMMUTABILITY_ERROR if UPDATE is attempted.",
+        "project_lifecycle_promotion": "lifecycle_status field on project artifacts must change only via artifact.promote Gateway action (not yet implemented). Current artifact.save allows updates but this will be locked down when artifact.promote is implemented.",
+        "journal_deferred": "Journal artifact mutability policy is explicitly UNDECIDED and blocked from updates pending design decision. Journals may be append-only or editable - semantic choice deferred in Phase 2.",
+        "system_managed_fields": "Fields marked SYSTEM_ONLY are never user-mutable. Includes identity fields (artifact_id, workspace_id, owner_user_id, artifact_type) and system timestamps (created_at, updated_at, version).",
+        "soft_delete_undecided": "deleted_at field mutability is UNDECIDED_BLOCKED pending explicit decision on soft delete semantics (direct user update vs dedicated artifact.delete action, reversibility, RLS interaction)."
+      },
+      "compliance": {
+        "status": "LOCKED",
+        "version": 1,
+        "locked_date": "2026-01-01",
+        "change_requirements": [
+          "Explicit design decision documented in versioned specification",
+          "Update to this registry with version increment (v2, v3, etc.)",
+          "Gateway workflow updates to enforce new rules",
+          "KGB regression to verify no breakage",
+          "Truth hierarchy approval (Phase 1-3 lock compliance)"
+        ]
+      },
+      "metadata": {
+        "total_rules": 16,
+        "artifact_types_covered": ["snapshot", "restart", "project", "journal", "(all types)"],
+        "operations_used": ["CREATE_ONLY", "UPDATE_ALLOWED", "PROMOTE_ONLY", "SYSTEM_ONLY", "UNDECIDED_BLOCKED"],
+        "undecided_count": 2,
+        "immutable_types": ["snapshot", "restart"]
+      }
+    }
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "gw_action": "artifact.create",
+  "gw_workspace_id": "[REPLACE_WITH_WORKSPACE_UUID]",
+  "owner_user_id": "[REPLACE_WITH_OWNER_UUID]",
+  "artifact_type": "snapshot",
+  "title": "Doctrine: Journal Insert-Only (Temporary)",
+  "summary": "Temporary binding rule: journal artifacts are append-only until mutability policy is locked",
+  "priority": 5,
+  "tags": {
+    "type": ["doctrine", "policy", "temporary"],
+    "scope": ["journal", "mutability", "governance"],
+    "status": ["active", "temporary"]
+  },
+  "content": {
+    "doctrine_type": "operational_rule",
+    "authority": "Mutability Registry v1",
+    "enforcement_level": "blocking"
+  },
+  "extension": {
+    "payload": {
+      "doctrine_name": "Journal INSERT-ONLY (Temporary)",
+      "status": "temporary",
+      "created_date": "2026-01-02",
+      "rule": "Journal artifacts are append-only; no updates permitted",
+      "reason": "Mutability policy not locked",
+      "source_registry": {
+        "name": "Mutability Registry v1",
+        "version": 1,
+        "rule_classification": "UNDECIDED_BLOCKED",
+        "field_path": "(all fields)",
+        "artifact_type": "journal"
+      },
+      "enforcement": {
+        "workflow": "NQxb_Artifact_Update_v1",
+        "node": "Check_Mutability_Rules",
+        "error_code": "JOURNAL_MUTABILITY_UNDECIDED",
+        "error_message": "Journal update policy is not locked. Use artifact.create to append new entries.",
+        "blocked_operations": [
+          "artifact.update"
+        ],
+        "allowed_operations": [
+          "artifact.create",
+          "artifact.query",
+          "artifact.list"
+        ]
+      },
+      "future_unlock_condition": "New Mutability Registry version explicitly allowing updates",
+      "unlock_requirements": [
+        "Design decision document (versioned specification)",
+        "Mutability Registry update (v2+) with explicit journal policy",
+        "Workflow updates to enforce new rules",
+        "KGB regression to verify no breakage",
+        "Master Joel approval per truth hierarchy"
+      ],
+      "design_choice_deferred": {
+        "option_A": "Fully immutable (append-only) - preserves privacy, audit trail, prevents editing",
+        "option_B": "Editable - allows typo correction, content updates, improved UX",
+        "semantic_implications": [
+          "Privacy model (can users delete/edit past reflections?)",
+          "Audit trail requirements (should journal history be preserved?)",
+          "User expectations (editing vs. correction-by-appending)"
+        ],
+        "deferred_in_phase": "Phase 2 - Deferred Unknowns"
+      },
+      "user_impact": {
+        "blocked_pattern": "Attempting artifact.update on journal will fail with JOURNAL_MUTABILITY_UNDECIDED error",
+        "recommended_pattern": "Use artifact.create to append new journal entries",
+        "correction_strategy": "Create new journal artifact with corrected content, optionally link via parent_artifact_id"
+      },
+      "related_documents": [
+        "Mutability_Registry_v1.md",
+        "Mutability_Registry_v1__snapshot_payload.json",
+        "NQxb_Artifact_Update_v1.json",
+        "NQxb_Artifact_Update_v1__Test_Cases.md",
+        "Doctrine_Journal_InsertOnly_Temporary.md"
+      ],
+      "snapshot_metadata": {
+        "purpose": "Immutable reference for temporary doctrine",
+        "binding": true,
+        "superseded_by": null,
+        "changelog": [
+          {
+            "date": "2026-01-02",
+            "event": "Doctrine established",
+            "actions": [
+              "Formalized Journal INSERT-ONLY rule as temporary doctrine",
+              "Updated NQxb_Artifact_Update_v1 workflow with JOURNAL_MUTABILITY_UNDECIDED error code",
+              "Created doctrine snapshot artifact for immutable reference"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
