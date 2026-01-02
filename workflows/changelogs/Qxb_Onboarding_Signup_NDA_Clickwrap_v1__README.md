@@ -15,6 +15,21 @@ This workflow implements a signup form with inline NDA clickwrap that:
 
 ---
 
+## Canonical Restart
+
+This workflow implements the specification frozen in the canonical Restart artifact:
+
+**Artifact ID**: `a4b0bfd5-147a-4b5e-b43b-e3f220f4f681`
+**Title**: Restart — People Intake: "Signup + NDA" (MVP) — 2026-01-02 (v1)
+**Documentation**: `AAA_New_Qwrk/Snapshots/AAA_New_Qwrk__Restart__People_Intake_Signup_NDA_MVP__2026-01-02__v1.md`
+
+**Semantic Governance**: This is a **Restart** artifact (ad-hoc freeze + next actions), not a Snapshot (lifecycle-only per Kernel v1).
+
+**Supersedes**:
+- Restart artifact `5708a92e-6448-4493-8ff0-f7f614ed7dca` (BetaSignup NDA v1) — marked as [SUPERSEDED]
+
+---
+
 ## Workflow Details
 
 **Workflow Name**: `Qxb_Onboarding_Signup_NDA_Clickwrap_v1`
