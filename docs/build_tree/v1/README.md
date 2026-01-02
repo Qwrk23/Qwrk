@@ -4,6 +4,21 @@
 
 ---
 
+## ⚠️ CANONICAL TRUTH DECLARATION
+
+**This is the canonical Build Tree for the slug `build_tree__save_query_list__v1`.**
+
+- **Supersedes**: All previous planning documents in AAA_New_Qwrk/Qwrk Build Tree Pack for CC/
+- **Authority**: This version is stored as PROJECT artifacts in Qwrk database (content.tree_node jsonb)
+- **Locked**: 2026-01-02
+- **Changes**: Must follow governance rules in [docs/governance/CLAUDE.md](../../governance/CLAUDE.md)
+
+**If you find conflicting documentation with this tree slug, this version wins.**
+
+See: [Tree Registry](../TREE_REGISTRY.md) for all active trees.
+
+---
+
 ## Overview
 
 The Build Tree Management Pack provides a structured approach to managing complex, multi-step front-end builds using tree-based execution management.
