@@ -1,0 +1,518 @@
+{
+  "name": "Qxb_Onboarding_Signup_NDA_Clickwrap_v1",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Qwrk Updates + NDA",
+        "formDescription": "Sign up for Qwrk updates and accept the NDA to register for beta access.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Full Name",
+              "fieldType": "text",
+              "requiredField": true,
+              "fieldId": "full_name"
+            },
+            {
+              "fieldLabel": "Email",
+              "fieldType": "email",
+              "requiredField": true,
+              "fieldId": "email"
+            },
+            {
+              "fieldLabel": "Company (optional)",
+              "fieldType": "text",
+              "requiredField": false,
+              "fieldId": "company"
+            },
+            {
+              "fieldLabel": "Source (optional)",
+              "fieldType": "text",
+              "requiredField": false,
+              "fieldId": "source"
+            }
+          ]
+        },
+        "formSubmittedText": "Thank you! Check your email for confirmation.",
+        "respondWithOptions": "responseNode",
+        "options": {
+          "formDescription": "**Qwrk NDA (Clickwrap) — Placeholder**\n\nThis is placeholder NDA text for MVP. Final NDA text will be swapped in and versioned. By checking the box below, you agree to be bound by this NDA.\n\n---\n\n☐ **I have read and agree to the Qwrk NDA above.**"
+        }
+      },
+      "id": "form_trigger_1",
+      "name": "Qx_Onboarding_Signup_NDA_Clickwrap_v1_FormTrigger",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "qwrk-nda-signup"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "normalized_email",
+              "name": "normalized_email",
+              "value": "={{ $json.email.toLowerCase().trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "full_name",
+              "name": "full_name",
+              "value": "={{ $json.full_name }}",
+              "type": "string"
+            },
+            {
+              "id": "company",
+              "name": "company",
+              "value": "={{ $json.company || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "source",
+              "name": "source",
+              "value": "={{ $json.source || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "nda_accept",
+              "name": "nda_accept",
+              "value": "={{ $json.nda_accept === true || $json.nda_accept === 'true' || $json.nda_accept === '1' }}",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "normalize_1",
+      "name": "Qx_Onboarding_Signup_NDA_Clickwrap_v1_NormalizeAndValidate",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "nda_check",
+              "leftValue": "={{ $json.nda_accept }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "validate_nda_1",
+      "name": "Qx_Onboarding_Signup_NDA_Clickwrap_v1_ValidateNDAAccept",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": false, \"error\": \"You must accept the NDA to register.\", \"status\": \"validation_failed\" } }}",
+        "options": {}
+      },
+      "id": "response_nda_reject",
+      "name": "Qx_Onboarding_Signup_NDA_Clickwrap_v1_ResponseNDAReject",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [850, 450]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build acceptance record with all required fields\nconst ndaText = \"Qwrk NDA (Clickwrap) — Placeholder\\n\\nThis is placeholder NDA text for MVP. Final NDA text will be swapped in and versioned. By checking the box, you agree to be bound by this NDA.\";\n\n// Compute SHA-256 hash of NDA text\nconst encoder = new TextEncoder();\nconst data = encoder.encode(ndaText);\nconst hashBuffer = await crypto.subtle.digest('SHA-256', data);\nconst hashArray = Array.from(new Uint8Array(hashBuffer));\nconst ndaTextHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');\n\n// Build acceptance record\nconst acceptanceRecord = {\n  created_at_utc: new Date().toISOString(),\n  full_name: $input.item.json.full_name,\n  email: $input.item.json.normalized_email,\n  company: $input.item.json.company,\n  nda_accept: $input.item.json.nda_accept,\n  nda_version: 'nda_v1_2026-01-02',\n  nda_text_hash: ndaTextHash,\n  ip_address: '', // Best-effort from headers; empty if unavailable\n  user_agent: '', // Best-effort from headers; empty if unavailable\n  source: $input.item.json.source,\n  status: 'pending' // Will be set to 'registered' or 'duplicate_blocked'\n};\n\nreturn { json: acceptanceRecord };"
+      },
+      "id": "build_record_1",
+      "name": "Qx_Onboarding_Signup_NDA_Clickwrap_v1_BuildAcceptanceRecord",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "GOOGLE_SHEET_ID_PLACEHOLDER",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Qwrk NDA Signups",
+          "mode": "name"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "email",
+              "lookupValue": "={{ $json.email }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "sheets_lookup_1",
+      "name": "Qx_Onboarding_Signup_NDA_Clickwrap_v1_SheetsLookupByEmail",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [1050, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has_results",
+              "leftValue": "={{ $json.rowNumber }}",
+              "rightValue": "",
+              "operator": {
+                "type": "any",
+                "operation": "exists"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "dedupe_switch_1",
+      "name": "Qx_Onboarding_Signup_NDA_Clickwrap_v1_DedupeSwitch",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "status",
+              "name": "status",
+              "value": "duplicate_blocked",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set_duplicate_1",
+      "name": "Qx_Onboarding_Signup_NDA_Clickwrap_v1_SetDuplicateStatus",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [1450, 200]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "status",
+              "name": "status",
+              "value": "registered",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set_registered_1",
+      "name": "Qx_Onboarding_Signup_NDA_Clickwrap_v1_SetRegisteredStatus",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [1450, 400]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "GOOGLE_SHEET_ID_PLACEHOLDER",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Qwrk NDA Signups",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "created_at_utc": "={{ $json.created_at_utc }}",
+            "email": "={{ $json.email }}",
+            "full_name": "={{ $json.full_name }}",
+            "company": "={{ $json.company }}",
+            "nda_accept": "={{ $json.nda_accept }}",
+            "nda_version": "={{ $json.nda_version }}",
+            "nda_text_hash": "={{ $json.nda_text_hash }}",
+            "ip_address": "={{ $json.ip_address }}",
+            "user_agent": "={{ $json.user_agent }}",
+            "source": "={{ $json.source }}",
+            "status": "={{ $json.status }}",
+            "notes": ""
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "sheets_insert_1",
+      "name": "Qx_Onboarding_Signup_NDA_Clickwrap_v1_SheetsInsertRow",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [1650, 400],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "merge_paths_1",
+      "name": "Qx_Onboarding_Signup_NDA_Clickwrap_v1_MergePaths",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1850, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@qwrk.example.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "Qwrk — NDA Acceptance Receipt",
+        "emailType": "text",
+        "message": "Hello {{ $json.full_name }},\n\nThis email confirms your registration for Qwrk updates and your acceptance of the Qwrk NDA.\n\nReceipt Details:\n- Name: {{ $json.full_name }}\n- Email: {{ $json.email }}\n- Company: {{ $json.company }}\n- NDA Accepted: {{ $json.nda_accept }}\n- NDA Version: {{ $json.nda_version }}\n- Timestamp (UTC): {{ $json.created_at_utc }}\n- NDA Text Hash: {{ $json.nda_text_hash }}\n\nNDA PDF Link (will be added soon):\n- [PLACEHOLDER — to be added]\n\nIf you did not submit this, reply to this email.\n\n— Team Qwrk",
+        "options": {}
+      },
+      "id": "email_signer_1",
+      "name": "Qx_Onboarding_Signup_NDA_Clickwrap_v1_SendSignerReceipt",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [2050, 200],
+      "credentials": {
+        "smtp": {
+          "id": "SMTP_CREDENTIAL_ID",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@qwrk.example.com",
+        "toEmail": "ADMIN_EMAIL_PLACEHOLDER",
+        "subject": "Qwrk Signup + NDA — New Registration ({{ $json.status }})",
+        "emailType": "text",
+        "message": "New Qwrk signup received.\n\nStatus: {{ $json.status }}\n- Name: {{ $json.full_name }}\n- Email: {{ $json.email }}\n- Company: {{ $json.company }}\n- NDA Version: {{ $json.nda_version }}\n- Timestamp (UTC): {{ $json.created_at_utc }}\n- IP: {{ $json.ip_address }}\n- User Agent: {{ $json.user_agent }}\n- NDA Text Hash: {{ $json.nda_text_hash }}\n- Source: {{ $json.source }}\n\nIf status=registered: row inserted into Google Sheet.\nIf status=duplicate_blocked: no new row inserted.",
+        "options": {}
+      },
+      "id": "email_admin_1",
+      "name": "Qx_Onboarding_Signup_NDA_Clickwrap_v1_SendAdminNotify",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [2050, 400],
+      "credentials": {
+        "smtp": {
+          "id": "SMTP_CREDENTIAL_ID",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": true, \"status\": $json.status, \"message\": $json.status === 'registered' ? 'Registration successful! Check your email for confirmation.' : 'You are already registered.', \"created_at_utc\": $json.created_at_utc } }}",
+        "options": {}
+      },
+      "id": "response_success",
+      "name": "Qx_Onboarding_Signup_NDA_Clickwrap_v1_Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2250, 300]
+    }
+  ],
+  "connections": {
+    "Qx_Onboarding_Signup_NDA_Clickwrap_v1_FormTrigger": {
+      "main": [
+        [
+          {
+            "node": "Qx_Onboarding_Signup_NDA_Clickwrap_v1_NormalizeAndValidate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qx_Onboarding_Signup_NDA_Clickwrap_v1_NormalizeAndValidate": {
+      "main": [
+        [
+          {
+            "node": "Qx_Onboarding_Signup_NDA_Clickwrap_v1_ValidateNDAAccept",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qx_Onboarding_Signup_NDA_Clickwrap_v1_ValidateNDAAccept": {
+      "main": [
+        [
+          {
+            "node": "Qx_Onboarding_Signup_NDA_Clickwrap_v1_BuildAcceptanceRecord",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Qx_Onboarding_Signup_NDA_Clickwrap_v1_ResponseNDAReject",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qx_Onboarding_Signup_NDA_Clickwrap_v1_BuildAcceptanceRecord": {
+      "main": [
+        [
+          {
+            "node": "Qx_Onboarding_Signup_NDA_Clickwrap_v1_SheetsLookupByEmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qx_Onboarding_Signup_NDA_Clickwrap_v1_SheetsLookupByEmail": {
+      "main": [
+        [
+          {
+            "node": "Qx_Onboarding_Signup_NDA_Clickwrap_v1_DedupeSwitch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qx_Onboarding_Signup_NDA_Clickwrap_v1_DedupeSwitch": {
+      "main": [
+        [
+          {
+            "node": "Qx_Onboarding_Signup_NDA_Clickwrap_v1_SetDuplicateStatus",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Qx_Onboarding_Signup_NDA_Clickwrap_v1_SetRegisteredStatus",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qx_Onboarding_Signup_NDA_Clickwrap_v1_SetDuplicateStatus": {
+      "main": [
+        [
+          {
+            "node": "Qx_Onboarding_Signup_NDA_Clickwrap_v1_MergePaths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qx_Onboarding_Signup_NDA_Clickwrap_v1_SetRegisteredStatus": {
+      "main": [
+        [
+          {
+            "node": "Qx_Onboarding_Signup_NDA_Clickwrap_v1_SheetsInsertRow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qx_Onboarding_Signup_NDA_Clickwrap_v1_SheetsInsertRow": {
+      "main": [
+        [
+          {
+            "node": "Qx_Onboarding_Signup_NDA_Clickwrap_v1_MergePaths",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Qx_Onboarding_Signup_NDA_Clickwrap_v1_MergePaths": {
+      "main": [
+        [
+          {
+            "node": "Qx_Onboarding_Signup_NDA_Clickwrap_v1_SendSignerReceipt",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Qx_Onboarding_Signup_NDA_Clickwrap_v1_SendAdminNotify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qx_Onboarding_Signup_NDA_Clickwrap_v1_SendSignerReceipt": {
+      "main": [
+        [
+          {
+            "node": "Qx_Onboarding_Signup_NDA_Clickwrap_v1_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qx_Onboarding_Signup_NDA_Clickwrap_v1_SendAdminNotify": {
+      "main": [
+        [
+          {
+            "node": "Qx_Onboarding_Signup_NDA_Clickwrap_v1_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2026-01-02T00:00:00.000Z",
+  "versionId": "1"
+}
