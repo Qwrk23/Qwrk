@@ -430,7 +430,8 @@ Leaf 1 (READY) → Leaf 2 (BLOCKED) → Leaf 3 (BLOCKED) → Leaf 4 (BLOCKED) �
 2. artifact.save updates existing artifacts correctly
 3. artifact.save validates type-specific schemas
 4. artifact.save returns correct response envelopes
-5. All KGB test cases PASS
+5. Journal INSERT-ONLY doctrine enforced (UPDATE blocked per Doctrine_Journal_InsertOnly_Temporary)
+6. All 11 KGB test cases PASS
 
 **content.tree_node**:
 ```json

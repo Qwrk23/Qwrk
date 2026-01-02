@@ -12,6 +12,8 @@ This document defines the Known-Good Baseline (KGB) tests for validating the `ar
 
 **Validation Goal**: Ensure artifact.save correctly creates and updates artifacts across all supported types.
 
+**Governance**: Journal artifacts are governed by **Doctrine: Journal INSERT-ONLY (Temporary)**. UPDATE operations on journal artifacts are blocked until Mutability Registry v2 is published. See [Doctrine_Journal_InsertOnly_Temporary.md](../../../governance/Doctrine_Journal_InsertOnly_Temporary.md).
+
 ---
 
 ## Test Environment
@@ -45,6 +47,7 @@ This document defines the Known-Good Baseline (KGB) tests for validating the `ar
 | TC-08 | Test artifact.query integration | 🟢 |
 | TC-09 | Test artifact.list integration | 🟢 |
 | TC-10 | Validate RLS enforcement | 🟢 |
+| TC-11 | Validate Journal INSERT-ONLY doctrine (UPDATE blocked) | 🟢 |
 
 ---
 
@@ -539,16 +542,116 @@ SELECT * FROM qxb_artifact_snapshot WHERE artifact_id = '<generated-uuid>';
 
 ---
 
+### TC-11: Validate Journal INSERT-ONLY Doctrine (UPDATE Blocked)
+
+**Purpose**: Verify artifact.update correctly blocks UPDATE operations on journal artifacts per Doctrine: Journal INSERT-ONLY (Temporary)
+
+**Setup**:
+- Create a journal artifact via artifact.create
+- Attempt to update it via artifact.update
+
+**Request 1** (create journal in workspace):
+```json
+{
+  "gw_user_id": "test-user-uuid",
+  "gw_workspace_id": "test-workspace-uuid",
+  "gw_action": "artifact.create",
+  "artifact_type": "journal",
+  "artifact_payload": {
+    "artifact_slug": "test_journal_tc11",
+    "label": "Journal TC-11",
+    "entry_text": "Original journal entry for testing INSERT-ONLY doctrine."
+  }
+}
+```
+
+**Expected Response** (Request 1):
+```json
+{
+  "ok": true,
+  "_gw_route": "ok",
+  "artifact": {
+    "artifact_id": "<generated-uuid>",
+    "artifact_type": "journal",
+    "artifact_slug": "test_journal_tc11",
+    "label": "Journal TC-11",
+    "entry_text": "Original journal entry for testing INSERT-ONLY doctrine."
+  }
+}
+```
+
+**Request 2** (attempt UPDATE on journal):
+```json
+{
+  "gw_user_id": "test-user-uuid",
+  "gw_workspace_id": "test-workspace-uuid",
+  "gw_action": "artifact.update",
+  "artifact_id": "<artifact-id-from-request-1>",
+  "artifact_type": "journal",
+  "artifact_payload": {
+    "label": "Journal TC-11 (Updated)",
+    "entry_text": "Attempting to update journal entry."
+  }
+}
+```
+
+**Expected Response** (Request 2 - BLOCKED):
+```json
+{
+  "ok": false,
+  "_gw_route": "error",
+  "error": {
+    "code": "JOURNAL_MUTABILITY_UNDECIDED",
+    "message": "Journal update policy is not locked. Use artifact.create to append new entries.",
+    "details": {
+      "artifact_type": "journal",
+      "artifact_id": "<artifact-id-from-request-1>",
+      "operation_attempted": "UPDATE",
+      "registry_rule": "UNDECIDED_BLOCKED",
+      "source": "Mutability Registry v1",
+      "doctrine": "Journal INSERT-ONLY (Temporary)",
+      "hint": "Journal artifacts are append-only until mutability policy is locked. Create new journal entries instead."
+    }
+  }
+}
+```
+
+**Validation**:
+- ✅ Journal artifact created successfully via artifact.create
+- ✅ UPDATE attempt blocked with `JOURNAL_MUTABILITY_UNDECIDED` error code
+- ✅ Error message references Doctrine: Journal INSERT-ONLY (Temporary)
+- ✅ Error details include registry_rule: "UNDECIDED_BLOCKED"
+- ✅ Hint instructs user to use artifact.create for new entries
+- ✅ Original journal artifact remains unchanged in database
+
+**Database Verification**:
+```sql
+-- Verify journal artifact NOT updated
+SELECT artifact_id, label, entry_text
+FROM qxb_artifact_journal
+WHERE artifact_id = '<artifact-id-from-request-1>';
+
+-- Expected: label still "Journal TC-11" (not "Journal TC-11 (Updated)")
+-- Expected: entry_text still "Original journal entry..." (not "Attempting to update...")
+```
+
+**Doctrine Reference**:
+- See: [Doctrine_Journal_InsertOnly_Temporary.md](../../../governance/Doctrine_Journal_InsertOnly_Temporary.md)
+- See: [Mutability_Registry_v1.md](../../../governance/Mutability_Registry_v1.md)
+
+---
+
 ## Acceptance Criteria
 
 For the Build Tree TEST node to pass:
 
-- ✅ All 10 test cases execute successfully
+- ✅ All 11 test cases execute successfully
 - ✅ All validation checkpoints pass
 - ✅ No unexpected errors in workflow execution
 - ✅ Database state is consistent after all tests
 - ✅ Response envelopes match Gateway contract
 - ✅ RLS enforcement verified
+- ✅ Journal INSERT-ONLY doctrine enforced (TC-11)
 
 ---
 
@@ -562,7 +665,7 @@ For the Build Tree TEST node to pass:
 
 ### Step 2: Execute Test Cases in Order
 
-Run TC-01 through TC-10 sequentially.
+Run TC-01 through TC-11 sequentially.
 
 For each test case:
 1. Send request envelope to Gateway
@@ -612,6 +715,7 @@ Create test run report:
 | TC-08 | PASS | Query integration working |
 | TC-09 | PASS | List integration working |
 | TC-10 | PASS | RLS enforced correctly |
+| TC-11 | PASS | Journal UPDATE blocked (INSERT-ONLY doctrine) |
 
 ### Overall Status
 
@@ -640,4 +744,4 @@ Workflow is production-ready.
 **Version**: v1
 **Status**: Active
 **Last Updated**: 2026-01-02
-**Total Test Cases**: 10
+**Total Test Cases**: 11

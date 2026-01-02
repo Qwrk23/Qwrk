@@ -285,6 +285,20 @@ v1 requires manual status updates (no database triggers):
 
 **Future (v2)**: Database triggers auto-unblock dependents.
 
+### 6. Journal INSERT-ONLY Doctrine (Temporary)
+
+**Journal artifacts are append-only until Mutability Registry v2 is published.**
+
+- ❌ **artifact.update on journal** → BLOCKED with `JOURNAL_MUTABILITY_UNDECIDED` error
+- ✅ **artifact.create for journal** → Allowed (append new entries)
+- ✅ **artifact.query for journal** → Allowed (read entries)
+
+**Governance**: See [Doctrine_Journal_InsertOnly_Temporary.md](../../governance/Doctrine_Journal_InsertOnly_Temporary.md)
+
+**Reason**: Journal mutability policy is classified as `UNDECIDED_BLOCKED` in Mutability Registry v1. The decision on whether journals should be editable or immutable has been explicitly deferred. Until this is locked, the safe default is INSERT-ONLY.
+
+**Future**: Will be unlocked when Mutability Registry v2 publishes an explicit journal mutability policy.
+
 ---
 
 ## Migration Path to v2
