@@ -1,10 +1,11 @@
 # Design — Onboarding Walk Stage: Enhanced MVP v1.1
 
-**Stage**: 🟡 Walk (Enhanced MVP - Design Only)
+**Stage**: 🟡 Walk (Enhanced MVP)
 **Purpose**: Define clean upgrade path from Crawl MVP once proven
 **Date**: 2026-01-03
 **Owner**: Master Joel
-**Status**: Design Only (NOT approved for build)
+**Status**: Phase 1 (Email Automation) ready for next build session
+**Crawl Completion**: 2026-01-03 ✅
 
 ---
 
@@ -26,7 +27,8 @@
 
 **Stage**: 🟡 Walk
 
-**Status**: Design only (NOT approved for build)
+**Status**: Phase 1 ready for build (Email Automation first leaf)
+**Prerequisite**: Crawl stage complete ✅ (2026-01-03)
 
 **Capabilities** (what is supported):
 - Automated email drip sequences (Day 3, Day 7 follow-ups)
@@ -292,15 +294,19 @@ Add to "Qwrk NDA Signups" sheet:
 
 ## Implementation Phases (Walk)
 
-### Phase 1: Email Automation
+### Phase 1: Email Automation ⬅️ **NEXT BUILD SESSION**
+
+**Status**: ✅ Ready for activation (Crawl complete)
 
 **Duration**: 1-2 weeks (design + build + test)
 
 **Deliverables**:
-1. Email sequences workflow
-2. Admin digest workflow
-3. Test both with Crawl data
+1. Email sequences workflow (`Qxb_Onboarding_Email_Sequences_v1`)
+2. Admin digest workflow (`Qxb_Onboarding_Admin_Digest_v1`)
+3. Test both with Crawl production data
 4. Document runbook for activation
+
+**First Leaf**: Email automation is the first Walk enhancement to build
 
 ---
 
@@ -409,6 +415,19 @@ Those belong to **Run stage**.
 
 ## CHANGELOG
 
+### v1.2 - 2026-01-03
+**What changed**: Marked Phase 1 (Email Automation) as ready for next build session
+
+**Why**: Crawl stage completed successfully; Walk stage prerequisites met
+
+**Scope of impact**:
+- Status updated: "Design only" → "Phase 1 ready for build"
+- Phase 1 marked as first leaf for next build session
+- Crawl completion date documented (2026-01-03)
+- Implementation can proceed with Email Automation workflows
+
+**How to validate**: Review Phase 1 section for deliverables and "NEXT BUILD SESSION" marker
+
 ### v1.1 - 2026-01-03
 **What changed**: Added Feature Metadata section (CLAUDE.md Section 7.5 compliance)
 
@@ -427,6 +446,8 @@ Those belong to **Run stage**.
 
 ---
 
-**Version**: v1.1 (Design Only)
-**Status**: Not approved for build
+**Version**: v1.2
+**Status**: Phase 1 ready for build (Email Automation)
+**Prerequisite**: Crawl complete ✅
+**Next Build**: Phase 1 (Email Automation workflows)
 **Last Updated**: 2026-01-03
