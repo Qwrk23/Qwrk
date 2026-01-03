@@ -121,7 +121,7 @@ psql -f "AAA_New_Qwrk__KGB__Kernel_v1__SQL_Pack__v1.0__2025-12-30.sql"
 ```
 
 **Safe dependency order (if running individual files):**
-See `QXB Table Design Files/AAA_New_Qwrk__Execution_Order__Kernel_v1__v1.0__2025-12-30.md`
+See `docs/schema/AAA_New_Qwrk__Execution_Order__Kernel_v1__v1.0__2025-12-30.md`
 
 ## Known-Good State (KGB)
 
@@ -145,7 +145,7 @@ See `QXB Table Design Files/AAA_New_Qwrk__Execution_Order__Kernel_v1__v1.0__2025
 ## Development Workflow
 
 **Session Restart Protocol:**
-1. Read latest restart prompt (`12_31_25_RESTART PROMPT — New Qwrk Gateway v.txt`)
+1. Read latest restart prompt from `docs/restart-prompts/`
 2. Confirm which next-stage option to implement
 3. Provide 1-2 steps at a time, wait for confirmation
 4. Use "we/our issue" phrasing during troubleshooting
@@ -208,24 +208,69 @@ If you lack authoritative truth, STOP and ask for the exact file/section.
 
 **CRITICAL:** You MUST NOT overwrite any existing file in-place.
 
-All changes follow ONE of these two allowed patterns only:
+All changes follow ONE of these allowed patterns:
 
-**A) Versioned clone (default, preferred)**
+#### **Pattern C: Archive-based Versioning (PREFERRED DEFAULT)**
+
+Use this pattern for all documentation and file updates unless specific circumstances require Pattern A or B.
+
+**Steps:**
+1. Create `Archive/` subfolder in the same directory if it doesn't exist
+2. Move current file to Archive with version suffix: `<filename>__v<OLD_VERSION>__<DATE>.<ext>`
+3. Write new file using original canonical filename (no version suffix)
+4. Update CHANGELOG in new file to reference archived version
+
+**Example:**
+```
+Before update:
+/runbooks/Runbook__Activate_MVP.md (v1 content)
+
+After update:
+/runbooks/
+├── Runbook__Activate_MVP.md (v2 content, updated CHANGELOG)
+└── Archive/
+    └── Runbook__Activate_MVP__v1__2026-01-03.md (original v1)
+```
+
+**Benefits:**
+- Active folder contains only current versions (clean discovery)
+- Canonical filename stays consistent (no version guessing)
+- Full history preserved in Archive
+- Git tracks all changes
+
+#### **Pattern A: Versioned Clone (when both versions needed in main folder)**
+
+Use when you need temporary side-by-side comparison or parallel versions.
+
+**Steps:**
 - Leave the original file untouched
 - Write a new file using: `<base_name>__vNEXT__YYYY-MM-DD.<ext>`
 
-**B) Canonical-name preservation (only if explicitly required)**
+**When to use:**
+- Temporary parallel versions during migration
+- Explicit side-by-side comparison requested by user
+
+#### **Pattern B: Canonical-name Preservation (legacy, rare)**
+
+Use when renaming old version without Archive folder structure.
+
+**Steps:**
 - First rename the existing file to: `<base_name>__vPREV__YYYY-MM-DD.<ext>`
 - Then write the updated file using the original canonical filename
 
-If neither pattern is appropriate, STOP and ask.
+**When to use:**
+- Working in directories without Archive folder (external dependencies)
+- Explicitly requested by user
+
+If none of these patterns fit, STOP and ask.
 
 ### 4) Pre-Write Confirmation Gate
 
 **Before writing or renaming any file**, you must output:
 - The exact list of files you intend to touch
+- Files being moved to Archive/ (with new version suffix)
 - The new filenames you will create
-- Which pattern (A or B) you are using for each
+- Which pattern (A, B, or C) you are using for each
 
 Then WAIT for explicit approval.
 
@@ -240,6 +285,11 @@ Every new or updated file must include either:
 - Why
 - Scope of impact
 - How to validate / regress
+
+**Archive folder behavior:**
+- Archived files preserve their original CHANGELOG intact
+- New file adds new CHANGELOG entry referencing archived version
+- Example: "Previous version: `Archive/Filename__v1__2026-01-03.md`"
 
 ### 6) n8n Workflow Editing Rules (strict)
 
@@ -278,7 +328,7 @@ The following are **derived artifacts** and must NOT be authored or edited direc
 - User guides
 - Marketing guides
 - Sales or positioning copy
-- Demo scripts or “self-demo” instructions
+- Demo scripts or "self-demo" instructions
 
 These outputs are generated downstream from canonical documentation using interpretation rules.
 
@@ -302,8 +352,6 @@ If canonical documentation and any derived narrative diverge:
 - Canonical documentation wins
 - Derived outputs must be regenerated or corrected
 
-
-
 ### 8) Documentation Duties (required)
 
 For every change:
@@ -313,6 +361,34 @@ For every change:
 ---
 
 ## CHANGELOG - CLAUDE.md Updates
+
+### v3 - 2026-01-03
+**What changed:** Added Pattern C (Archive-based versioning) as preferred default
+
+**Why:**
+- Cleaner folder structure - active folders only contain current versions
+- Canonical filenames stay consistent (no version number guessing)
+- Full version history preserved in Archive/ subfolders
+- Better aligns with git versioning and discovery patterns
+
+**Scope of impact:**
+- Section 3 (Absolute No-Overwrite Rule) now has 3 patterns (C is preferred)
+- Section 4 (Pre-Write Confirmation Gate) updated to mention Archive operations
+- Section 5 (Changelog) updated with Archive folder changelog behavior
+- All future file updates should use Pattern C unless specific need for A or B
+
+**Pattern C details:**
+- Archive folder naming: `Archive/` (capitalized, per directory)
+- Archived filename format: `<filename>__v<VERSION>__<DATE>.<ext>`
+- Current file uses canonical name (no version suffix)
+
+**How to validate:**
+- Review Section 3 for Pattern C definition
+- Confirm Pre-Write Confirmation Gate mentions Archive operations
+- Check Changelog section for Archive behavior
+- Verify this file itself follows Pattern C (v2 in Archive/, v3 is current)
+
+**Previous version:** `Archive/CLAUDE__v2__2026-01-03.md`
 
 ### v2 - 2026-01-01
 **What changed:** Added "New Qwrk Governance Rules for CC" section
@@ -327,4 +403,4 @@ For every change:
 - Verify no-overwrite rule is absolute and unambiguous
 - Check that truth hierarchy is established
 
-**Previous version:** `CLAUDE__vPREV__2026-01-01.md`
+**Previous version:** `CLAUDE__vPREV__2026-01-01.md` (location unknown, predates Archive pattern)
