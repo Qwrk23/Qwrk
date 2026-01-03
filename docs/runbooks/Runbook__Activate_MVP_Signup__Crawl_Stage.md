@@ -22,7 +22,7 @@ This runbook activates the **existing** n8n workflow for Qwrk signup + NDA click
 
 **Stage**: 🟢 Crawl
 
-**Status**: Ready for activation (configuration only, no code changes)
+**Status**: ✅ LIVE IN PRODUCTION (activated 2026-01-03)
 
 **Capabilities** (what is supported):
 - NDA acceptance with SHA-256 audit trail
@@ -158,9 +158,11 @@ Execute test cases from:
 
 ### 4.2 Document Form URL
 
-**Form URL**: `https://[your-n8n-instance].app.n8n.cloud/form/qwrk-nda-signup`
+**Production Form URL**: https://n8n.halosparkai.com/form/qwrk-nda-signup
 
-Save this URL for distribution.
+**Status**: ✅ LIVE (activated 2026-01-03)
+
+**Documentation**: See `docs/contracts/Production_URLs__Beta_Signup.md` for canonical URL reference
 
 ---
 
@@ -300,6 +302,19 @@ Crawl MVP is **LIVE** when:
 
 ## CHANGELOG
 
+### v1.2 - 2026-01-03
+**What changed**: Production activation complete - updated status and documented live form URL
+
+**Why**: Workflow is now live in production with first signup received
+
+**Scope of impact**:
+- Status updated to "LIVE IN PRODUCTION"
+- Production form URL documented: https://n8n.halosparkai.com/form/qwrk-nda-signup
+- Cross-reference to Production_URLs__Beta_Signup.md added
+- First beta signup received 2026-01-03
+
+**How to validate**: Form URL is publicly accessible and processing signups correctly
+
 ### v1.1 - 2026-01-03
 **What changed**: Added Feature Metadata section (CLAUDE.md Section 7.5 compliance)
 
@@ -318,6 +333,8 @@ Crawl MVP is **LIVE** when:
 
 ---
 
-**Version**: v1.1
-**Status**: Ready for execution
+**Version**: v1.2
+**Status**: ✅ LIVE IN PRODUCTION
+**Production URL**: https://n8n.halosparkai.com/form/qwrk-nda-signup
+**Activation Date**: 2026-01-03
 **Last Updated**: 2026-01-03
