@@ -1,12 +1,12 @@
 # Documentation — New Qwrk Kernel v1
 
-**Authoritative documentation for Qwrk V2 architecture, governance, and design**
+**Authoritative documentation for Qwrk V2 architecture, governance, design, and operations**
 
 ---
 
 ## Overview
 
-This directory contains all governing documentation for New Qwrk Kernel v1, organized by purpose and authority level.
+This directory contains all governing and operational documentation for New Qwrk Kernel v1. All files from the former `AAA_New_Qwrk` folder have been consolidated here for unified versioning and discovery.
 
 ---
 
@@ -14,10 +14,20 @@ This directory contains all governing documentation for New Qwrk Kernel v1, orga
 
 ```
 docs/
-├── governance/         # Binding rules and governance
-├── architecture/       # Design documents and specifications
-├── restart_prompts/    # Session continuation prompts
-├── snapshots/          # Immutable design snapshots (JSON)
+├── design/             # Feature design documents (Crawl/Walk/Run stages)
+├── prd/                # Product Requirements Documents
+├── runbooks/           # Step-by-step operational guides
+├── snapshots/          # Canonical Restart and Snapshot artifacts
+├── schema/             # QXB database table design files
+├── restart-prompts/    # Session continuation prompts
+├── playbooks/          # SQL/JSON formatting conventions
+├── kgb/                # Known Good Baseline test artifacts
+├── contracts/          # API contracts and decision records
+├── templates/          # Artifact and process templates
+├── trees/              # Build Trees for implementation planning
+├── marketing/          # Marketing materials and user communications
+├── project-files/      # Project management artifacts
+├── workflows/          # n8n workflow documentation
 └── README.md           # This file
 ```
 
@@ -36,159 +46,167 @@ No lower layer may contradict a higher layer.
 
 ---
 
-## Governance Documents
+## Key Documentation by Purpose
 
-Located in `governance/`:
+### `/design/`
+Feature design specifications for staged implementation (Crawl/Walk/Run).
 
-### CLAUDE.md
+**Key Files:**
+- `Design__Onboarding_Walk_Stage__Enhanced_MVP__v1.1__2026-01-03.md`
+- `Design__Onboarding_Run_Stage__Beta_Ready__v1.1__2026-01-03.md`
 
-**Purpose**: Governance rules for Claude Code (AI) collaboration
+### `/prd/`
+Product Requirements Documents for major features.
 
-**Key Rules**:
-- No file overwrites (versioned clones only)
-- Pre-write confirmation gate
-- Changelog requirements
-- Truth hierarchy compliance
-- n8n workflow editing rules
+**Key Files:**
+- `PRD__Qwrk_World_Separation__Multi_World_Isolation__v1.md` - Multi-world isolation architecture
+- `PRD__Operational_Knowledge_Sync__Qwrk_to_CC_GitHub__v1.md` - GitHub sync strategy
 
-**Status**: LOCKED (v2, 2026-01-01)
+### `/runbooks/`
+Step-by-step guides for activating and managing features.
 
-### Mutability_Registry_v1.md
+**Key Files:**
+- `Runbook__Activate_MVP_Signup__Crawl_Stage__v1.1__2026-01-03.md` - Crawl MVP activation guide
+- `Runbook__CC_Workflow_Build.md` - Claude Code workflow build process
+- `Runbook__Snapshot_and_GitHub_Mirror.md` - Snapshot creation and GitHub sync
 
-**Purpose**: Binding mutation rules for all artifact fields
+### `/snapshots/`
+Canonical Restart and Snapshot artifacts capturing frozen system states.
 
-**Scope**: Defines which fields are:
-- `CREATE_ONLY` (immutable after creation)
-- `UPDATE_ALLOWED` (PATCH semantics)
-- `PROMOTE_ONLY` (lifecycle transitions only)
-- `SYSTEM_ONLY` (never user-mutable)
-- `UNDECIDED_BLOCKED` (pending decision)
+**Key Files:**
+- `AAA_New_Qwrk__Restart__People_Intake_Signup_NDA_MVP__2026-01-02__v1.md`
+- `AAA_New_Qwrk__Restart__2025-12-30__PostSeed_RLSFix__v1.0.md`
+- `[SUPERSEDED]__AAA_New_Qwrk__Restart__BetaSignup_NDA_v1__2026-01-02.md`
 
-**Status**: LOCKED (v1, 2026-01-01)
+### `/schema/`
+QXB (Qwrk Execution Baseline) database table design files.
 
-### Doctrine_Journal_InsertOnly_Temporary.md
+**Key Files:**
+- `AAA_New_Qwrk__Schema__Kernel_v1__BUNDLE__v1.0__2025-12-30.sql`
+- `AAA_New_Qwrk__RLS_Patch__Kernel_v1__v1.2__2025-12-30.sql`
+- `AAA_New_Qwrk__KGB__Kernel_v1__SQL_Pack__v1.0__2025-12-30.sql`
+- `AAA_New_Qwrk__Execution_Order__Kernel_v1__v1.0__2025-12-30.md`
 
-**Purpose**: Temporary doctrine blocking journal UPDATE operations
+### `/restart-prompts/`
+Session continuation prompts for resuming work with full context.
 
-**Rule**: Journal artifacts are INSERT-ONLY until permanent mutability policy is locked
+**Usage:** Paste into new conversation to resume build sessions.
 
-**Enforcement**: `NQxb_Artifact_Update_v1` workflow
+### `/playbooks/`
+Formatting conventions and patterns for SQL, JSON, and Qwrk artifacts.
 
-**Status**: Temporary (pending mutability decision)
+**Contents:** KGB SQL save patterns, formatting standards.
 
-### Mutability_Gaps_Decision_Packet_v1.md
+### `/kgb/`
+Known Good Baseline (KGB) test results and validation artifacts.
 
-**Purpose**: Documents unresolved mutability decisions
+**Key Files:**
+- `KGB__Gateway_EndToEnd__CustomGPT__v1.md`
+- `KGB__Save_Project__v1.md`
 
-**Open Questions**:
-- Are project.tags mutable?
-- Are project.summary/priority mutable?
-- Is journal append-only or patchable?
+### `/contracts/`
+API contracts and decision records for Gateway and system interfaces.
 
-**Status**: Open (awaiting explicit decisions)
+**Key Files:**
+- `Gateway_v1_1__Writes_Enablement__Decision_Record.md`
 
----
+### `/templates/`
+Templates for common artifacts and processes.
 
-## Architecture Documents
+**Key Files:**
+- `Artifact__History_Report__Template__v1.md`
+- `PR__Checklist__v1.md`
 
-Located in `architecture/`:
+### `/trees/`
+Build Trees for planning and tracking multi-step implementation work.
 
-### North_Star_v0.1.md
+**Contents:** Save/Query/List build trees, feature implementation planning.
 
-**Purpose**: Guiding architecture and build plan for New Qwrk
+### `/marketing/`
+Marketing materials, update emails, and user-facing communications.
 
-**Scope**: Executive vision, core principles, data model, multi-user foundations
+**Contents:**
+- Qwrk update emails
+- NDA and beta signup materials
 
-**Key Sections**:
-- Qxb_Artifact spine definition
-- Kernel v1 artifact types (project, snapshot, restart, journal)
-- Gateway V2 contract
-- Multi-user foundations (tenancy + roles)
-- Planning-first documentation pack
+### `/project-files/`
+Project management artifacts and operational tracking documents.
 
-**Status**: LOCKED (v0.1, 2025-12-30)
+**Contents:** Thorns and Grass (ops artifacts), archived project files.
 
-### Phase_1-3_Kernel_Semantics_Lock.md
+### `/workflows/`
+n8n workflow documentation and archived workflow JSON files.
 
-**Purpose**: Lock Kernel v1 semantics before implementation
-
-**Phases**:
-- **Phase 1**: Kernel semantics (lifecycle rules, invariants)
-- **Phase 2**: Type schemas (paper design)
-- **Phase 3**: Gateway contract (action set, envelopes, errors)
-
-**Key Decisions**:
-- Retired projects can be unretired (admin-only)
-- Snapshots are lifecycle-only (no ad-hoc)
-- Restarts are sanctioned ad-hoc freeze mechanism
-- Creation-time flexible lifecycle; transitions strict afterward
-
-**Status**: LOCKED (v1, Phase 1-3 complete)
-
-### Behavioral_Controls_Governing_Constitution.md
-
-**Purpose**: Behavioral constitution for Qwrk system
-
-**Branches**:
-1. **Core Behavioral Controls** (precision, KG discipline, pacing, governance-first)
-2. **Modes** (named behavior packs)
-3. **Qwrkflows (QFs)** (governed deterministic workflows)
-4. **Personality Layer** (delivery style, not capability)
-
-**Status**: LOCKED (all branches complete)
-
-### Forest_Thicket_Structure_v1.0.md
-
-**Purpose**: Lock Forest/Thicket/Flower structure as first-class artifacts
-
-**Structure**:
-- `forest` → major life domains
-- `thicket` → groupings within forests
-- `tree` (project) → execution containers
-- `flower` → lightweight to-do items
-
-**Lineage**: Enforced via `parent_artifact_id`
-
-**Status**: LOCKED (v1.0, 2025-12-30) - Phase 2 implementation
-
-### Future_Builds_v0.1.md
-
-**Purpose**: Deferred features explicitly out of scope for Kernel v1
-
-**Items**:
-- Historical Records artifact type (🟡 Conceptual)
-- Seed ↔ Flower similarity assist (🟢 Ready for build)
-
-**Status**: Reference only (not binding)
+**Contents:** Workflow changelogs, archived versions.
 
 ---
 
-## Restart Prompts
+## Root Documentation Files
 
-Located in `restart_prompts/`:
+### `Doctrine_Journal_InsertOnly_Temporary.md`
+Temporary doctrine blocking journal UPDATE operations until permanent mutability policy is locked.
 
-**Purpose**: Session continuation prompts for context preservation
+### `Mutability_Gaps_Decision_Packet_v1.md`
+Documents unresolved mutability decisions awaiting explicit resolution.
 
-**Files**:
-- `2025-12-30_PostSeed_RLSFix.md` - Kernel v1 post-seed, RLS recursion fix
-- `2025-12-31_Gateway.md` - Gateway v1 MVP status
+### `Mutability_Registry_v1.md`
+Registry of mutability rules for all artifact types and system entities (CREATE_ONLY, UPDATE_ALLOWED, PROMOTE_ONLY, SYSTEM_ONLY).
 
-**Usage**: Paste into new conversation to resume work with full context
+### `README_BuildTreePack.md`
+README for the Qwrk Build Tree Pack for Claude Code.
+
+### `Qwrk_V2.01_Alpha_Custom_Instructions_v1.docx`
+Custom instructions document for Qwrk V2 alpha version.
 
 ---
 
-## Snapshots
+## Documentation Governance
 
-Located in `snapshots/`:
+Per **CLAUDE.md Section 7.5: Documentation & Derivation Contract**, all documentation follows a single-source-of-truth model:
 
-**Purpose**: Immutable JSON snapshots of design decisions and governance rules
+**Canonical Documentation** (this directory):
+- Precise, technical, and complete
+- Describes what the system DOES and DOES NOT do
+- Written for builders and auditors
+- The sole source of truth
 
-**Files**:
-- `Mutability_Registry_v1__snapshot_payload.json`
-- `Doctrine_Journal_InsertOnly_Temporary.snapshot.json`
-- `Mutability_Gaps_Decision_Packet_v1.snapshot.json`
+**Derived Documentation** (generated downstream):
+- User guides
+- Marketing guides
+- Sales or positioning copy
+- Demo scripts or "self-demo" instructions
 
-**Usage**: Machine-readable truth for validation and contract enforcement
+**Required Metadata:**
+Every canonical documentation update MUST include:
+- Feature or capability name
+- Stage: Crawl / Walk / Run
+- Capabilities (what is supported)
+- Non-capabilities (what is explicitly not supported)
+- User-facing summary (plain language, 1–2 paragraphs)
+- Demo safety classification (demo-safe / demo-unsafe / demo-partial)
+
+---
+
+## Finding Documentation
+
+**By Type:**
+- Design specs → `/design/`
+- PRDs → `/prd/`
+- How-to guides → `/runbooks/`
+- Historical snapshots → `/snapshots/`
+- Database schema → `/schema/`
+- Test validation → `/kgb/`
+
+**By Feature:**
+- Onboarding system → `/design/`, `/runbooks/`, `/snapshots/`
+- Qwrk World Separation → `/prd/PRD__Qwrk_World_Separation__Multi_World_Isolation__v1.md`
+- Gateway operations → `/kgb/`, `/contracts/`, `/workflows/`
+- Database design → `/schema/`
+
+**By Stage:**
+- Crawl MVP → `/runbooks/Runbook__Activate_MVP_Signup__Crawl_Stage__v1.1__2026-01-03.md`
+- Walk design → `/design/Design__Onboarding_Walk_Stage__Enhanced_MVP__v1.1__2026-01-03.md`
+- Run design → `/design/Design__Onboarding_Run_Stage__Beta_Ready__v1.1__2026-01-03.md`
 
 ---
 
@@ -196,23 +214,23 @@ Located in `snapshots/`:
 
 ### For Developers
 
-1. **Start with**: [North Star](architecture/North_Star_v0.1.md) for vision
-2. **Understand**: [Phase 1-3](architecture/Phase_1-3_Kernel_Semantics_Lock.md) for semantics
-3. **Check**: [Mutability Registry](governance/Mutability_Registry_v1.md) before updating fields
-4. **Follow**: [CLAUDE.md](governance/CLAUDE.md) for file versioning rules
+1. **Start with**: North Star (in `/schema/` or legacy architecture docs) for vision
+2. **Understand**: Phase 1-3 Locks for semantics
+3. **Check**: Mutability Registry before updating fields
+4. **Follow**: CLAUDE.md (repo root) for file versioning rules
 
 ### For AI Assistants (Claude Code)
 
-1. **MUST READ**: [CLAUDE.md](governance/CLAUDE.md) before ANY file operations
+1. **MUST READ**: `../CLAUDE.md` before ANY file operations
 2. **MUST CONSULT**: Truth hierarchy when conflicts arise
 3. **MUST FOLLOW**: No-overwrite rule, pre-write confirmation, changelog requirements
 4. **MUST RESPECT**: Locked documents (no edits without versioning)
 
 ### For Resume/Restart
 
-1. Read latest restart prompt from `restart_prompts/`
-2. Review relevant architecture docs for context
-3. Check governance docs for current rules
+1. Read latest restart prompt from `/restart-prompts/`
+2. Review relevant design/prd docs for context
+3. Check governance docs (`Mutability_Registry_v1.md`, `Doctrine_*`) for current rules
 
 ---
 
@@ -230,6 +248,27 @@ All authoritative documents use semantic versioning:
 ---
 
 ## Changelog
+
+### 2026-01-03
+
+**What changed:** Consolidated all AAA_New_Qwrk documentation into new-qwrk-kernel/docs/
+
+**Why:** Establish monorepo pattern - documentation lives WITH the code it documents (industry standard)
+
+**Scope of impact:**
+- All documentation now versioned in git
+- Single source of truth for all Qwrk docs
+- CLAUDE.md and .claude/ moved to repo root (where Claude Code expects them)
+
+**Migration:**
+- Copied (not moved) all files from AAA_New_Qwrk
+- AAA_New_Qwrk remains as backup until validated
+- Created comprehensive folder structure for all doc types
+
+**How to validate:**
+- Verify all doc types accessible in new structure
+- Confirm git tracking all new files
+- Test Claude Code recognizes CLAUDE.md at repo root
 
 ### 2026-01-02
 
@@ -257,10 +296,12 @@ All authoritative documents use semantic versioning:
 ## References
 
 - [Main README](../README.md)
+- [CLAUDE.md (Governance)](../CLAUDE.md)
 - [Schema Documentation](../schema/README.md)
 - [Workflow Documentation](../workflows/README.md)
 
 ---
 
-**Last Updated**: 2026-01-02
-**Documentation Version**: Kernel v1
+**Last Updated**: 2026-01-03
+**Documentation Version**: Kernel v1 (Consolidated)
+**Repository:** [Qwrk23/Qwrk](https://github.com/Qwrk23/Qwrk)

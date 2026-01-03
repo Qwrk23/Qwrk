@@ -1,0 +1,77 @@
+table_name,constraint_type,column_name,foreign_table,foreign_column
+qxb_artifact,CHECK,null,qxb_artifact,artifact_type
+qxb_artifact,CHECK,null,null,null
+qxb_artifact,CHECK,null,null,null
+qxb_artifact,CHECK,null,null,null
+qxb_artifact,CHECK,null,null,null
+qxb_artifact,CHECK,null,qxb_artifact,priority
+qxb_artifact,CHECK,null,null,null
+qxb_artifact,CHECK,null,null,null
+qxb_artifact,CHECK,null,null,null
+qxb_artifact,CHECK,null,null,null
+qxb_artifact,FOREIGN KEY,parent_artifact_id,qxb_artifact,artifact_id
+qxb_artifact,FOREIGN KEY,owner_user_id,qxb_user,user_id
+qxb_artifact,FOREIGN KEY,workspace_id,qxb_workspace,workspace_id
+qxb_artifact,PRIMARY KEY,artifact_id,qxb_artifact,artifact_id
+qxb_artifact_event,CHECK,null,null,null
+qxb_artifact_event,CHECK,null,null,null
+qxb_artifact_event,CHECK,null,null,null
+qxb_artifact_event,CHECK,null,null,null
+qxb_artifact_event,CHECK,null,null,null
+qxb_artifact_event,CHECK,null,null,null
+qxb_artifact_event,FOREIGN KEY,actor_user_id,qxb_user,user_id
+qxb_artifact_event,FOREIGN KEY,workspace_id,qxb_workspace,workspace_id
+qxb_artifact_event,FOREIGN KEY,artifact_id,qxb_artifact,artifact_id
+qxb_artifact_event,PRIMARY KEY,event_id,qxb_artifact_event,event_id
+qxb_artifact_journal,CHECK,null,null,null
+qxb_artifact_journal,CHECK,null,null,null
+qxb_artifact_journal,CHECK,null,null,null
+qxb_artifact_journal,FOREIGN KEY,artifact_id,qxb_artifact,artifact_id
+qxb_artifact_journal,PRIMARY KEY,artifact_id,qxb_artifact_journal,artifact_id
+qxb_artifact_project,CHECK,null,null,null
+qxb_artifact_project,CHECK,null,qxb_artifact_project,lifecycle_stage
+qxb_artifact_project,CHECK,null,null,null
+qxb_artifact_project,CHECK,null,null,null
+qxb_artifact_project,CHECK,null,qxb_artifact_project,operational_state
+qxb_artifact_project,CHECK,null,null,null
+qxb_artifact_project,CHECK,null,null,null
+qxb_artifact_project,FOREIGN KEY,artifact_id,qxb_artifact,artifact_id
+qxb_artifact_project,PRIMARY KEY,artifact_id,qxb_artifact_project,artifact_id
+qxb_artifact_restart,CHECK,null,null,null
+qxb_artifact_restart,CHECK,null,null,null
+qxb_artifact_restart,CHECK,null,null,null
+qxb_artifact_restart,FOREIGN KEY,artifact_id,qxb_artifact,artifact_id
+qxb_artifact_restart,PRIMARY KEY,artifact_id,qxb_artifact_restart,artifact_id
+qxb_artifact_snapshot,CHECK,null,null,null
+qxb_artifact_snapshot,CHECK,null,null,null
+qxb_artifact_snapshot,CHECK,null,null,null
+qxb_artifact_snapshot,FOREIGN KEY,artifact_id,qxb_artifact,artifact_id
+qxb_artifact_snapshot,PRIMARY KEY,artifact_id,qxb_artifact_snapshot,artifact_id
+qxb_user,CHECK,null,qxb_user,status
+qxb_user,CHECK,null,null,null
+qxb_user,CHECK,null,null,null
+qxb_user,CHECK,null,null,null
+qxb_user,CHECK,null,null,null
+qxb_user,CHECK,null,null,null
+qxb_user,FOREIGN KEY,auth_user_id,null,null
+qxb_user,PRIMARY KEY,user_id,qxb_user,user_id
+qxb_user,UNIQUE,auth_user_id,qxb_user,auth_user_id
+qxb_workspace,CHECK,null,null,null
+qxb_workspace,CHECK,null,null,null
+qxb_workspace,CHECK,null,null,null
+qxb_workspace,CHECK,null,null,null
+qxb_workspace,PRIMARY KEY,workspace_id,qxb_workspace,workspace_id
+qxb_workspace_user,CHECK,null,null,null
+qxb_workspace_user,CHECK,null,null,null
+qxb_workspace_user,CHECK,null,null,null
+qxb_workspace_user,CHECK,null,null,null
+qxb_workspace_user,CHECK,null,null,null
+qxb_workspace_user,CHECK,null,null,null
+qxb_workspace_user,CHECK,null,qxb_workspace_user,role
+qxb_workspace_user,FOREIGN KEY,workspace_id,qxb_workspace,workspace_id
+qxb_workspace_user,FOREIGN KEY,user_id,qxb_user,user_id
+qxb_workspace_user,PRIMARY KEY,workspace_user_id,qxb_workspace_user,workspace_user_id
+qxb_workspace_user,UNIQUE,workspace_id,qxb_workspace_user,workspace_id
+qxb_workspace_user,UNIQUE,user_id,qxb_workspace_user,workspace_id
+qxb_workspace_user,UNIQUE,workspace_id,qxb_workspace_user,user_id
+qxb_workspace_user,UNIQUE,user_id,qxb_workspace_user,user_id

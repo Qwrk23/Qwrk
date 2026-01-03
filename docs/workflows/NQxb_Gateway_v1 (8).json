@@ -1,0 +1,349 @@
+{
+  "name": "NQxb_Gateway_v1",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "/nqxb/gateway/v1",
+        "authentication": "basicAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -160,
+        -512
+      ],
+      "id": "531bfa41-b626-4599-b026-2bd511037ff6",
+      "name": "NQxb_Gateway_v1__Webhook_In",
+      "webhookId": "fe50d8cb-3789-49d9-9fad-436279cb8e54",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "jTp4W3tGrw2s036g",
+          "name": "Qwrk Ingest Basic Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Gateway_v1__Normalize_Request\n// Canonicalize inbound request so downstream nodes always use top-level fields.\n// Output contract (stable):\n//   $json.gw_action, $json.gw_workspace_id, $json.artifact_type, $json.artifact_id, $json.selector\n// Plus \"request echoes\" that survive later DB row replacement:\n//   $json.req_artifact_type, $json.req_artifact_id\n// Non-contract debug:\n//   $json._gw_debug\n\nconst raw = $json ?? {};\n\n// n8n Webhook often provides parsed JSON under raw.body\nconst body =\n  raw.body && typeof raw.body === \"object\" && !Array.isArray(raw.body)\n    ? raw.body\n    : null;\n\n// Prefer parsed body when present; otherwise treat raw as already-flat\nconst req = body ?? raw;\n\n// normalize helper\nconst asObj = (v) =>\n  v && typeof v === \"object\" && !Array.isArray(v) ? v : {};\n\nconst canonical = {\n  gw_action: req.gw_action ?? null,\n  gw_workspace_id: req.gw_workspace_id ?? null,\n  artifact_type: req.artifact_type ?? null,\n  artifact_id: req.artifact_id ?? null,\n  selector: asObj(req.selector),\n\n  // IMPORTANT: freeze request intent so it survives later nodes that overwrite $json\n  // (e.g., Supabase \"Get row\" returning the artifact row)\n  req_artifact_type: req.artifact_type ?? null,\n  req_artifact_id: req.artifact_id ?? null,\n};\n\n// Minimal debug context (non-contract)\ncanonical._gw_debug = {\n  received_shape: body ? \"n8n.body\" : \"flat\",\n  has_authorization: !!(raw.headers?.authorization || raw.headers?.Authorization),\n  request_method: raw.method ?? null,\n  request_url: raw.url ?? null,\n};\n\nreturn [{ json: canonical }];\n\n\n\n\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        64,
+        -512
+      ],
+      "id": "284f7d75-7862-4b41-b930-18802b11a8a9",
+      "name": "NQxb_Gateway_v1__Normalize_Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Gateway_v1__Gatekeeper_MVP_OwnerOnly\n// Combined: envelope validation + allow-lists + MVP Mode owner-only enforcement (workspace lock)\n// Output contract:\n// - If blocked: { ok:false, error:{code,message,details}, _gw_route:\"error\", ... }\n// - If allowed: passes through canonical request + { ok:true, _gw_route:\"ok\" }\n\nconst OWNER_WORKSPACE_ID = 'be0d3a48-c764-44f9-90c8-e846d9dbbd0a';\n\nconst ACTION_ALLOWLIST = new Set(['artifact.query', 'artifact.list']);\nconst TYPE_ALLOWLIST = new Set(['project', 'journal', 'restart', 'snapshot']);\n\nfunction fail(code, message, details = {}) {\n  return [{\n    json: {\n      ok: false,\n      error: { code, message, details },\n      _gw_route: 'error',\n      // Preserve debug context if present\n      _gw_debug: $json._gw_debug ?? undefined,\n      // Echo request fields (best-effort) for troubleshooting\n      gw_action: $json.gw_action ?? null,\n      gw_workspace_id: $json.gw_workspace_id ?? null,\n      artifact_type: $json.artifact_type ?? null,\n      artifact_id: $json.artifact_id ?? null,\n      selector: $json.selector ?? {},\n    }\n  }];\n}\n\n// ----- Basic shape checks -----\nconst gw_action = $json.gw_action;\nconst gw_workspace_id = $json.gw_workspace_id;\nconst artifact_type = $json.artifact_type;\nconst artifact_id = $json.artifact_id;\nconst selector = ($json.selector && typeof $json.selector === 'object' && !Array.isArray($json.selector)) ? $json.selector : {};\n\n// Required: gw_action + workspace_id\nif (!gw_action || typeof gw_action !== 'string') {\n  return fail('VALIDATION_ERROR', 'Missing or invalid gw_action', { expected: 'string', got: typeof gw_action });\n}\nif (!gw_workspace_id || typeof gw_workspace_id !== 'string') {\n  return fail('VALIDATION_ERROR', 'Missing or invalid gw_workspace_id', { expected: 'uuid string', got: typeof gw_workspace_id });\n}\n\n// Allow-list: actions\nif (!ACTION_ALLOWLIST.has(gw_action)) {\n  return fail('ACTION_NOT_ALLOWED', 'gw_action not allowed', { gw_action, allowed: Array.from(ACTION_ALLOWLIST) });\n}\n\n// MVP owner-only enforcement (workspace lock)\nif (gw_workspace_id !== OWNER_WORKSPACE_ID) {\n  return fail('WORKSPACE_FORBIDDEN', 'Workspace not permitted in MVP owner-only mode', {\n    gw_workspace_id,\n    allowed_workspace_id: OWNER_WORKSPACE_ID\n  });\n}\n\n// Action-specific validation\nif (gw_action === 'artifact.query') {\n  if (!artifact_type || typeof artifact_type !== 'string') {\n    return fail('VALIDATION_ERROR', 'Missing or invalid artifact_type for artifact.query', { expected: 'string', got: typeof artifact_type });\n  }\n  if (!TYPE_ALLOWLIST.has(artifact_type)) {\n    return fail('ARTIFACT_TYPE_NOT_ALLOWED', 'artifact_type not allowed', { artifact_type, allowed: Array.from(TYPE_ALLOWLIST) });\n  }\n  if (!artifact_id || typeof artifact_id !== 'string') {\n    return fail('VALIDATION_ERROR', 'Missing or invalid artifact_id for artifact.query', { expected: 'uuid string', got: typeof artifact_id });\n  }\n}\n\nif (gw_action === 'artifact.list') {\n  if (!artifact_type || typeof artifact_type !== 'string') {\n    return fail('VALIDATION_ERROR', 'Missing or invalid artifact_type for artifact.list', { expected: 'string', got: typeof artifact_type });\n  }\n  if (!TYPE_ALLOWLIST.has(artifact_type)) {\n    return fail('ARTIFACT_TYPE_NOT_ALLOWED', 'artifact_type not allowed', { artifact_type, allowed: Array.from(TYPE_ALLOWLIST) });\n  }\n  // Optional selector validation (minimal)\n  if (selector.limit !== undefined) {\n    const n = Number(selector.limit);\n    if (!Number.isFinite(n) || n < 1 || n > 100) {\n      return fail('VALIDATION_ERROR', 'selector.limit out of range (1-100)', { limit: selector.limit });\n    }\n  }\n}\n\n// Pass-through (allowed)\nreturn [{\n  json: {\n    ok: true,\n    _gw_route: 'ok',\n    gw_action,\n    gw_workspace_id,\n    artifact_type: artifact_type ?? null,\n    artifact_id: artifact_id ?? null,\n    selector,\n    _gw_debug: $json._gw_debug ?? undefined,\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        288,
+        -512
+      ],
+      "id": "df1cbbfa-4fa7-490a-bf4c-4e47fc11e742",
+      "name": "NQxb_Gateway_v1__Gatekeeper_MVP_OwnerOnly"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{$json._gw_route}}",
+                    "rightValue": "error",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "8153fa85-e2a0-4b7f-977a-19a99e9ed8f7"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "08e622c7-fb31-40c9-847d-afb5dad39973",
+                    "leftValue": "={{$json._gw_route}}",
+                    "rightValue": "ok",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        512,
+        -512
+      ],
+      "id": "abae2e85-0d32-42df-b3a1-76113ff41f1f",
+      "name": "NQxb_Gateway_v1__Switch_Route_OK_or_Error"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 403
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        736,
+        -704
+      ],
+      "id": "3cf2fc2b-2772-4761-b3d1-8d0bc2a0becd",
+      "name": "Error Response"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.gw_action }}",
+                    "rightValue": "artifact.query",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "52ad343d-e0ed-4932-a694-f97756475ce8"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e442dede-1a9a-4826-8021-bff39a110266",
+                    "leftValue": "={{ $json.gw_action }}",
+                    "rightValue": "artifact.list",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        736,
+        -496
+      ],
+      "id": "b7f3c3ac-6207-4eca-884b-40d47e9181e8",
+      "name": "NQxb_Gateway_v1__Switch_Action"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\n  ok: true,\n  _gw_route: \"ok\",\n  data: {\n    artifact: $json\n  }\n}) }}\n\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1504,
+        -512
+      ],
+      "id": "078d49d8-f8be-4d07-b060-184e972d355b",
+      "name": "NQxb_Gateway_v1__Respond_Query_Success"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "IsLBYjXJ5R2Djfrv",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/IsLBYjXJ5R2Djfrv",
+          "cachedResultName": "NQxb_Artifact_Query_v1"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1168,
+        -512
+      ],
+      "id": "babc093b-3ffe-4ec1-b90c-9aa26adbd6f2",
+      "name": "Call 'NQxb_Artifact_Query_v1'"
+    }
+  ],
+  "pinData": {
+    "NQxb_Gateway_v1__Webhook_In": [
+      {
+        "json": {
+          "gw_action": "artifact.query",
+          "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+          "artifact_type": "snapshot",
+          "artifact_id": "610e16d1-c5bb-468c-bd35-57eadf9f2e38",
+          "selector": {},
+          "_gw_debug": {
+            "received_shape": "flat",
+            "has_authorization": false
+          }
+        }
+      }
+    ]
+  },
+  "connections": {
+    "NQxb_Gateway_v1__Webhook_In": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Gateway_v1__Normalize_Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Gateway_v1__Normalize_Request": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Gateway_v1__Gatekeeper_MVP_OwnerOnly",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Gateway_v1__Gatekeeper_MVP_OwnerOnly": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Gateway_v1__Switch_Route_OK_or_Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Gateway_v1__Switch_Route_OK_or_Error": {
+      "main": [
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Gateway_v1__Switch_Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Gateway_v1__Switch_Action": {
+      "main": [
+        [
+          {
+            "node": "Call 'NQxb_Artifact_Query_v1'",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "NQxb_Gateway_v1__Respond_Query_Success": {
+      "main": [
+        []
+      ]
+    },
+    "Call 'NQxb_Artifact_Query_v1'": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Gateway_v1__Respond_Query_Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "c30d810d-4985-4ebd-98b7-17816ddabf83",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "154f6928422db881044f8d1647b40fc389c59337d14356c0ee681d50ffb55d7e"
+  },
+  "id": "FMtj72MeLV23vTT7",
+  "tags": []
+}

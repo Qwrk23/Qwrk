@@ -1,0 +1,394 @@
+{
+  "name": "NQxb_Artifact_Update_v1",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        736,
+        -512
+      ],
+      "id": "update-v1-trigger",
+      "name": "NQxb_Artifact_Update_v1__In"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Normalize_Request\n// UPDATE-ONLY: Require artifact_id, reject if missing\n// v1: Mutability Registry enforcement\n\nconst raw = $json ?? {};\n\nconst body =\n  raw.body && typeof raw.body === \"object\" && !Array.isArray(raw.body)\n    ? raw.body\n    : null;\n\nconst req = body ?? raw;\n\nconst asObj = (v) =>\n  v && typeof v === \"object\" && !Array.isArray(v) ? v : {};\n\nconst artifact_id = req.artifact_id ?? null;\nconst artifact_type = (req.artifact_type ?? \"\").trim();\n\n// UPDATE_ONLY: artifact_id is REQUIRED\nif (!artifact_id || artifact_id.trim() === '') {\n  return [\n    {\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"UPDATE_ONLY\",\n          message: \"artifact.update is update-only. Use artifact.create for new artifacts.\",\n          details: {\n            hint: \"artifact_id field is required for UPDATE operations.\"\n          },\n        },\n      },\n    },\n  ];\n}\n\nconst canonical = {\n  gw_action: req.gw_action ?? \"artifact.update\",\n  gw_workspace_id: req.gw_workspace_id ?? null,\n  artifact_type: artifact_type,\n  artifact_id: artifact_id.trim(),\n\n  // Extension fields (only operational_state and state_reason allowed for project)\n  extension: asObj(req.extension),\n  \n  // deleted_at (BLOCKED - UNDECIDED per Mutability Registry v1)\n  deleted_at: req.deleted_at ?? null,\n};\n\ncanonical._gw_debug = {\n  received_shape: body ? \"body\" : \"flat\",\n  operation: \"UPDATE\",\n};\n\nreturn [{ json: canonical }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        944,
+        -512
+      ],
+      "id": "update-v1-normalize",
+      "name": "NQxb_Artifact_Update_v1__Normalize_Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Validate_Request\n// UPDATE-only validation\n\nconst req = $json;\nconst errors = [];\n\n// Always required for UPDATE\nif (!req.gw_workspace_id || req.gw_workspace_id.trim() === '') {\n  errors.push({ field: 'gw_workspace_id', reason: 'required for UPDATE operation' });\n}\n\nif (!req.artifact_type || req.artifact_type.trim() === '') {\n  errors.push({ field: 'artifact_type', reason: 'required for UPDATE operation' });\n} else {\n  const validTypes = ['project', 'journal', 'restart', 'snapshot'];\n  if (!validTypes.includes(req.artifact_type.trim())) {\n    errors.push({ field: 'artifact_type', reason: 'must be one of: project, journal, restart, snapshot', received: req.artifact_type });\n  }\n}\n\nif (!req.artifact_id || req.artifact_id.trim() === '') {\n  errors.push({ field: 'artifact_id', reason: 'required for UPDATE operation' });\n}\n\n// If validation failed, return error envelope\nif (errors.length > 0) {\n  return [\n    {\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"VALIDATION_ERROR\",\n          message: \"Validation failed for artifact.update operation (UPDATE)\",\n          details: {\n            validation_errors: errors,\n            artifact_type: req.artifact_type,\n            operation: 'UPDATE',\n          },\n        },\n      },\n    },\n  ];\n}\n\n// Valid - pass through\nreturn [$input.item];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1152,
+        -512
+      ],
+      "id": "update-v1-validate",
+      "name": "NQxb_Artifact_Update_v1__Validate_Request"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "error-check",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "false"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1360,
+        -512
+      ],
+      "id": "update-v1-guard-error",
+      "name": "NQxb_Artifact_Update_v1__Guard_Error_ShortCircuit"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "qxb_artifact",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_id",
+              "keyValue": "={{ $json.artifact_id }}"
+            },
+            {
+              "keyName": "workspace_id",
+              "keyValue": "={{ $json.gw_workspace_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1568,
+        -512
+      ],
+      "id": "update-v1-fetch-spine",
+      "name": "NQxb_Artifact_Update_v1__Fetch_Existing_Spine",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Check_Mutability_Rules\n// Enforce Mutability Registry v1 rules\n// Per registry: ONLY operational_state and state_reason allowed for project\n// All other updates BLOCKED\n\nconst existing = $json;\nconst normalizeNode = $node['NQxb_Artifact_Update_v1__Normalize_Request'].json;\n\n// Check if artifact was found\nif (!existing || !existing.artifact_id) {\n  return [\n    {\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"NOT_FOUND\",\n          message: \"Artifact not found for UPDATE operation\",\n          details: {\n            artifact_id: normalizeNode.artifact_id,\n            workspace_id: normalizeNode.gw_workspace_id,\n            operation: 'UPDATE',\n          },\n        },\n      },\n    },\n  ];\n}\n\nconst artifact_type = existing.artifact_type?.trim();\n\n// RULE: snapshot and restart are fully immutable (Mutability Registry v1)\nif (artifact_type === 'snapshot' || artifact_type === 'restart') {\n  return [\n    {\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"IMMUTABILITY_ERROR\",\n          message: `Artifact type '${artifact_type}' is immutable and cannot be updated. Only INSERT operations are allowed.`,\n          details: {\n            artifact_type: artifact_type,\n            artifact_id: existing.artifact_id,\n            operation_attempted: 'UPDATE',\n            registry_rule: 'CREATE_ONLY',\n            source: 'Mutability Registry v1',\n          },\n        },\n      },\n    },\n  ];\n}\n\n// RULE: journal mutability is UNDECIDED_BLOCKED (Mutability Registry v1)\n// DOCTRINE: Journal INSERT-ONLY (Temporary)\nif (artifact_type === 'journal') {\n  return [\n    {\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"JOURNAL_MUTABILITY_UNDECIDED\",\n          message: \"Journal update policy is not locked. Use artifact.create to append new entries.\",\n          details: {\n            artifact_type: 'journal',\n            artifact_id: existing.artifact_id,\n            operation_attempted: 'UPDATE',\n            registry_rule: 'UNDECIDED_BLOCKED',\n            source: 'Mutability Registry v1',\n            doctrine: 'Journal INSERT-ONLY (Temporary)',\n            hint: 'Journal artifacts are append-only until mutability policy is locked. Create new journal entries instead.',\n          },\n        },\n      },\n    },\n  ];\n}\n\n// RULE: deleted_at is UNDECIDED_BLOCKED (Mutability Registry v1)\nif (normalizeNode.deleted_at !== null && normalizeNode.deleted_at !== undefined) {\n  return [\n    {\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"MUTABILITY_ERROR\",\n          message: \"Field 'deleted_at' is UNDECIDED_BLOCKED and cannot be updated.\",\n          details: {\n            field: 'deleted_at',\n            artifact_type: artifact_type,\n            artifact_id: existing.artifact_id,\n            registry_rule: 'UNDECIDED_BLOCKED',\n            source: 'Mutability Registry v1',\n            hint: 'Soft delete semantics not yet locked. Use dedicated artifact.delete action when implemented.',\n          },\n        },\n      },\n    },\n  ];\n}\n\n// RULE: For project artifacts, only operational_state and state_reason allowed\nif (artifact_type === 'project') {\n  const extension = normalizeNode.extension || {};\n  const allowedFields = ['operational_state', 'state_reason'];\n  const providedFields = Object.keys(extension);\n  \n  // Check for disallowed extension fields\n  const disallowedFields = providedFields.filter(f => !allowedFields.includes(f));\n  \n  if (disallowedFields.length > 0) {\n    // Special handling for lifecycle_stage (PROMOTE_ONLY)\n    if (disallowedFields.includes('lifecycle_stage')) {\n      return [\n        {\n          json: {\n            ok: false,\n            _gw_route: \"error\",\n            error: {\n              code: \"MUTABILITY_ERROR\",\n              message: \"Field 'lifecycle_stage' is PROMOTE_ONLY and cannot be updated via artifact.update.\",\n              details: {\n                field: 'extension.lifecycle_stage',\n                artifact_type: 'project',\n                artifact_id: existing.artifact_id,\n                registry_rule: 'PROMOTE_ONLY',\n                source: 'Mutability Registry v1',\n                hint: 'Use artifact.promote operation to change lifecycle_stage.',\n              },\n            },\n          },\n        },\n      ];\n    }\n    \n    // Generic disallowed field error\n    return [\n      {\n        json: {\n          ok: false,\n          _gw_route: \"error\",\n          error: {\n            code: \"MUTABILITY_ERROR\",\n            message: `Disallowed fields in extension for project UPDATE: ${disallowedFields.join(', ')}`,\n            details: {\n              disallowed_fields: disallowedFields,\n              allowed_fields: allowedFields,\n              artifact_type: 'project',\n              artifact_id: existing.artifact_id,\n              source: 'Mutability Registry v1',\n              hint: 'Only operational_state and state_reason are UPDATE_ALLOWED for project artifacts.',\n            },\n          },\n        },\n      },\n    ];\n  }\n  \n  // If no extension fields provided at all, return error\n  if (providedFields.length === 0) {\n    return [\n      {\n        json: {\n          ok: false,\n          _gw_route: \"error\",\n          error: {\n            code: \"VALIDATION_ERROR\",\n            message: \"No updateable fields provided in extension for project UPDATE.\",\n            details: {\n              artifact_type: 'project',\n              artifact_id: existing.artifact_id,\n              allowed_fields: allowedFields,\n              hint: 'Provide at least one of: operational_state, state_reason',\n            },\n          },\n        },\n      },\n    ];\n  }\n}\n\n// Mutability checks passed - pass through with existing artifact data\nreturn [\n  {\n    json: {\n      artifact_id: existing.artifact_id,\n      workspace_id: existing.workspace_id,\n      artifact_type: existing.artifact_type,\n      _normalized_request: normalizeNode,\n      _existing_artifact: existing,\n    },\n  },\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1776,
+        -512
+      ],
+      "id": "update-v1-check-mutability",
+      "name": "NQxb_Artifact_Update_v1__Check_Mutability_Rules"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.artifact_type }}",
+                    "rightValue": "project",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "update-project"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1984,
+        -512
+      ],
+      "id": "update-v1-switch-type",
+      "name": "NQxb_Artifact_Update_v1__Switch_Type_For_Update"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Prepare_Project_Extension_Update\n// Extract allowed fields (operational_state, state_reason) for project UPDATE\n\nconst normalizeNode = $json._normalized_request;\nconst extension = normalizeNode.extension || {};\n\n// Only update fields that are explicitly provided\nconst hasOperationalState = 'operational_state' in extension;\nconst hasStateReason = 'state_reason' in extension;\n\nconst updateFields = {\n  artifact_id: $json.artifact_id,\n};\n\nif (hasOperationalState) {\n  updateFields.operational_state = extension.operational_state;\n}\n\nif (hasStateReason) {\n  updateFields.state_reason = extension.state_reason;\n}\n\nupdateFields._has_operational_state = hasOperationalState;\nupdateFields._has_state_reason = hasStateReason;\n\nreturn [{ json: updateFields }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2192,
+        -512
+      ],
+      "id": "update-v1-prepare-project",
+      "name": "NQxb_Artifact_Update_v1__Prepare_Project_Extension_Update"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "qxb_artifact_project",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_id",
+              "keyValue": "={{ $json.artifact_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "operational_state",
+              "fieldValue": "={{ $json.operational_state }}"
+            },
+            {
+              "fieldId": "state_reason",
+              "fieldValue": "={{ $json.state_reason }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2400,
+        -512
+      ],
+      "id": "update-v1-update-project-ext",
+      "name": "NQxb_Artifact_Update_v1__DB_Update_Project_Extension",
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Prepare_Query_Call\n// Get artifact_id from the flow for final query\n\nconst normalizeNode = $node['NQxb_Artifact_Update_v1__Normalize_Request'].json;\nconst mutabilityNode = $node['NQxb_Artifact_Update_v1__Check_Mutability_Rules'].json;\n\nconst artifact_id = mutabilityNode.artifact_id || normalizeNode.artifact_id;\n\nreturn [\n  {\n    json: {\n      saved_artifact_id: artifact_id,\n      saved_workspace_id: normalizeNode.gw_workspace_id,\n      saved_artifact_type: mutabilityNode.artifact_type || normalizeNode.artifact_type,\n    },\n  },\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2608,
+        -512
+      ],
+      "id": "update-v1-prepare-query",
+      "name": "NQxb_Artifact_Update_v1__Prepare_Query_Call"
+    },
+    {
+      "parameters": {
+        "workflowId": "={{ 'NQxb_Artifact_Query_v1' }}",
+        "options": {
+          "inputData": {
+            "gw_action": "artifact.query",
+            "gw_workspace_id": "={{ $json.saved_workspace_id }}",
+            "artifact_type": "={{ $json.saved_artifact_type }}",
+            "artifact_id": "={{ $json.saved_artifact_id }}"
+          }
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        2816,
+        -512
+      ],
+      "id": "update-v1-call-query",
+      "name": "NQxb_Artifact_Update_v1__Call_Query_To_Return_Artifact"
+    }
+  ],
+  "pinData": {
+    "NQxb_Artifact_Update_v1__In": [
+      {
+        "json": {
+          "gw_action": "artifact.update",
+          "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+          "artifact_type": "project",
+          "artifact_id": "test-artifact-id-123",
+          "extension": {
+            "operational_state": "paused",
+            "state_reason": "Testing update workflow"
+          }
+        }
+      }
+    ]
+  },
+  "connections": {
+    "NQxb_Artifact_Update_v1__In": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Normalize_Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Normalize_Request": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Validate_Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Validate_Request": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Guard_Error_ShortCircuit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Guard_Error_ShortCircuit": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Call_Query_To_Return_Artifact",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Fetch_Existing_Spine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Fetch_Existing_Spine": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Check_Mutability_Rules",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Check_Mutability_Rules": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Switch_Type_For_Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Switch_Type_For_Update": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Prepare_Project_Extension_Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Prepare_Project_Extension_Update": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__DB_Update_Project_Extension",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__DB_Update_Project_Extension": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Prepare_Query_Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Prepare_Query_Call": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Call_Query_To_Return_Artifact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "update-v1-locked",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "154f6928422db881044f8d1647b40fc389c59337d14356c0ee681d50ffb55d7e"
+  },
+  "id": "UpdateWorkflowId",
+  "tags": []
+}

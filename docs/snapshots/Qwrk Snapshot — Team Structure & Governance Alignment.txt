@@ -1,0 +1,83 @@
+# Qwrk Snapshot — Team Structure & Governance Alignment
+**Timestamp:** 2026-01-02 (CST)  
+**Snapshot Type:** Strategic / Governance  
+**Status:** Locked
+
+---
+
+## 1. Team Structure (Updated)
+
+**Team Name:** Team Qwrk
+
+Team Qwrk is the formal collaborative build and strategy unit responsible for designing, governing, and implementing Qwrk.
+
+### Team Members & Roles
+
+1. **Master Joel (Human Architect)**
+   - Vision holder and final authority
+   - Governing judgment and tradeoff resolution
+   - Decides truth, pacing, and direction
+   - Guards against system drift and parallel-reality builds
+
+2. **ChatGPT Project — QP1 (Joel’s Journal)**
+   - Strategic thinking, reflection, synthesis
+   - Governance interpretation and alignment
+   - Snapshot creation, seed/sapling/tree framing
+   - Adaptive framing and meaning-layer exploration
+
+3. **Claude Code**
+   - Implementation specialist
+   - Executes only on explicit prompts
+   - Never overwrites artifacts without instruction
+   - Optimized for careful, stepwise construction
+
+---
+
+## 2. Build Project Clarification
+
+### ANQ — AAA_New_Qwrk
+
+**ANQ (AAA_New_Qwrk)** is a dedicated build-assist project within Team Qwrk.
+
+Purpose:
+- Acts as the *primary construction interface* for New Qwrk
+- Receives prompts, schemas, and instructions from Team Qwrk
+- Does not decide architecture, truth, or governance
+- Implements only what has been framed, approved, and snapshot
+
+ANQ is explicitly **subordinate to governance documents** and the AUTHORITATIVE INDEX.
+
+---
+
+## 3. Governance Reinforcement
+
+- The **AUTHORITATIVE INDEX** is the single interpretation authority.
+- ACTIVE documents are binding.
+- SUPERSEDED documents are historical only.
+- CONTEXTUAL documents inform but do not govern.
+
+No build activity proceeds without:
+- Clear forest identification
+- Snapshot or governing reference
+- Explicit execution prompt
+
+---
+
+## 4. Operating Principle (Reaffirmed)
+
+> Two streams are allowed.  
+> Two truths are not.
+
+Team Qwrk will never operate two build streams within the same Forest simultaneously.
+
+---
+
+## 5. Snapshot Intent
+
+This snapshot exists to:
+- Prevent role confusion
+- Prevent overwrite risk
+- Preserve cognitive clarity
+- Lock in the Team Qwrk operating model
+
+**Status:** Authoritative until superseded by a future snapshot.
