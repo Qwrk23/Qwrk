@@ -1,0 +1,23 @@
+QWRK BETA NON-DISCLOSURE AGREEMENT
+
+By clicking "Agreed," you acknowledge and agree to the following:
+
+1. CONFIDENTIAL INFORMATION: You will have access to pre-release Qwrk software and related materials that are proprietary and confidential, including features, functionality, user interfaces, roadmaps, performance data, and documentation.
+
+2. YOUR OBLIGATIONS: You agree to (a) keep all Confidential Information strictly confidential, (b) not disclose it to any third party without Qwrk's prior written consent, (c) use it only for evaluating the Qwrk beta software, (d) protect it with at least the same care you use for your own confidential information, and (e) not reverse engineer or decompile any software.
+
+3. EXCEPTIONS: Your confidentiality obligations do not apply to information that: (a) was publicly known at disclosure, (b) becomes public through no breach by you, (c) was rightfully in your possession prior to disclosure, (d) you independently developed, or (e) must be disclosed by law (with prior notice to Qwrk).
+
+4. BETA SOFTWARE UNDERSTANDING: You acknowledge the beta software is pre-release and may contain bugs or incomplete features. Qwrk makes no warranties regarding performance, reliability, or availability. You use it at your own risk. Qwrk may modify, suspend, or terminate the beta program at any time. Your participation does not guarantee future access to Qwrk.
+
+5. FEEDBACK: Any feedback, suggestions, or ideas you provide become Qwrk's property. You grant Qwrk a perpetual, irrevocable, worldwide, royalty-free license to use them without attribution or compensation.
+
+6. NO ACCESS GUARANTEE: Signing this NDA does NOT guarantee beta access. Participants are selected at Qwrk's sole discretion.
+
+7. TERM: This agreement remains in effect for three (3) years from acceptance, or until Qwrk's public release, whichever comes first. Confidentiality obligations survive termination.
+
+8. GOVERNING LAW: Delaware law governs this agreement. This constitutes the entire agreement on beta confidentiality. If any provision is unenforceable, others remain in effect. This creates no partnership or employment relationship.
+
+Questions: legal@qwrk.ai
+
+Version: nda_v1_2026-01-03
