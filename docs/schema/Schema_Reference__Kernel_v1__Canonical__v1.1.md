@@ -1,18 +1,12 @@
----
-**⚠️ SUPERSEDED by v1.1 on 2026-01-04**
-
-This file contains errors in `qxb_artifact_thorn`, `qxb_user`, and missing indexes.
-
-**Use instead**: `Schema_Reference__Kernel_v1__Canonical__v1.1.md`
-
----
-
-# Schema Reference — Kernel v1 (Canonical)
+# Schema Reference — Kernel v1 (Canonical) v1.1
 
 **Source**: `docs/schema/LIVE_DDL__Kernel_v1__2026-01-04.sql`
 **Date**: 2026-01-04
-**Status**: ~~Authoritative DDL-as-Truth Reference~~ **SUPERSEDED - See v1.1**
+**Version**: v1.1 (Corrected)
+**Status**: Authoritative DDL-as-Truth Reference
 **Purpose**: Human-readable schema documentation derived from LIVE database DDL
+
+**Supersedes**: `Schema_Reference__Kernel_v1__Canonical.md` (v1 - archived with errors)
 
 ---
 
@@ -35,11 +29,12 @@ Qwrk Kernel v1 uses **class-table inheritance pattern**:
 4. [qxb_artifact_snapshot](#qxb_artifact_snapshot) (Extension)
 5. [qxb_artifact_restart](#qxb_artifact_restart) (Extension)
 6. [qxb_artifact_grass](#qxb_artifact_grass) (Extension)
-7. [qxb_artifact_thorn](#qxb_artifact_thorn) (Extension)
+7. [qxb_artifact_thorn](#qxb_artifact_thorn) (Extension) — **CORRECTED**
 8. [qxb_artifact_event](#qxb_artifact_event) (Audit Log)
-9. [qxb_user](#qxb_user) (Identity Mapping)
+9. [qxb_user](#qxb_user) (Identity Mapping) — **CORRECTED**
 10. [qxb_workspace](#qxb_workspace) (Tenancy)
 11. [qxb_workspace_user](#qxb_workspace_user) (Membership)
+12. [Indexes](#indexes) — **NEW SECTION**
 
 ---
 
@@ -81,6 +76,16 @@ Qwrk Kernel v1 uses **class-table inheritance pattern**:
 **Check Constraints**:
 - `artifact_type` IN ('project', 'snapshot', 'restart', 'journal', 'forest', 'thicket', 'flower', 'thorn', 'grass')
 - `priority` BETWEEN 1 AND 5
+
+### Indexes
+
+- `uq_qxb_artifact_forest_title_active` (UNIQUE) — Enforces unique forest titles per workspace (case-insensitive, active only)
+  - Columns: `workspace_id`, `lower(title)`
+  - WHERE: `artifact_type = 'forest' AND deleted_at IS NULL`
+
+- `uq_qxb_artifact_thicket_title_per_forest_active` (UNIQUE) — Enforces unique thicket titles per parent forest (case-insensitive, active only)
+  - Columns: `workspace_id`, `parent_artifact_id`, `lower(title)`
+  - WHERE: `artifact_type = 'thicket' AND deleted_at IS NULL`
 
 ### Triggers
 
@@ -299,6 +304,11 @@ Session continuation context. Example:
 - `review_status` IN ('unreviewed', 'reviewed', 'dismissed')
 - `disposition` IN ('none', 'promoted_to_flower', 'dismissed')
 
+### Indexes
+
+- `qxb_artifact_grass_review_detected_idx` — Optimizes queries by review status and detection time
+  - Columns: `review_status`, `detected_at DESC`
+
 ### RLS
 
 - **Enabled**: Yes
@@ -312,7 +322,7 @@ Session continuation context. Example:
 
 **Extends**: `qxb_artifact` (PK=FK pattern)
 
-### Columns
+### Columns ✅ **CORRECTED**
 
 | Column | Type | Nullable | Default | Description |
 |--------|------|----------|---------|-------------|
@@ -321,15 +331,14 @@ Session continuation context. Example:
 | `source_workflow` | text | NULL | — | Workflow name/ID |
 | `source_execution_id` | text | NULL | — | Execution ID |
 | `detected_at` | timestamptz | NOT NULL | `now()` | Detection timestamp |
-| `severity` | text | NOT NULL | `'medium'` | Severity: low, medium, high, critical |
-| `review_status` | text | NOT NULL | `'unreviewed'` | Review state |
+| `severity` | **integer** | NOT NULL | **`3`** | **Severity level 1-5 (1=highest, 5=lowest)** |
+| `status` | text | NOT NULL | `'open'` | **Status: open, acknowledged, resolved, ignored** |
 | `summary` | text | NOT NULL | — | Brief exception description |
 | `details_json` | jsonb | NOT NULL | `'{}'` | Detailed exception data |
-| `resolution` | text | NOT NULL | `'none'` | Resolution state |
+| `resolution_notes` | text | NULL | — | **Freeform resolution notes** |
 | `resolved_at` | timestamptz | NULL | — | Resolution timestamp |
-| `created_at` | timestamptz | NOT NULL | `now()` | Thorn creation timestamp |
 
-### Constraints
+### Constraints ✅ **CORRECTED**
 
 **Primary Key**: `artifact_id`
 
@@ -337,9 +346,16 @@ Session continuation context. Example:
 - `artifact_id` → `qxb_artifact.artifact_id`
 
 **Check Constraints**:
-- `severity` IN ('low', 'medium', 'high', 'critical')
-- `review_status` IN ('unreviewed', 'reviewed', 'dismissed')
-- `resolution` IN ('none', 'resolved', 'dismissed', 'escalated')
+- `severity` BETWEEN 1 AND 5
+- `status` IN ('open', 'acknowledged', 'resolved', 'ignored')
+
+### Indexes ✅ **ADDED**
+
+- `qxb_artifact_thorn_severity_detected_idx` — Optimizes queries by severity and detection time
+  - Columns: `severity`, `detected_at DESC`
+
+- `qxb_artifact_thorn_status_detected_idx` — Optimizes queries by status and detection time
+  - Columns: `status`, `detected_at DESC`
 
 ### RLS
 
@@ -391,24 +407,27 @@ Session continuation context. Example:
 
 **Purpose**: Maps Supabase Auth users to Qwrk user identity. Required for RLS policies.
 
-### Columns
+### Columns ✅ **CORRECTED**
 
 | Column | Type | Nullable | Default | Description |
 |--------|------|----------|---------|-------------|
 | `user_id` | uuid | NOT NULL | `gen_random_uuid()` | Primary key (Qwrk user ID) |
 | `auth_user_id` | uuid | NOT NULL | — | FK to auth.users (Supabase Auth) |
-| `email` | text | NOT NULL | — | User email address (for display) |
-| `display_name` | text | NULL | — | User display name |
+| `status` | text | NOT NULL | **`'active'`** | **User status: active, disabled** |
+| `display_name` | text | **NULL** | — | User display name |
+| `email` | text | **NULL** | — | User email address (for display) |
 | `created_at` | timestamptz | NOT NULL | `now()` | User registration timestamp |
 | `updated_at` | timestamptz | NOT NULL | `now()` | Profile update timestamp |
 
-### Constraints
+### Constraints ✅ **CORRECTED**
 
 **Primary Key**: `user_id`
 
 **Unique Constraints**:
 - `auth_user_id` (one-to-one mapping)
-- `email` (unique email addresses)
+
+**Check Constraints**:
+- `status` IN ('active', 'disabled')
 
 ### RLS
 
@@ -481,6 +500,22 @@ Session continuation context. Example:
 
 ---
 
+## Indexes
+
+### Summary of All Indexes ✅ **NEW SECTION**
+
+| Index Name | Table | Type | Columns | Purpose |
+|------------|-------|------|---------|---------|
+| `qxb_artifact_grass_review_detected_idx` | qxb_artifact_grass | Standard | review_status, detected_at DESC | Optimize grass review queries |
+| `qxb_artifact_thorn_severity_detected_idx` | qxb_artifact_thorn | Standard | severity, detected_at DESC | Optimize thorn severity queries |
+| `qxb_artifact_thorn_status_detected_idx` | qxb_artifact_thorn | Standard | status, detected_at DESC | Optimize thorn status queries |
+| `uq_qxb_artifact_forest_title_active` | qxb_artifact | UNIQUE (partial) | workspace_id, lower(title) | Enforce unique forest titles (case-insensitive, active only) |
+| `uq_qxb_artifact_thicket_title_per_forest_active` | qxb_artifact | UNIQUE (partial) | workspace_id, parent_artifact_id, lower(title) | Enforce unique thicket titles per forest (case-insensitive, active only) |
+
+**Note**: Partial indexes use WHERE clauses to filter on artifact_type and deleted_at for efficiency.
+
+---
+
 ## Helper Functions
 
 ### `qxb_current_user_id()`
@@ -522,20 +557,39 @@ owner_user_id = qxb_current_user_id()
 
 ## CHANGELOG
 
-### 2026-01-04
+### v1.1 - 2026-01-04 (CORRECTED)
+**What changed**: Critical corrections to match LIVE DDL exactly
+
+**Fixes**:
+1. **qxb_artifact_thorn table** — Completely rewritten with correct schema:
+   - `severity` corrected: text enum → **integer (1-5) default 3**
+   - `status` corrected: 'review_status' → **'status'** with correct enum ('open','acknowledged','resolved','ignored')
+   - Added `resolution_notes` text (was incorrectly named 'resolution' enum)
+   - Removed non-existent columns: review_status, resolution enum, created_at
+   - Added 2 missing indexes
+
+2. **qxb_user table** — Added missing column:
+   - Added `status` text NOT NULL default 'active' with CHECK ('active','disabled')
+   - Corrected nullability: email and display_name are NULL (not NOT NULL)
+
+3. **Indexes section** — NEW comprehensive section:
+   - Documented all 5 indexes from LIVE DDL
+   - Added index information to relevant table sections
+
+**Source verification**: All corrections triple-checked against LIVE_DDL__Kernel_v1__2026-01-04.sql
+
+**Supersedes**: v1 (archived due to errors)
+
+### v1 - 2026-01-04 (SUPERSEDED - contained errors)
 **What changed**: Initial canonical schema reference creation
 
-**Why**: Establish DDL-as-Truth governance; eliminate schema drift errors
+**Issues found**: Missing indexes, wrong thorn columns, missing user.status
 
-**Scope**: Comprehensive reference for all Kernel v1 tables derived from LIVE DDL export
-
-**Source**: `docs/schema/LIVE_DDL__Kernel_v1__2026-01-04.sql`
-
-**How to validate**: Cross-reference against LIVE DDL file for accuracy
+**Status**: Superseded by v1.1
 
 ---
 
-**Version**: v1
-**Status**: Authoritative Reference
+**Version**: v1.1
+**Status**: Authoritative Reference (Corrected)
 **Source**: LIVE DDL (2026-01-04)
 **Last Updated**: 2026-01-04

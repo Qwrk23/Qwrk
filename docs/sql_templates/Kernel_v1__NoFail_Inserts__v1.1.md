@@ -4,6 +4,7 @@
 **Source**: `docs/schema/LIVE_DDL__Kernel_v1__2026-01-04.sql`
 **Date**: 2026-01-04
 **Status**: Authoritative SQL Reference
+**Version**: v1.1
 
 ---
 
@@ -495,17 +496,18 @@ INSERT INTO qxb_artifact_thorn (
   source_workflow,
   source_execution_id,
   severity,
+  status,
   summary,
   details_json,
-  review_status,
-  resolution
+  resolution_notes
 )
 SELECT
   artifact_id,
   'n8n',
   'NQxb_Gateway_v1',
   'execution-id-67890',
-  'high',
+  4,  -- INTEGER severity (1-5): 1=lowest, 5=critical
+  'open',  -- Status: 'open', 'acknowledged', 'resolved', 'ignored'
   'Gateway timeout: Supabase query exceeded 30s timeout threshold',
   '{
     "error_type": "timeout",
@@ -517,27 +519,33 @@ SELECT
     "supabase_query": "SELECT * FROM qxb_artifact WHERE ...",
     "detected_at": "2026-01-04T15:45:00Z"
   }'::jsonb,
-  'unreviewed',
-  'none'
+  NULL  -- resolution_notes: freeform text, set when resolved
 FROM new_artifact
 RETURNING artifact_id;
 
 COMMIT;
 ```
 
-### Severity Values
+### Severity Values (INTEGER 1-5)
 
-- `low`
-- `medium` (default)
-- `high`
-- `critical`
+- `1` — Lowest severity
+- `2` — Low
+- `3` — Medium (default)
+- `4` — High
+- `5` — Critical
 
-### Resolution Values
+### Status Values
 
-- `none` (default)
+- `open` (default)
+- `acknowledged`
 - `resolved`
-- `dismissed`
-- `escalated`
+- `ignored`
+
+### Resolution Notes
+
+- `resolution_notes` is a **TEXT** column for freeform notes
+- Typically populated when status changes to `resolved` or `ignored`
+- Example: "Increased timeout to 60s; issue resolved in production"
 
 ---
 
@@ -597,6 +605,7 @@ Before executing ANY SQL from these templates:
 ✅ Verified CHECK constraints respected?
    - artifact_type in allowed list?
    - priority between 1-5?
+   - severity between 1-5?
    - Enum fields match allowed values?
 ✅ Using gen_random_uuid() for artifact_id?
 ✅ Using RETURNING clause to capture generated ID?
@@ -607,6 +616,26 @@ Before executing ANY SQL from these templates:
 ---
 
 ## CHANGELOG
+
+### v1.1 - 2026-01-04
+**What changed**: Corrected Thorn Artifact template to match LIVE DDL
+
+**Why**: v1 had incorrect column names and data types for `qxb_artifact_thorn`
+
+**Corrections**:
+- `severity`: Now correctly uses **INTEGER** (1-5) instead of text enum
+- `review_status` → `status`: Corrected column name
+- `resolution` → `resolution_notes`: Corrected to TEXT column (not enum)
+- Added severity mapping: 1=lowest, 3=medium (default), 5=critical
+- Added status values: 'open' (default), 'acknowledged', 'resolved', 'ignored'
+
+**Scope**: Section 7 (Thorn Artifact) template and documentation
+
+**How to validate**: Cross-reference against `docs/schema/LIVE_DDL__Kernel_v1__2026-01-04.sql` lines defining `qxb_artifact_thorn`
+
+**Source**: `docs/schema/LIVE_DDL__Kernel_v1__2026-01-04.sql`
+
+**Previous version**: `Kernel_v1__NoFail_Inserts__v1.md` (marked as SUPERSEDED)
 
 ### v1 - 2026-01-04
 **What changed**: Initial SQL templates creation
@@ -621,7 +650,7 @@ Before executing ANY SQL from these templates:
 
 ---
 
-**Version**: v1
+**Version**: v1.1
 **Status**: Authoritative SQL Reference
 **Source**: LIVE DDL (2026-01-04)
 **Last Updated**: 2026-01-04
