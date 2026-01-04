@@ -105,6 +105,79 @@ Error (TYPE_MISMATCH example):
 }
 ```
 
+## Schema Truth Policy — DDL-as-Truth
+
+**Effective Date:** 2026-01-04
+**Purpose:** Eliminate schema drift and ensure all SQL/payload mappings are correct on first attempt
+
+### Authoritative Schema Source (Non-Negotiable)
+
+**`docs/schema/LIVE_DDL__Kernel_v1__2026-01-04.sql`**
+
+This file is the **ONLY** authoritative schema reference for Kernel v1. Do not rely on:
+- Memory or assumptions about schema
+- Older repo schema docs (historical reference only)
+- `information_schema` exports (supporting evidence only)
+
+### Hard Rules (CRITICAL - DO NOT VIOLATE)
+
+1. **Before generating ANY SQL touching `qxb_*` tables:**
+   - Open and reference `docs/schema/LIVE_DDL__Kernel_v1__2026-01-04.sql`
+   - Verify table names, column names, data types, constraints, defaults
+
+2. **Never assume from memory:**
+   - Column names (e.g., `owner_id` vs `owner_user_id`)
+   - Column existence (e.g., `payload` vs `tags` + `content`)
+   - Enum/check values (e.g., artifact_type allowed values)
+   - Default values or auto-generated columns
+
+3. **If unclear or absent in DDL:**
+   - STOP immediately
+   - Request refreshed DDL export from live database
+   - Do NOT guess or infer
+
+4. **Front-end clients do NOT generate SQL:**
+   - Clients interact via Gateway contract (n8n workflows)
+   - SQL is internal persistence concern
+   - Gateway validates and routes to correct tables
+
+5. **Maintain NoFail discipline:**
+   - Schema-accurate inserts with correct JSONB shapes
+   - Correct extension table writes (PK=FK pattern)
+   - Use `gen_random_uuid()` for artifact_id (never manual assignment)
+   - Use `RETURNING` clause to capture generated IDs
+
+### Pre-Flight Checklist (Required Before SQL Generation)
+
+Before writing ANY SQL:
+
+✅ **Table exists** in LIVE DDL?
+✅ **All columns exist** in LIVE DDL?
+✅ **Constraints relevant** to this operation verified?
+✅ **JSONB keys** match downstream expectations (Gateway contract / Qxb rules)?
+✅ **Data types** match exactly (uuid vs text, jsonb vs json, etc.)?
+✅ **NOT NULL constraints** satisfied?
+✅ **CHECK constraints** respected (artifact_type enum, priority range, etc.)?
+
+### Supporting Documentation
+
+- **Human-readable reference:** `docs/schema/Schema_Reference__Kernel_v1__Canonical.md`
+- **SQL templates:** `docs/sql_templates/Kernel_v1__NoFail_Inserts__v1.md`
+- **Historical schemas:** `docs/schema/AAA_New_Qwrk__Schema__*.sql` (reference only)
+
+### Consequences of Violation
+
+Violating DDL-as-Truth results in:
+- ❌ SQL syntax errors (wrong column names)
+- ❌ Constraint violations (wrong types, missing required fields)
+- ❌ Data corruption (wrong JSONB structures)
+- ❌ Gateway failures (schema mismatch)
+- ❌ Wasted development time debugging avoidable errors
+
+**When in doubt: Check the DDL first.**
+
+---
+
 ## Database Commands
 
 **Schema Execution Order:**
