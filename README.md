@@ -101,6 +101,7 @@ See `schema/README.md` for detailed execution order.
 - **snapshot**: Immutable lifecycle-triggered records (audit trail)
 - **restart**: Manual ad-hoc "freeze + next step" records
 - **journal**: First-class reflection and intention records (owner-private)
+- **video**: Long-form media artifacts with transcripts and derived insights (added post-v1)
 
 ### Structure Layer (Phase 2 - Planned)
 

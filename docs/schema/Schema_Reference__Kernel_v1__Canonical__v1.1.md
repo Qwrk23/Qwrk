@@ -1,12 +1,12 @@
-# Schema Reference — Kernel v1 (Canonical) v1.1
+# Schema Reference — Kernel v1 (Canonical) v1.2
 
 **Source**: `docs/schema/LIVE_DDL__Kernel_v1__2026-01-04.sql`
 **Date**: 2026-01-04
-**Version**: v1.1 (Corrected)
+**Version**: v1.2 (Added artifact_type=video)
 **Status**: Authoritative DDL-as-Truth Reference
 **Purpose**: Human-readable schema documentation derived from LIVE database DDL
 
-**Supersedes**: `Schema_Reference__Kernel_v1__Canonical.md` (v1 - archived with errors)
+**Supersedes**: v1.1 (archived - lacked video artifact type)
 
 ---
 
@@ -28,13 +28,14 @@ Qwrk Kernel v1 uses **class-table inheritance pattern**:
 3. [qxb_artifact_journal](#qxb_artifact_journal) (Extension)
 4. [qxb_artifact_snapshot](#qxb_artifact_snapshot) (Extension)
 5. [qxb_artifact_restart](#qxb_artifact_restart) (Extension)
-6. [qxb_artifact_grass](#qxb_artifact_grass) (Extension)
-7. [qxb_artifact_thorn](#qxb_artifact_thorn) (Extension) — **CORRECTED**
-8. [qxb_artifact_event](#qxb_artifact_event) (Audit Log)
-9. [qxb_user](#qxb_user) (Identity Mapping) — **CORRECTED**
-10. [qxb_workspace](#qxb_workspace) (Tenancy)
-11. [qxb_workspace_user](#qxb_workspace_user) (Membership)
-12. [Indexes](#indexes) — **NEW SECTION**
+6. [qxb_artifact_video](#qxb_artifact_video) (Extension) — **ADDED v1.2**
+7. [qxb_artifact_grass](#qxb_artifact_grass) (Extension)
+8. [qxb_artifact_thorn](#qxb_artifact_thorn) (Extension)
+9. [qxb_artifact_event](#qxb_artifact_event) (Audit Log)
+10. [qxb_user](#qxb_user) (Identity Mapping)
+11. [qxb_workspace](#qxb_workspace) (Tenancy)
+12. [qxb_workspace_user](#qxb_workspace_user) (Membership)
+13. [Indexes](#indexes)
 
 ---
 
@@ -74,7 +75,7 @@ Qwrk Kernel v1 uses **class-table inheritance pattern**:
 - `parent_artifact_id` → `qxb_artifact.artifact_id`
 
 **Check Constraints**:
-- `artifact_type` IN ('project', 'snapshot', 'restart', 'journal', 'forest', 'thicket', 'flower', 'thorn', 'grass')
+- `artifact_type` IN ('project', 'snapshot', 'restart', 'journal', 'video', 'forest', 'thicket', 'flower', 'thorn', 'grass')
 - `priority` BETWEEN 1 AND 5
 
 ### Indexes
@@ -269,6 +270,81 @@ Session continuation context. Example:
   "continuation_intent": "continue_design_work"
 }
 ```
+
+---
+
+## qxb_artifact_video
+
+**Purpose**: Extension table for video artifacts. Stores long-form media artifacts (e.g., YouTube videos) with transcripts and derived insights.
+
+**Extends**: `qxb_artifact` (PK=FK pattern)
+
+**Distinction from Journal**: Video artifacts are first-class content artifacts that can spawn child artifacts (e.g., gems extracted from video content), whereas journals are owner-private reflective entries. Transcripts and insights from videos are structured for reuse and downstream processing.
+
+### Columns
+
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| `artifact_id` | uuid | NOT NULL | — | PK & FK to qxb_artifact.artifact_id |
+| `content` | jsonb | NOT NULL | — | Video metadata, transcript, segments, and derived insights |
+| `created_at` | timestamptz | NOT NULL | `now()` | Video artifact creation timestamp |
+| `updated_at` | timestamptz | NOT NULL | `now()` | Video artifact update timestamp (auto-updated) |
+
+### Constraints
+
+**Primary Key**: `artifact_id`
+
+**Foreign Keys**:
+- `artifact_id` → `qxb_artifact.artifact_id`
+
+### Triggers
+
+- `qxb_artifact_video_set_updated_at` (BEFORE UPDATE): Auto-updates `updated_at`
+
+### RLS
+
+- **Enabled**: Yes
+- **Policy approach**: Workspace-scoped visibility (workspace members can view)
+
+### JSONB Structure (`content`)
+
+Flexible structure for video metadata, transcripts, and insights. Example:
+```json
+{
+  "source_url": "https://youtube.com/watch?v=...",
+  "source_platform": "youtube",
+  "duration_seconds": 3600,
+  "transcript": {
+    "full_text": "...",
+    "segments": [
+      {
+        "start_time": 0,
+        "end_time": 120,
+        "text": "Introduction to the topic...",
+        "speaker": "Host"
+      }
+    ]
+  },
+  "derived_insights": {
+    "key_topics": ["AI", "automation", "productivity"],
+    "summary": "Video discusses...",
+    "notable_quotes": ["Quote 1", "Quote 2"]
+  },
+  "processing_metadata": {
+    "transcript_generated_at": "2026-01-04T...",
+    "insights_extracted_at": "2026-01-04T..."
+  }
+}
+```
+
+### Relationship to Child Artifacts
+
+Video artifacts commonly spawn child artifacts:
+- **gems**: Extracted insights, quotes, or key moments from the video
+- **snapshots**: Snapshots of video state at specific timestamps
+- **projects**: Action items or follow-up work derived from video content
+
+Child artifacts reference the video via `parent_artifact_id`.
 
 ---
 
@@ -547,6 +623,7 @@ owner_user_id = qxb_current_user_id()
 | `journal` | `qxb_artifact_journal` | UPDATE allowed | Owner-private reflections |
 | `snapshot` | `qxb_artifact_snapshot` | CREATE-ONLY | Immutable lifecycle snapshots |
 | `restart` | `qxb_artifact_restart` | CREATE-ONLY | Immutable session continuation |
+| `video` | `qxb_artifact_video` | UPDATE allowed | Long-form media with transcripts/insights |
 | `grass` | `qxb_artifact_grass` | UPDATE allowed | Operational issue tracking |
 | `thorn` | `qxb_artifact_thorn` | UPDATE allowed | Exception tracking |
 | `forest` | (TBD) | (TBD) | (Reserved for future use) |
@@ -556,6 +633,27 @@ owner_user_id = qxb_current_user_id()
 ---
 
 ## CHANGELOG
+
+### v1.2 - 2026-01-04
+**What changed**: Added artifact_type='video' (DDL-backed)
+
+**Additions**:
+1. **artifact_type CHECK constraint** — Added 'video' to allowed types
+2. **qxb_artifact_video table** — New extension table for long-form media artifacts:
+   - Stores video metadata, transcripts, and derived insights
+   - `content` JSONB field holds transcript segments, insights, processing metadata
+   - First-class artifact type (not journal) — can spawn child artifacts (gems, snapshots, projects)
+   - Workspace-scoped RLS visibility
+3. **Artifact Type Summary** — Added video type entry
+4. **Table of Contents** — Added qxb_artifact_video section
+
+**Why**: Video artifacts provide structured storage for long-form media content with transcripts and insights, enabling downstream artifact generation (gem extraction, insight capture)
+
+**Distinction from Journal**: Video artifacts are first-class content artifacts designed for reuse and child artifact spawning, whereas journals are owner-private reflective entries
+
+**Supersedes**: v1.1
+
+---
 
 ### v1.1 - 2026-01-04 (CORRECTED)
 **What changed**: Critical corrections to match LIVE DDL exactly
@@ -589,7 +687,7 @@ owner_user_id = qxb_current_user_id()
 
 ---
 
-**Version**: v1.1
-**Status**: Authoritative Reference (Corrected)
+**Version**: v1.2
+**Status**: Authoritative Reference (Added video artifact type)
 **Source**: LIVE DDL (2026-01-04)
 **Last Updated**: 2026-01-04

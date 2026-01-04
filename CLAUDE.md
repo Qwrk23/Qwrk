@@ -24,9 +24,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `qxb_artifact` is the canonical "spine" table containing all core artifact fields
 - Type-specific tables extend via PK=FK relationship:
   - `qxb_artifact_project` - lifecycle + operational state tracking
+  - `qxb_artifact_journal` - owner-private text/payload storage
   - `qxb_artifact_snapshot` - immutable jsonb payload
   - `qxb_artifact_restart` - immutable jsonb payload
-  - `qxb_artifact_journal` - owner-private text/payload storage
+  - `qxb_artifact_video` - long-form media with transcripts/insights
+  - `qxb_artifact_grass` - operational issue tracking
+  - `qxb_artifact_thorn` - exception tracking
 - `qxb_artifact_event` - append-only audit log (protected by triggers)
 
 **Core Tables Dependency Order:**
@@ -38,9 +41,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Artifact Types:**
 - `project` - lifecycle_stage: seed → sapling → tree → retired
-- `journal` - owner-private by RLS policy
+- `journal` - owner-private reflective entries (RLS: owner-only)
 - `snapshot` - immutable lifecycle snapshots
 - `restart` - manual session continuation artifacts
+- `video` - long-form media artifacts (transcripts, insights); first-class (not journal)
+- `grass` - operational issue tracking
+- `thorn` - exception tracking
+- `forest`, `thicket`, `flower` - reserved for future use
 
 ### Row Level Security (RLS) Model
 

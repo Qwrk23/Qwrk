@@ -51,7 +51,7 @@ Decisions locked for the rebuild approach:
 **Inheritance model (class-table inheritance):**
 
 - Base table: `Qxb_Artifact`
-- Type tables: `Qxb_Artifact_Project`, `Qxb_Artifact_Snapshot`, `Qxb_Artifact_Restart`, `Qxb_Artifact_Journal`
+- Type tables: `Qxb_Artifact_Project`, `Qxb_Artifact_Snapshot`, `Qxb_Artifact_Restart`, `Qxb_Artifact_Journal`, `Qxb_Artifact_Video` (added post-v1)
 - Type table PK = FK: `artifact_id → Qxb_Artifact.artifact_id`
 - No duplication of base columns in type tables
 
@@ -91,12 +91,13 @@ The base table is intentionally lean but indexed for list/query ergonomics. Type
 
 ## Kernel v1 Artifact Types — Semantics
 
-Kernel v1 allow-list for `artifact_type` is locked to four values:
+Kernel v1 allow-list for `artifact_type` (updated post-v1):
 
 - `project`
 - `snapshot`
 - `restart`
 - `journal`
+- `video` — **Added post-v1:** Long-form media artifacts with transcripts and insights (DDL-backed, 2026-01-04)
 
 ### Type: project
 
@@ -141,6 +142,24 @@ Restart is a manual, ad-hoc, immutable "freeze + next step" record. It captures 
 Journals are first-class input records for reflection, intention, and insight. They are included in Kernel v1 to avoid creating special-case ingestion paths later.
 
 - **Note:** journal-specific schema, lifecycle behavior, and linking/spawn rules are still to be defined
+
+### Type: video (added post-v1)
+
+Video artifacts are first-class content artifacts for long-form media (e.g., YouTube videos) with structured transcript and insight extraction.
+
+- **Extension table:** `qxb_artifact_video`
+- **Content storage:** `qxb_artifact_video.content` (JSONB) holds:
+  - Video metadata (source URL, platform, duration)
+  - Full transcript with segmented timestamps
+  - Derived insights (key topics, summary, notable quotes)
+  - Processing metadata (transcript generation timestamps)
+- **Distinction from journal:** Video artifacts are designed for content reuse and downstream processing, whereas journals are owner-private reflective entries
+- **Child artifact spawning:** Video artifacts commonly spawn:
+  - `gems` — Extracted insights or key moments
+  - `snapshots` — State captures at specific timestamps
+  - `projects` — Action items derived from video content
+- **RLS:** Workspace-scoped visibility (workspace members can view)
+- **Mutability:** UPDATE allowed (unlike snapshot/restart)
 
 ---
 
@@ -235,6 +254,7 @@ The items below are intentionally open. They must be decided and documented befo
 - Define `Qxb_Artifact_Snapshot` fields: lifecycle_from/to, captured_version, capture_reason, frozen_payload storage strategy
 - Define `Qxb_Artifact_Restart` fields: restart_reason, next_step, frozen_payload strategy
 - Define `Qxb_Artifact_Journal` fields: entry_type, mood tags, gratitude, a-ha line, link to projects, etc.
+- Define `Qxb_Artifact_Video` fields (added post-v1): content JSONB (transcript segments, insights, metadata)
 
 ### C. Lifecycle Transition Map (Projects)
 
