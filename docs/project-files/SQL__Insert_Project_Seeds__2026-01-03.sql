@@ -1,44 +1,59 @@
--- SQL to Insert Project Seeds into Qwrk Database
+-- SQL to Insert Project Artifacts (Lifecycle: Seed) into Qwrk Database
 -- Date: 2026-01-03
--- Purpose: Save two project seeds with lifecycle stage "seed"
+-- Purpose: Create two project artifacts with lifecycle_stage = 'seed'
 --
 -- Projects:
--- 1. Walk Phase 1: Email Automation
--- 2. Conversational Journaling as First-Class Artifact
+-- 1. Walk Phase 1: Email Automation (ready to activate)
+-- 2. Conversational Journaling as First-Class Artifact (conceptual direction)
 --
--- Execute via Supabase SQL Editor
+-- Schema Compliance: Kernel v1 (NoFail discipline)
+-- Execute via: Supabase SQL Editor
+--
+-- CRITICAL: This uses gen_random_uuid() per NoFail rules.
+--           Do NOT manually assign artifact_id for forward-moving records.
 
 -- ============================================================================
--- PROJECT 1: Walk Phase 1 - Email Automation
+-- SINGLE TRANSACTION: Insert Both Projects
 -- ============================================================================
+
+BEGIN;
+
+-- ----------------------------------------------------------------------------
+-- PROJECT 1: Walk Phase 1 - Email Automation
+-- ----------------------------------------------------------------------------
 
 -- Step 1: Insert into qxb_artifact (spine table)
-INSERT INTO qxb_artifact (
-  artifact_id,
-  workspace_id,
-  artifact_type,
-  owner_id,
-  title,
-  description,
-  tags
-) VALUES (
-  'f8a3d7e2-9b4c-4a1e-8f2d-5c6b7a8e9d0f'::uuid,  -- Generated UUID for this project
-  'be0d3a48-c764-44f9-90c8-e846d9dbbd0a'::uuid,  -- Master Joel Workspace
-  'project',
-  'c52c7a57-74ad-433d-a07c-4dcac1778672'::uuid,  -- Joel's user_id
-  'Walk Phase 1: Email Automation',
-  'Build automated email sequences and admin digest workflows to enhance the Crawl MVP signup experience. This is the first "leaf" of Walk stage implementation. Includes Day 3 and Day 7 follow-up emails, admin digest workflow, and Google Sheets schema enhancements.',
-  ARRAY['walk-stage', 'email-automation', 'onboarding', 'n8n-workflow', 'phase-1']::text[]
-);
+WITH new_project_1 AS (
+  INSERT INTO qxb_artifact (
+    workspace_id,
+    artifact_type,
+    owner_user_id,
+    title,
+    summary,
+    payload
+  ) VALUES (
+    'be0d3a48-c764-44f9-90c8-e846d9dbbd0a'::uuid,  -- Master Joel Workspace
+    'project',
+    'c52c7a57-74ad-433d-a07c-4dcac1778672'::uuid,  -- Joel's user_id
+    'Walk Phase 1: Email Automation',
+    'Build automated email sequences and admin digest workflows to enhance the Crawl MVP signup experience. First leaf of Walk stage implementation.',
+    '{
+      "tags": ["walk-stage", "email-automation", "onboarding", "n8n-workflow", "phase-1"],
+      "description_full": "Includes Day 3 and Day 7 follow-up emails, admin digest workflow, and Google Sheets schema enhancements for tracking email sends."
+    }'::jsonb
+  )
+  RETURNING artifact_id
+)
 
 -- Step 2: Insert into qxb_artifact_project (extension table)
 INSERT INTO qxb_artifact_project (
   artifact_id,
   lifecycle_stage,
   operational_state
-) VALUES (
-  'f8a3d7e2-9b4c-4a1e-8f2d-5c6b7a8e9d0f'::uuid,  -- Same artifact_id as above
-  'seed',
+)
+SELECT
+  artifact_id,
+  'seed'::text,
   '{
     "status": "ready_to_activate",
     "prerequisite": "crawl_complete",
@@ -70,39 +85,44 @@ INSERT INTO qxb_artifact_project (
       "production_form": "https://n8n.halosparkai.com/form/qwrk-nda-signup"
     }
   }'::jsonb
-);
+FROM new_project_1;
 
--- ============================================================================
+-- ----------------------------------------------------------------------------
 -- PROJECT 2: Conversational Journaling as First-Class Artifact
--- ============================================================================
+-- ----------------------------------------------------------------------------
 
 -- Step 1: Insert into qxb_artifact (spine table)
-INSERT INTO qxb_artifact (
-  artifact_id,
-  workspace_id,
-  artifact_type,
-  owner_id,
-  title,
-  description,
-  tags
-) VALUES (
-  'a1b2c3d4-e5f6-4g7h-8i9j-0k1l2m3n4o5p'::uuid,  -- Generated UUID for this project
-  'be0d3a48-c764-44f9-90c8-e846d9dbbd0a'::uuid,  -- Master Joel Workspace
-  'project',
-  'c52c7a57-74ad-433d-a07c-4dcac1778672'::uuid,  -- Joel's user_id
-  'Conversational Journaling as First-Class Artifact',
-  'Enable capturing entire reflective conversations between user and Qwrk as coherent journal artifacts. Preserves the full arc of thought including prompts, responses, emotional pivots, and reframes—not just final conclusions. Aligns with Qwrk''s core differentiation: continuity and cognitive lineage over disposable chats.',
-  ARRAY['journaling', 'conversation-capture', 'core-product', 'cognitive-lineage', 'thinking-partner']::text[]
-);
+WITH new_project_2 AS (
+  INSERT INTO qxb_artifact (
+    workspace_id,
+    artifact_type,
+    owner_user_id,
+    title,
+    summary,
+    payload
+  ) VALUES (
+    'be0d3a48-c764-44f9-90c8-e846d9dbbd0a'::uuid,  -- Master Joel Workspace
+    'project',
+    'c52c7a57-74ad-433d-a07c-4dcac1778672'::uuid,  -- Joel's user_id
+    'Conversational Journaling as First-Class Artifact',
+    'Enable capturing entire reflective conversations between user and Qwrk as coherent journal artifacts. Preserves the full arc of thought including prompts, responses, emotional pivots, and reframes.',
+    '{
+      "tags": ["journaling", "conversation-capture", "core-product", "cognitive-lineage", "thinking-partner"],
+      "description_full": "Aligns with Qwrk core differentiation: continuity and cognitive lineage over disposable chats. Insight is dialogic, emergent, and emotionally contextual."
+    }'::jsonb
+  )
+  RETURNING artifact_id
+)
 
 -- Step 2: Insert into qxb_artifact_project (extension table)
 INSERT INTO qxb_artifact_project (
   artifact_id,
   lifecycle_stage,
   operational_state
-) VALUES (
-  'a1b2c3d4-e5f6-4g7h-8i9j-0k1l2m3n4o5p'::uuid,  -- Same artifact_id as above
-  'seed',
+)
+SELECT
+  artifact_id,
+  'seed'::text,
   '{
     "status": "conceptual_direction",
     "maturity": "philosophical_foundation",
@@ -148,52 +168,56 @@ INSERT INTO qxb_artifact_project (
       "feature_prioritization": "undefined"
     }
   }'::jsonb
-);
+FROM new_project_2;
+
+COMMIT;
 
 -- ============================================================================
--- VERIFICATION QUERIES
+-- VERIFICATION QUERIES (Run After Commit)
 -- ============================================================================
 
--- Query 1: Verify both projects were inserted
-SELECT
-  a.artifact_id,
-  a.title,
-  a.artifact_type,
-  a.tags,
-  p.lifecycle_stage,
-  a.created_at
-FROM qxb_artifact a
-JOIN qxb_artifact_project p ON a.artifact_id = p.artifact_id
-WHERE a.artifact_id IN (
-  'f8a3d7e2-9b4c-4a1e-8f2d-5c6b7a8e9d0f'::uuid,
-  'a1b2c3d4-e5f6-4g7h-8i9j-0k1l2m3n4o5p'::uuid
-)
-ORDER BY a.created_at DESC;
-
--- Query 2: View operational_state for both projects
-SELECT
-  a.title,
-  p.lifecycle_stage,
-  p.operational_state
-FROM qxb_artifact a
-JOIN qxb_artifact_project p ON a.artifact_id = p.artifact_id
-WHERE a.artifact_id IN (
-  'f8a3d7e2-9b4c-4a1e-8f2d-5c6b7a8e9d0f'::uuid,
-  'a1b2c3d4-e5f6-4g7h-8i9j-0k1l2m3n4o5p'::uuid
-);
-
--- Query 3: List all seed-stage projects in workspace
+-- Query 1: List all seed-stage projects (should show our 2 new projects)
 SELECT
   a.artifact_id,
   a.title,
   p.lifecycle_stage,
   a.created_at,
-  a.tags
+  a.payload->'tags' AS tags
 FROM qxb_artifact a
 JOIN qxb_artifact_project p ON a.artifact_id = p.artifact_id
 WHERE a.workspace_id = 'be0d3a48-c764-44f9-90c8-e846d9dbbd0a'::uuid
   AND p.lifecycle_stage = 'seed'
+ORDER BY a.created_at DESC
+LIMIT 10;
+
+-- Query 2: View full details of both new projects
+SELECT
+  a.artifact_id,
+  a.title,
+  a.summary,
+  a.artifact_type,
+  p.lifecycle_stage,
+  p.operational_state,
+  a.payload,
+  a.created_at
+FROM qxb_artifact a
+JOIN qxb_artifact_project p ON a.artifact_id = p.artifact_id
+WHERE a.workspace_id = 'be0d3a48-c764-44f9-90c8-e846d9dbbd0a'::uuid
+  AND p.lifecycle_stage = 'seed'
+  AND a.created_at > NOW() - INTERVAL '5 minutes'  -- Only recent inserts
 ORDER BY a.created_at DESC;
+
+-- Query 3: Extract operational_state for Walk Phase 1 (most recent seed project)
+SELECT
+  a.title,
+  p.lifecycle_stage,
+  jsonb_pretty(p.operational_state) AS operational_state_pretty
+FROM qxb_artifact a
+JOIN qxb_artifact_project p ON a.artifact_id = p.artifact_id
+WHERE a.workspace_id = 'be0d3a48-c764-44f9-90c8-e846d9dbbd0a'::uuid
+  AND p.lifecycle_stage = 'seed'
+ORDER BY a.created_at DESC
+LIMIT 1;
 
 -- ============================================================================
 -- NOTES
@@ -203,22 +227,31 @@ ORDER BY a.created_at DESC;
 EXECUTION INSTRUCTIONS:
 1. Open Supabase SQL Editor
 2. Select project: npymhacpmxdnkdgzxll (Kernel v1)
-3. Copy/paste SQL above
-4. Execute all statements
+3. Copy/paste the entire transaction block (BEGIN...COMMIT)
+4. Execute transaction
 5. Run verification queries to confirm insertion
 
-ARTIFACT IDs GENERATED:
-- Walk Phase 1: f8a3d7e2-9b4c-4a1e-8f2d-5c6b7a8e9d0f
-- Conversational Journaling: a1b2c3d4-e5f6-4g7h-8i9j-0k1l2m3n4o5p
+SCHEMA COMPLIANCE (Kernel v1):
+✅ Uses gen_random_uuid() for artifact_id (NoFail discipline)
+✅ Correct column names: owner_user_id, summary (not owner_id, description)
+✅ No tags column in spine (stored in payload JSONB instead)
+✅ All NOT NULL constraints satisfied
+✅ Valid UUIDs (workspace_id, owner_user_id)
+✅ Uses RETURNING clause to capture generated artifact_id
+✅ CTE pattern for spine → extension insert dependency
 
 WORKSPACE CONTEXT:
 - workspace_id: be0d3a48-c764-44f9-90c8-e846d9dbbd0a (Master Joel Workspace)
-- owner_id: c52c7a57-74ad-433d-a07c-4dcac1778672 (Joel's user_id)
+- owner_user_id: c52c7a57-74ad-433d-a07c-4dcac1778672 (Joel's user_id)
 
 LIFECYCLE STAGE:
-Both projects set to "seed" (🌱)
+Both projects set to lifecycle_stage = 'seed' (🌱)
 
 OPERATIONAL STATE:
 Stored as JSONB with rich metadata about each project's status, deliverables,
 next actions, and conceptual characteristics.
+
+ARTIFACT IDs:
+Generated by database (gen_random_uuid())
+Retrieved via verification queries after insert
 */
