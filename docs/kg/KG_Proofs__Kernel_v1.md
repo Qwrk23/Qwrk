@@ -80,3 +80,89 @@
 - Notes:
   - Initial 403 resolved after correcting Basic Auth username + resetting password.
   - Confirms Gateway v1 query contract + orchestration is stable (KGB).
+
+---
+
+## KG Proof — Gateway v1 artifact.save (Pending Test)
+
+**Date (UTC)**: TBD
+**Workflow**: NQxb_Gateway_v1 → artifact.save → NQxb_Artifact_Save_v1
+**Test Type**: Project artifact insert (new record)
+
+### PowerShell Request (DO NOT EXECUTE - Test Instructions Only)
+
+```powershell
+$headers = @{
+    "Content-Type" = "application/json"
+}
+
+$body = @{
+    gw_user_id = "c52c7a57-74ad-433d-a07c-4dcac1778672"
+    gw_workspace_id = "be0d3a48-c764-44f9-90c8-e846d9dbbd0a"
+    gw_action = "artifact.save"
+    artifact_type = "project"
+    payload = @{
+        title = "KG Test - artifact.save via Gateway"
+        summary = "Testing Gateway v1 artifact.save routing"
+        lifecycle_stage = "seed"
+        operational_state = @{
+            test_field = "KG proof validation"
+        }
+        tags = @("kg-test", "gateway-save")
+    }
+} | ConvertTo-Json -Depth 10
+
+$response = Invoke-RestMethod `
+    -Uri "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1" `
+    -Method Post `
+    -Headers $headers `
+    -Body $body `
+    -Credential (Get-Credential -Message "qwrk-gateway")
+
+$response | ConvertTo-Json -Depth 10
+```
+
+### Expected Response Shape
+
+```json
+{
+  "ok": true,
+  "_gw_route": "ok",
+  "data": {
+    "artifact": {
+      "artifact_id": "<UUID>",
+      "workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+      "owner_user_id": "c52c7a57-74ad-433d-a07c-4dcac1778672",
+      "artifact_type": "project",
+      "title": "KG Test - artifact.save via Gateway",
+      "summary": "Testing Gateway v1 artifact.save routing",
+      "lifecycle_status": "active",
+      "created_at": "<timestamp>",
+      "updated_at": "<timestamp>",
+      "lifecycle_stage": "seed",
+      "operational_state": {
+        "test_field": "KG proof validation"
+      },
+      "tags": ["kg-test", "gateway-save"]
+    }
+  }
+}
+```
+
+### Verification Checklist
+
+- [ ] **Request accepted**: Gateway ACTION_ALLOWLIST includes 'artifact.save'
+- [ ] **Routing correct**: Switch_Action routes to NQxb_Artifact_Save_v1
+- [ ] **Spine insert**: qxb_artifact record created with correct workspace_id + owner_user_id
+- [ ] **Extension insert**: qxb_artifact_project record created with payload fields
+- [ ] **Response hydrated**: data.artifact includes spine + extension merged
+- [ ] **artifact_id returned**: UUID generated and returned in response
+- [ ] **Timestamps set**: created_at and updated_at populated automatically
+- [ ] **Tags array**: Preserved as JSONB array in spine.tags
+
+### Notes
+
+- Test can be executed after Gateway v1 artifact.save routing is deployed
+- Use credential "Qwrk Ingest Basic Auth" (user: qwrk-gateway)
+- Verify database state after test (check qxb_artifact + qxb_artifact_project)
+- Confirms Gateway v1 can orchestrate both read (artifact.query) and write (artifact.save) operations
