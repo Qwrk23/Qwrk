@@ -40,7 +40,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// NQxb_Gateway_v1__Gatekeeper_MVP_OwnerOnly\n// Combined: envelope validation + allow-lists + MVP Mode owner-only enforcement (workspace lock)\n// Output contract:\n// - If blocked: { ok:false, error:{code,message,details}, _gw_route:\"error\", ... }\n// - If allowed: passes through canonical request + { ok:true, _gw_route:\"ok\" }\n\nconst OWNER_WORKSPACE_ID = 'be0d3a48-c764-44f9-90c8-e846d9dbbd0a';\n\nconst ACTION_ALLOWLIST = new Set(['artifact.query', 'artifact.list']);\nconst TYPE_ALLOWLIST = new Set(['project', 'journal', 'restart', 'snapshot']);\n\nfunction fail(code, message, details = {}) {\n  return [{\n    json: {\n      ok: false,\n      error: { code, message, details },\n      _gw_route: 'error',\n      // Preserve debug context if present\n      _gw_debug: $json._gw_debug ?? undefined,\n      // Echo request fields (best-effort) for troubleshooting\n      gw_action: $json.gw_action ?? null,\n      gw_workspace_id: $json.gw_workspace_id ?? null,\n      artifact_type: $json.artifact_type ?? null,\n      artifact_id: $json.artifact_id ?? null,\n      selector: $json.selector ?? {},\n    }\n  }];\n}\n\n// ----- Basic shape checks -----\nconst gw_action = $json.gw_action;\nconst gw_workspace_id = $json.gw_workspace_id;\nconst artifact_type = $json.artifact_type;\nconst artifact_id = $json.artifact_id;\nconst selector = ($json.selector && typeof $json.selector === 'object' && !Array.isArray($json.selector)) ? $json.selector : {};\n\n// Required: gw_action + workspace_id\nif (!gw_action || typeof gw_action !== 'string') {\n  return fail('VALIDATION_ERROR', 'Missing or invalid gw_action', { expected: 'string', got: typeof gw_action });\n}\nif (!gw_workspace_id || typeof gw_workspace_id !== 'string') {\n  return fail('VALIDATION_ERROR', 'Missing or invalid gw_workspace_id', { expected: 'uuid string', got: typeof gw_workspace_id });\n}\n\n// Allow-list: actions\nif (!ACTION_ALLOWLIST.has(gw_action)) {\n  return fail('ACTION_NOT_ALLOWED', 'gw_action not allowed', { gw_action, allowed: Array.from(ACTION_ALLOWLIST) });\n}\n\n// MVP owner-only enforcement (workspace lock)\nif (gw_workspace_id !== OWNER_WORKSPACE_ID) {\n  return fail('WORKSPACE_FORBIDDEN', 'Workspace not permitted in MVP owner-only mode', {\n    gw_workspace_id,\n    allowed_workspace_id: OWNER_WORKSPACE_ID\n  });\n}\n\n// Action-specific validation\nif (gw_action === 'artifact.query') {\n  if (!artifact_type || typeof artifact_type !== 'string') {\n    return fail('VALIDATION_ERROR', 'Missing or invalid artifact_type for artifact.query', { expected: 'string', got: typeof artifact_type });\n  }\n  if (!TYPE_ALLOWLIST.has(artifact_type)) {\n    return fail('ARTIFACT_TYPE_NOT_ALLOWED', 'artifact_type not allowed', { artifact_type, allowed: Array.from(TYPE_ALLOWLIST) });\n  }\n  if (!artifact_id || typeof artifact_id !== 'string') {\n    return fail('VALIDATION_ERROR', 'Missing or invalid artifact_id for artifact.query', { expected: 'uuid string', got: typeof artifact_id });\n  }\n}\n\nif (gw_action === 'artifact.list') {\n  if (!artifact_type || typeof artifact_type !== 'string') {\n    return fail('VALIDATION_ERROR', 'Missing or invalid artifact_type for artifact.list', { expected: 'string', got: typeof artifact_type });\n  }\n  if (!TYPE_ALLOWLIST.has(artifact_type)) {\n    return fail('ARTIFACT_TYPE_NOT_ALLOWED', 'artifact_type not allowed', { artifact_type, allowed: Array.from(TYPE_ALLOWLIST) });\n  }\n  // Optional selector validation (minimal)\n  if (selector.limit !== undefined) {\n    const n = Number(selector.limit);\n    if (!Number.isFinite(n) || n < 1 || n > 100) {\n      return fail('VALIDATION_ERROR', 'selector.limit out of range (1-100)', { limit: selector.limit });\n    }\n  }\n}\n\n// Pass-through (allowed)\nreturn [{\n  json: {\n    ok: true,\n    _gw_route: 'ok',\n    gw_action,\n    gw_workspace_id,\n    artifact_type: artifact_type ?? null,\n    artifact_id: artifact_id ?? null,\n    selector,\n    _gw_debug: $json._gw_debug ?? undefined,\n  }\n}];\n"
+        "jsCode": "// NQxb_Gateway_v1__Gatekeeper_MVP_OwnerOnly\n// Combined: envelope validation + allow-lists + MVP Mode owner-only enforcement (workspace lock)\n// Output contract:\n// - If blocked: { ok:false, error:{code,message,details}, _gw_route:\"error\", ... }\n// - If allowed: passes through canonical request + { ok:true, _gw_route:\"ok\" }\n\nconst OWNER_WORKSPACE_ID = 'be0d3a48-c764-44f9-90c8-e846d9dbbd0a';\n\nconst ACTION_ALLOWLIST = new Set(['artifact.query', 'artifact.list', 'artifact.save']);\nconst TYPE_ALLOWLIST = new Set(['project', 'journal', 'restart', 'snapshot']);\n\nfunction fail(code, message, details = {}) {\n  return [{\n    json: {\n      ok: false,\n      error: { code, message, details },\n      _gw_route: 'error',\n      // Preserve debug context if present\n      _gw_debug: $json._gw_debug ?? undefined,\n      // Echo request fields (best-effort) for troubleshooting\n      gw_action: $json.gw_action ?? null,\n      gw_workspace_id: $json.gw_workspace_id ?? null,\n      artifact_type: $json.artifact_type ?? null,\n      artifact_id: $json.artifact_id ?? null,\n      selector: $json.selector ?? {},\n    }\n  }];\n}\n\n// ----- Basic shape checks -----\nconst gw_action = $json.gw_action;\nconst gw_workspace_id = $json.gw_workspace_id;\nconst artifact_type = $json.artifact_type;\nconst artifact_id = $json.artifact_id;\nconst selector = ($json.selector && typeof $json.selector === 'object' && !Array.isArray($json.selector)) ? $json.selector : {};\n\n// Required: gw_action + workspace_id\nif (!gw_action || typeof gw_action !== 'string') {\n  return fail('VALIDATION_ERROR', 'Missing or invalid gw_action', { expected: 'string', got: typeof gw_action });\n}\nif (!gw_workspace_id || typeof gw_workspace_id !== 'string') {\n  return fail('VALIDATION_ERROR', 'Missing or invalid gw_workspace_id', { expected: 'uuid string', got: typeof gw_workspace_id });\n}\n\n// Allow-list: actions\nif (!ACTION_ALLOWLIST.has(gw_action)) {\n  return fail('ACTION_NOT_ALLOWED', 'gw_action not allowed', { gw_action, allowed: Array.from(ACTION_ALLOWLIST) });\n}\n\n// MVP owner-only enforcement (workspace lock)\nif (gw_workspace_id !== OWNER_WORKSPACE_ID) {\n  return fail('WORKSPACE_FORBIDDEN', 'Workspace not permitted in MVP owner-only mode', {\n    gw_workspace_id,\n    allowed_workspace_id: OWNER_WORKSPACE_ID\n  });\n}\n\n// Action-specific validation\nif (gw_action === 'artifact.query') {\n  if (!artifact_type || typeof artifact_type !== 'string') {\n    return fail('VALIDATION_ERROR', 'Missing or invalid artifact_type for artifact.query', { expected: 'string', got: typeof artifact_type });\n  }\n  if (!TYPE_ALLOWLIST.has(artifact_type)) {\n    return fail('ARTIFACT_TYPE_NOT_ALLOWED', 'artifact_type not allowed', { artifact_type, allowed: Array.from(TYPE_ALLOWLIST) });\n  }\n  if (!artifact_id || typeof artifact_id !== 'string') {\n    return fail('VALIDATION_ERROR', 'Missing or invalid artifact_id for artifact.query', { expected: 'uuid string', got: typeof artifact_id });\n  }\n}\n\nif (gw_action === 'artifact.list') {\n  if (!artifact_type || typeof artifact_type !== 'string') {\n    return fail('VALIDATION_ERROR', 'Missing or invalid artifact_type for artifact.list', { expected: 'string', got: typeof artifact_type });\n  }\n  if (!TYPE_ALLOWLIST.has(artifact_type)) {\n    return fail('ARTIFACT_TYPE_NOT_ALLOWED', 'artifact_type not allowed', { artifact_type, allowed: Array.from(TYPE_ALLOWLIST) });\n  }\n  // Optional selector validation (minimal)\n  if (selector.limit !== undefined) {\n    const n = Number(selector.limit);\n    if (!Number.isFinite(n) || n < 1 || n > 100) {\n      return fail('VALIDATION_ERROR', 'selector.limit out of range (1-100)', { limit: selector.limit });\n    }\n  }\n}\n\n// Pass-through (allowed)\nreturn [{\n  json: {\n    ok: true,\n    _gw_route: 'ok',\n    gw_action,\n    gw_workspace_id,\n    artifact_type: artifact_type ?? null,\n    artifact_id: artifact_id ?? null,\n    selector,\n    _gw_debug: $json._gw_debug ?? undefined,\n  }\n}];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -177,6 +177,28 @@
                 ],
                 "combinator": "and"
               }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "artifact-save-condition",
+                    "leftValue": "={{ $json.gw_action }}",
+                    "rightValue": "artifact.save",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
             }
           ]
         },
@@ -235,6 +257,35 @@
       ],
       "id": "babc093b-3ffe-4ec1-b90c-9aa26adbd6f2",
       "name": "Call 'NQxb_Artifact_Query_v1'"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "SaveWorkflowId",
+          "mode": "list",
+          "cachedResultName": "NQxb_Artifact_Save_v1"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1168,
+        -320
+      ],
+      "id": "call-artifact-save-node",
+      "name": "Call 'NQxb_Artifact_Save_v1'"
     }
   ],
   "pinData": {
@@ -315,7 +366,14 @@
             "index": 0
           }
         ],
-        []
+        [],
+        [
+          {
+            "node": "Call 'NQxb_Artifact_Save_v1'",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "NQxb_Gateway_v1__Respond_Query_Success": {
@@ -333,13 +391,24 @@
           }
         ]
       ]
+    },
+    "Call 'NQxb_Artifact_Save_v1'": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Gateway_v1__Respond_Query_Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "c30d810d-4985-4ebd-98b7-17816ddabf83",
+  "versionId": "gateway-v1-artifact-save-enabled",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "154f6928422db881044f8d1647b40fc389c59337d14356c0ee681d50ffb55d7e"
