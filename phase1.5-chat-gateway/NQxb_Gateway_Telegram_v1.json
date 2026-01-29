@@ -1,0 +1,565 @@
+{
+  "name": "NQxb_Gateway_Telegram_v1",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.message.text }}",
+        "options": {
+          "systemMessage": "You are Qwrk, a personal knowledge assistant connected via Telegram. You help save artifacts to the Qwrk system.\n\n## Your Capabilities\n\nYou have tools to interact with the Qwrk Gateway:\n- **qwrk_list** - List artifacts by type (journal, project, snapshot, restart, instruction_pack). Returns artifact_id, title, date.\n- **qwrk_query** - Get full details of a specific artifact by UUID\n- **qwrk_save_journal** - Create a new journal entry\n- **qwrk_save_project** - Create a new project (starts as 'seed')\n- **qwrk_save_snapshot** - Create an immutable snapshot (point-in-time record)\n- **qwrk_save_restart** - Create a restart prompt (context for resuming work)\n- **qwrk_save_instruction_pack** - Create an instruction pack (rules/shortcuts for Qwrk)\n- **qwrk_promote** - Promote a project through lifecycle stages (seed→sapling→tree→oak→archive)\n\n## CRITICAL: How to Retrieve/Query Artifacts\n\n**artifact_id is a UUID, NOT a title.** Example: `a4091656-bcb4-4555-9a35-6c214e22b7e6`\n\nWhen user asks to retrieve, show, or get details of an artifact:\n1. FIRST call qwrk_list with the appropriate artifact_type to get the list with artifact_ids\n2. Find the matching artifact by title or position (1 = first/most recent)\n3. THEN call qwrk_query with the actual artifact_id UUID from step 1\n\n**NEVER pass a title to artifact_id. Always use the UUID.**\n\n## How Users Will Interact\n\nUsers will often paste content from other conversations (like ChatGPT) and ask you to save it. Common patterns:\n\n1. \"Save this as a journal titled 'Topic Name'\" followed by pasted content\n2. \"Save journal: [title]\" followed by content\n3. \"retrieve 1\" or \"get first journal\" - means get details of most recent\n4. \"retrieve [title]\" - find by title in list, then query by UUID\n5. \"list snapshots\" or \"show my restarts\" - list by type\n6. \"promote [project] to sapling\" - lifecycle promotion\n\n## Lifecycle Transitions (for qwrk_promote)\n\nProjects follow this lifecycle: seed → sapling → tree → oak → archive\n\nValid transitions:\n- seed_to_sapling\n- sapling_to_tree\n- tree_to_oak\n- oak_to_archive\n\nTo promote, you need the project's artifact_id (use qwrk_list first).\n\n## Response Guidelines\n\n1. Be concise - Telegram messages should be brief\n2. Confirm saves with: \"Saved: [title]\"\n3. For lists, show: number, title, artifact_id (truncated), date\n4. If unclear what to save, ask: \"What title should I use?\"\n5. For retrieval, show full content from the query result\n6. For promotions, confirm: \"Promoted [title] from [old] to [new]\"\n\n## Examples\n\nUser: \"Save this as a journal titled 'AI Notes'\" + content\n→ Use qwrk_save_journal\n→ Reply: \"Saved: AI Notes\"\n\nUser: \"list journals\"\n→ Use qwrk_list with artifact_type='journal'\n→ Reply: \"1. AI Notes (a409...) - Jan 29\\n2. Test Entry (b512...) - Jan 28\"\n\nUser: \"list snapshots\"\n→ Use qwrk_list with artifact_type='snapshot'\n→ Reply: \"1. Phase 1.5 Validated (c123...) - Jan 29\"\n\nUser: \"retrieve 1\"\n→ First: call qwrk_list with the relevant artifact_type\n→ Then: call qwrk_query with artifact_type and artifact_id='<UUID from position 1>'\n→ Reply with the full content\n\nUser: \"retrieve AI Notes\"\n→ First: call qwrk_list with artifact_type='journal'\n→ Find 'AI Notes' in results, get its artifact_id\n→ Then: call qwrk_query with that UUID\n→ Reply with the full content\n\nUser: \"Save snapshot: Phase 1.5 Complete\" + content\n→ Use qwrk_save_snapshot with title and snapshot_body\n→ Reply: \"Snapshot saved: Phase 1.5 Complete\"\n\nUser: \"Save restart: Resume Gateway Work\" + context\n→ Use qwrk_save_restart with title and restart_context\n→ Reply: \"Restart saved: Resume Gateway Work\"\n\nUser: \"promote BUG-010 Update Test Project to sapling\"\n→ First: call qwrk_list with artifact_type='project'\n→ Find the project, get its artifact_id\n→ Call qwrk_promote with artifact_type='project', artifact_id=UUID, transition='seed_to_sapling', reason='User requested'\n→ Reply: \"Promoted BUG-010 Update Test Project from seed to sapling\"\n\nUser: \"Save instruction pack: My Shortcuts\" + rules\n→ Use qwrk_save_instruction_pack with title and instructions\n→ Reply: \"Instruction pack saved: My Shortcuts\""
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        400,
+        0
+      ],
+      "id": "dfa691f5-ca50-4254-a9b1-8a3ace7c2e6e",
+      "name": "Qwrk_AI_Agent"
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "0a760d7a-576c-4149-8f4d-6b729b9b4dff",
+      "name": "Telegram_Trigger",
+      "webhookId": "qwrk-telegram-gateway",
+      "credentials": {
+        "telegramApi": {
+          "id": "VTIn4SmsgbApQNj2",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list"
+        },
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        288,
+        224
+      ],
+      "id": "9ed3c47d-5ee0-4978-a293-b8b979b282ba",
+      "name": "OpenAI_Chat_Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "3qeqNHpRHRid8LaS",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"gw_action\": \"artifact.list\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"{artifact_type}\",\n  \"selector\": {\n    \"limit\": 10,\n    \"hydrate\": false\n  }\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "artifact_type",
+              "description": "Type to list: journal, project, snapshot, restart, or instruction_pack",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        480,
+        224
+      ],
+      "id": "e0535e94-c895-4253-96ec-015aed2b4a0d",
+      "name": "Tool_List",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "jTp4W3tGrw2s036g",
+          "name": "Qwrk Ingest Basic Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"gw_action\": \"artifact.query\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"{artifact_type}\",\n  \"artifact_id\": \"{artifact_id}\"\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "artifact_type",
+              "description": "Type: project, journal, snapshot, restart, or instruction_pack",
+              "type": "string"
+            },
+            {
+              "name": "artifact_id",
+              "description": "UUID of the artifact",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        688,
+        224
+      ],
+      "id": "c4664fd6-fa2c-4392-b505-8e03277bac68",
+      "name": "Tool_Query",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "jTp4W3tGrw2s036g",
+          "name": "Qwrk Ingest Basic Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"gw_action\": \"artifact.save\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"journal\",\n  \"title\": \"{title}\",\n  \"content\": {},\n  \"extension\": {\n    \"entry_text\": \"{entry_text}\"\n  }\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "title",
+              "description": "Title for the journal entry",
+              "type": "string"
+            },
+            {
+              "name": "entry_text",
+              "description": "The journal content to save",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        224
+      ],
+      "id": "b67c7354-19bd-4aa4-9e7d-2caaf6db5f45",
+      "name": "Tool_Save_Journal",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "jTp4W3tGrw2s036g",
+          "name": "Qwrk Ingest Basic Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"gw_action\": \"artifact.save\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"project\",\n  \"title\": \"{title}\",\n  \"content\": {},\n  \"extension\": {\n    \"lifecycle_stage\": \"seed\"\n  }\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "title",
+              "description": "Title for the project",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1088,
+        224
+      ],
+      "id": "7f034206-6a4d-4ed4-949d-702d7d501daf",
+      "name": "Tool_Save_Project",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "jTp4W3tGrw2s036g",
+          "name": "Qwrk Ingest Basic Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"gw_action\": \"artifact.save\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"snapshot\",\n  \"title\": \"{title}\",\n  \"content\": {},\n  \"extension\": {\n    \"payload\": {\n      \"body\": \"{snapshot_body}\"\n    }\n  }\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "title",
+              "description": "Title for the snapshot",
+              "type": "string"
+            },
+            {
+              "name": "snapshot_body",
+              "description": "The snapshot content/body text",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1296,
+        224
+      ],
+      "id": "tool-save-snapshot",
+      "name": "Tool_Save_Snapshot",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "jTp4W3tGrw2s036g",
+          "name": "Qwrk Ingest Basic Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"gw_action\": \"artifact.save\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"restart\",\n  \"title\": \"{title}\",\n  \"content\": {},\n  \"extension\": {\n    \"restart_context\": \"{restart_context}\"\n  }\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "title",
+              "description": "Title for the restart prompt",
+              "type": "string"
+            },
+            {
+              "name": "restart_context",
+              "description": "The restart context/instructions for resuming work",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1504,
+        224
+      ],
+      "id": "tool-save-restart",
+      "name": "Tool_Save_Restart",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "jTp4W3tGrw2s036g",
+          "name": "Qwrk Ingest Basic Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"gw_action\": \"artifact.promote\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"{artifact_type}\",\n  \"artifact_id\": \"{artifact_id}\",\n  \"transition\": \"{transition}\",\n  \"reason\": \"{reason}\"\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "artifact_type",
+              "description": "Type of artifact to promote (usually 'project')",
+              "type": "string"
+            },
+            {
+              "name": "artifact_id",
+              "description": "UUID of the artifact to promote",
+              "type": "string"
+            },
+            {
+              "name": "transition",
+              "description": "Lifecycle transition: seed_to_sapling, sapling_to_tree, tree_to_oak, or oak_to_archive",
+              "type": "string"
+            },
+            {
+              "name": "reason",
+              "description": "Reason for the promotion",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1712,
+        224
+      ],
+      "id": "tool-promote",
+      "name": "Tool_Promote",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "jTp4W3tGrw2s036g",
+          "name": "Qwrk Ingest Basic Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"gw_action\": \"artifact.save\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"instruction_pack\",\n  \"title\": \"{title}\",\n  \"content\": {\n    \"instructions\": \"{instructions}\"\n  },\n  \"extension\": {\n    \"scope\": \"workspace\",\n    \"pack_format\": \"v1\",\n    \"active\": true,\n    \"priority\": 100\n  }\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "title",
+              "description": "Title for the instruction pack",
+              "type": "string"
+            },
+            {
+              "name": "instructions",
+              "description": "The instruction content/rules for the pack",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1920,
+        224
+      ],
+      "id": "tool-save-instruction-pack",
+      "name": "Tool_Save_Instruction_Pack",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "jTp4W3tGrw2s036g",
+          "name": "Qwrk Ingest Basic Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Telegram_Trigger').item.json.message.chat.id }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        112,
+        224
+      ],
+      "id": "74fbfc00-11cf-4c2d-aa66-41f125ba3eed",
+      "name": "Chat_Memory"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram_Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.output }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        768,
+        0
+      ],
+      "id": "8c67d75d-125d-492d-9f44-4d6bb5ae3879",
+      "name": "Send_Response",
+      "webhookId": "2f28240c-a694-433f-a7c9-a49beb806a8e",
+      "credentials": {
+        "telegramApi": {
+          "id": "VTIn4SmsgbApQNj2",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram_Trigger": {
+      "main": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI_Chat_Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool_List": {
+      "ai_tool": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool_Query": {
+      "ai_tool": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool_Save_Journal": {
+      "ai_tool": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool_Save_Project": {
+      "ai_tool": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool_Save_Snapshot": {
+      "ai_tool": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool_Save_Restart": {
+      "ai_tool": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool_Promote": {
+      "ai_tool": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool_Save_Instruction_Pack": {
+      "ai_tool": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat_Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qwrk_AI_Agent": {
+      "main": [
+        [
+          {
+            "node": "Send_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1bb81fe7-102d-4646-9208-2c1e6700e1b6",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "154f6928422db881044f8d1647b40fc389c59337d14356c0ee681d50ffb55d7e"
+  },
+  "id": "yIVRL2eM7uK4PVLs",
+  "tags": []
+}
