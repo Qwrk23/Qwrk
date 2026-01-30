@@ -116,7 +116,9 @@ promote [PROJECT NAME] to tree
 3. **Default to journal** — When type is ambiguous, journals capture conversations
 4. **Format for copy-paste** — Present in a clean code block
 5. **Content can be long** — No practical limit (5K+ characters work)
-6. **Markdown preserved** — Use headers, bullets, bold for structure
+6. **CRITICAL: Plain text only** — NO markdown formatting in content (no headers, bullets, bold, code blocks, emojis). Use periods and colons for structure. Single paragraph format.
+
+**Why plain text:** Telegram Gateway uses JSON placeholder substitution. Special characters (newlines, backticks, markdown symbols) break JSON parsing and cause save failures.
 
 ---
 
@@ -152,6 +154,7 @@ Save snapshot titled "Decision - [WHAT WAS DECIDED]": [Rationale, options consid
 ## Attached Reference Files
 
 For detailed examples and full command reference, see:
+- `TELEGRAM_PAYLOAD_RULES.md` — **CRITICAL: Plain text formatting rules (read first)**
 - `PAYLOAD_EXAMPLES.md` — Complete examples of each artifact type
 - `LIFECYCLE_GUIDE.md` — Project stages and promotion rules
 - `TELEGRAM_COMMANDS.md` — Full command reference
