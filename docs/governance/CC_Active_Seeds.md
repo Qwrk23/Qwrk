@@ -80,6 +80,34 @@ Establishes that CC will be granted direct read access to Qwrk's Supabase databa
 
 ---
 
+## Seed — Introduce RAG Capabilities in Qwrk
+
+**UUID:** `c02b26b5-2a5f-48e6-9928-dd5aea1c6be2`
+**Companion Journal:** `104a4334-710e-4152-84c7-998cfdef32a6`
+**Status:** Active (Seed stage)
+**Date Added:** 2026-01-30
+
+### Summary
+
+Plans a governed, staged rollout of Retrieval-Augmented Generation (RAG) for Qwrk to enable scalable long-term memory and context retrieval, starting with low-risk read-only retrieval and evolving into a full production capability.
+
+### Key Context
+
+- RAG will be needed when n8n AI agent becomes primary conversational planner (buffer-window memory won't scale)
+- Supabase remains canonical source of truth; RAG is retrieval aid, not the truth
+- Planning posture: baby steps, read-only retrieval first, defer write/auto-mutation until governance proven
+- Lifecycle: Seed → Sapling → Tree over multiple sessions
+
+### CC Guidance
+
+1. **Respect RAG's role** — RAG is a retrieval aid, not a replacement for Supabase as source of truth
+2. **Workspace scoping is non-negotiable** — No cross-tenant leakage in any RAG implementation
+3. **Selective retrieval** — Do not flood the LLM with raw history; retrieve only relevant context
+4. **Read-only first** — Any RAG suggestions should prefer read-only retrieval until governance is proven
+5. **Surface evaluation signals** — When discussing RAG, consider accuracy, latency, cost, and user trust
+
+---
+
 ## How to Use This File
 
 When new seeds are planted that provide CC-relevant context, add them here with:

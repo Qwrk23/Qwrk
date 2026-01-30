@@ -1,7 +1,7 @@
 # Qwrk Bug Tracker
 
 **Created:** 2026-01-27
-**Last Updated:** 2026-01-28 (BUG-011 added — Write Contract blocks tags/summary/content)
+**Last Updated:** 2026-01-30 (BUG-013 added — Restart artifact save fails with schema mismatch)
 
 ---
 
@@ -352,6 +352,87 @@ Rejects legitimate spine fields: `summary`, `tags`, `content`, `parent_artifact_
 **Specification:** `CC_Inbox/cc_prompt_tags.md`
 
 **Restart Prompt:** `docs/restarts/RESTART__BUG-011__First_Class_Tags_Implementation__2026-01-28.md`
+
+---
+
+### BUG-012: Project artifacts save without content/summary
+
+**Status:** Open — Confirmed, workaround documented
+**Severity:** Medium (data loss for project descriptions; workaround exists)
+**Component:** NQxb_Artifact_Save_v1 workflow (project write-path) OR Telegram Gateway payload handling
+
+**Symptoms:**
+- `artifact.save` with `artifact_type: project` returns success with valid `artifact_id`
+- Project spine and extension rows are created correctly
+- `qxb_artifact.summary` is always empty on retrieval
+- `qxb_artifact.content` is always empty on retrieval
+- Telegram confirmation message shows full content, but database has none
+
+**Reproduction (2026-01-30):**
+
+| Artifact | Title | Summary in DB | Content in DB |
+|----------|-------|---------------|---------------|
+| `441ed127-113f-48e3-aedd-8874ae9ae19a` | Seed — Infrastructure Capacity | EMPTY | EMPTY |
+| `c02b26b5-2a5f-48e6-9928-dd5aea1c6be2` | Seed — Introduce RAG Capabilities | EMPTY | EMPTY |
+
+Both projects saved via Telegram Gateway with detailed content in the save command. Telegram confirmation shows content was received, but database shows empty fields.
+
+**Possible Root Causes:**
+1. Gateway Save workflow does not map `summary` or `content` from normalized request to DB insert for projects
+2. Telegram payload parsing strips content before reaching Gateway
+3. Field mapping in `DB_Insert_Artifact_Spine` node missing project-specific content handling
+
+**Workaround:**
+Save a companion journal with the full content:
+```
+Save journal titled "Seed Content - [Project Name]": [full content here]
+```
+
+**Related:**
+- BUG-007 (similar issue with journal `entry_text` — FIXED in v24)
+- BUG-011 (Write Contract blocks spine fields — may be related)
+
+**Investigation Required:**
+1. Check `NQxb_Artifact_Save_v1` workflow for project content mapping
+2. Compare to journal fix in v24 — may need same pattern for projects
+3. Verify if BUG-011 Write Contract restriction is blocking content at qfe layer
+
+---
+
+### BUG-013: Restart artifact save fails with schema mismatch
+
+**Status:** Open — Discovered during roadmap capture
+**Severity:** Medium (workaround: save as journal instead)
+**Component:** NQxb_Artifact_Save_v1 workflow (restart write-path) OR Telegram AI Agent
+
+**Symptoms:**
+- `artifact.save` with `artifact_type: restart` fails at Gateway
+- Error: "Received tool input did not match expected schema"
+- Details: "Expected string, received object → at restart_context"
+- Snapshot saves work; journal saves work; restart saves fail
+
+**Reproduction (2026-01-30):**
+Attempted to save restart via Telegram:
+```
+Save restart titled "RESTART - Trust Restoration Week...": [content]
+```
+Error returned from Gateway node `Qwrk_AI_Agent`.
+
+**Possible Root Causes:**
+1. Telegram AI Agent is constructing `restart_context` as object instead of string
+2. Gateway Save workflow expects different payload shape for restarts
+3. Schema validation mismatch between Telegram parser and Gateway contract
+
+**Workaround:**
+Save restart content as a journal instead:
+```
+Save journal titled "RESTART - [context]": [content]
+```
+Journals save reliably and can serve same purpose for session handoffs.
+
+**Related:**
+- BUG-012 (project content not persisted — similar save-path issue)
+- BUG-007 (journal content fix in v24 — pattern may apply)
 
 ---
 

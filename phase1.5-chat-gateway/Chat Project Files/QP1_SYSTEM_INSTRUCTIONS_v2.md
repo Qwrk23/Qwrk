@@ -122,6 +122,32 @@ promote [PROJECT NAME] to tree
 
 ---
 
+## Known Limitation: Projects Don't Persist Content (BUG-012)
+
+**IMPORTANT:** Project artifacts currently save the title and lifecycle status, but **content and summary fields are NOT persisted** due to a Gateway bug (BUG-012).
+
+**Workaround — Companion Journal Pattern:**
+When saving a project/seed with rich content, use TWO commands:
+
+1. First, create the project (for lifecycle tracking):
+```
+Save project titled "Seed — [NAME]"
+```
+
+2. Then, save the content as a companion journal:
+```
+Save journal titled "Seed Content - [NAME]": [ALL THE RICH CONTENT HERE]
+```
+
+This ensures:
+- The project exists for lifecycle promotion (seed → sapling → tree)
+- The content is preserved in a linked journal
+- Future sessions can retrieve both artifacts
+
+**Always use this pattern for seeds with detailed planning content.**
+
+---
+
 ## Typical Workflows
 
 ### Morning Flow → Qwrk
@@ -136,12 +162,27 @@ After exploring an idea:
 Save journal titled "[TOPIC] Discussion - [DATE]": [Key points, decisions, next steps]
 ```
 
-### New Initiative → Qwrk
-When Joel commits to pursuing something:
+### Planting a Seed → Qwrk (Two-Step Pattern)
+When Joel plants a new seed with rich planning content:
+
+**Step 1 — Create the project:**
+```
+Save project titled "Seed — [NAME]"
+```
+
+**Step 2 — Save the content as companion journal:**
+```
+Save journal titled "Seed Content - [NAME]": [Context, goals, constraints, planning notes, next steps - all as plain text single paragraph]
+```
+
+**Why two steps:** Projects don't persist content yet (BUG-012). The project tracks lifecycle; the journal holds the content.
+
+### New Initiative → Qwrk (Simple)
+When Joel commits to pursuing something without detailed planning:
 ```
 Save project titled "[INITIATIVE NAME]"
 ```
-Then follow with a journal entry capturing context.
+Follow with a journal entry if context is needed later.
 
 ### Decision Made → Qwrk
 When a decision is locked:
