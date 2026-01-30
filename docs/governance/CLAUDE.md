@@ -564,8 +564,17 @@ Tracks Qwrk Seeds that provide directional context for CC behavior. Seeds are no
 **Purpose:**
 Tracks queued restart prompts for upcoming build sessions. When Joel asks "What should we work on this morning?", CC reads this file and retrieves the top "Ready to Execute" restart from Qwrk.
 
+**Session Start Triggers:**
+Any of these phrases activate the morning briefing protocol:
+- "What should we work on this morning?"
+- "Good morning"
+- "Let's go!"
+- "Restart"
+- "What's next?"
+- "Morning briefing"
+
 **Session Start Protocol:**
-1. User asks: "What should we work on this morning?" (or similar)
+1. User sends any trigger phrase above
 2. CC queries Qwrk for artifacts created/updated in last 24 hours and presents summary
 3. CC reads `docs/Upcoming_Restarts.md` for queued work
 4. CC retrieves the full restart content from Qwrk using the artifact ID

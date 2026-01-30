@@ -1,6 +1,8 @@
 # Upcoming Restarts
 
-Quick reference for build session handoffs. Ask: "What should we work on this morning?"
+Quick reference for build session handoffs.
+
+**Trigger phrases:** "Good morning" | "Let's go!" | "Restart" | "What's next?" | "Morning briefing"
 
 ---
 
