@@ -566,12 +566,21 @@ Tracks queued restart prompts for upcoming build sessions. When Joel asks "What 
 
 **Session Start Protocol:**
 1. User asks: "What should we work on this morning?" (or similar)
-2. CC reads `docs/Upcoming_Restarts.md`
-3. CC retrieves the full restart content from Qwrk using the artifact ID
-4. CC presents the action plan and begins execution
+2. CC queries Qwrk for artifacts created/updated in last 24 hours and presents summary
+3. CC reads `docs/Upcoming_Restarts.md` for queued work
+4. CC retrieves the full restart content from Qwrk using the artifact ID
+5. CC presents the action plan and begins execution
+
+**24-Hour Review Query:**
+```
+Filter: deleted_at=is.null&created_at=gte.[24 hours ago ISO timestamp]
+Select: artifact_id, title, artifact_type, lifecycle_status, created_at
+```
+Present as table, flag duplicates or anomalies, note any artifacts that may need attention.
 
 **CC Responsibility:**
 - ALWAYS check this file when user asks about next work or starts a build session
+- ALWAYS run 24-hour artifact review at session start (before presenting restart)
 - Retrieve restart content from Qwrk database (not just the index file)
 - After completing a restart, remind user to move it to "Completed" section
 - Suggest adding new restarts when roadmap decisions are made

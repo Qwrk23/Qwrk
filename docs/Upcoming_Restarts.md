@@ -43,7 +43,14 @@ _(Move restarts here after execution)_
 ## How to Use
 
 1. At session start, ask CC: "What should we work on this morning?"
-2. CC reads this file and retrieves the top "Ready to Execute" restart
-3. After completing a restart, move it to "Completed" with date
+2. CC automatically queries Qwrk for last 24 hours of artifact activity and presents summary
+3. CC reads this file and retrieves the top "Ready to Execute" restart from Qwrk
+4. CC presents the combined briefing: recent activity + queued action plan
+5. After completing a restart, move it to "Completed" with date
+
+**Morning Briefing includes:**
+- Artifacts created/updated in last 24 hours
+- Duplicates or anomalies flagged
+- Top restart from queue with full content
 
 **Last Updated:** 2026-01-30
