@@ -8,30 +8,17 @@ Quick reference for build session handoffs.
 
 ## Ready to Execute
 
-### BUG-011 Completion: Telegram Tags + QP1 Auto-Tagging
-**File:** `docs/restarts/RESTART__BUG-011__Telegram_Tags_and_QP1_Instructions__2026-02-01.md`
-**Target:** 2026-02-01 or 2026-02-02
-**Est. Time:** 30-45 min
-
-**Summary:**
-1. Re-add tags to Telegram save tools (with strict "always provide" rule)
-2. Update Gateway_Telegram system prompt for tag extraction + auto-generation
-3. Create QP1 tags instruction document
-
-**Context:** Gateway-side BUG-011 is complete (Save v25, List v27, Schema v2.2.0). This session completes Telegram integration.
-
----
-
 ### Trust Restoration Week - Remaining Items
 **Artifact ID:** `29f2f0d7-69bd-4759-ae2c-d003c9685f3e`
 **Status:** Partially complete
 
 **Completed:**
 - [x] BUG-012 (project content persistence)
-- [x] BUG-011 Gateway (tags normalization + filter)
+- [x] BUG-011 Gateway + Telegram (full tags implementation)
+- [x] Soft-delete feature (delete/restore/list_deleted via Telegram)
 
 **Remaining:**
-- [ ] Soft-delete 15 duplicate seeds
+- [ ] Soft-delete test artifacts (only 2-3 found, not 15)
 - [ ] Promote Gateway+Telegram to Tree
 - [ ] Add monthly dead seed archival governance rule
 
@@ -52,7 +39,13 @@ Quick reference for build session handoffs.
 
 ## Completed
 
-_(Move restarts here after execution)_
+### BUG-011: First-Class Tags Implementation
+**Completed:** 2026-02-01
+- Tag Backfill v2 executed (all artifacts tagged)
+- Telegram save tools: tags support added to all 5 tools
+- Telegram list: Tool_List_Tagged for tag filtering
+- Gateway Save: comma-separated tag splitting
+- Snapshots: `fd625acf`, `692df518`
 
 ---
 
@@ -69,4 +62,4 @@ _(Move restarts here after execution)_
 - Duplicates or anomalies flagged
 - Top restart from queue with full content
 
-**Last Updated:** 2026-02-01
+**Last Updated:** 2026-02-01 (soft-delete verified)
