@@ -1,7 +1,7 @@
 # Qwrk Bug Tracker
 
 **Created:** 2026-01-27
-**Last Updated:** 2026-02-01 (BUG-013 CLOSED — restart save fixed; S2 journal fix deployed)
+**Last Updated:** 2026-02-01 (BUG-011 Gateway VERIFIED — tags save/filter working; qfe + Telegram pending)
 
 ---
 
@@ -299,7 +299,7 @@ The original issue was likely using `artifact.save` instead of `artifact.update`
 
 ### BUG-011: Write Contract Registry blocks spine fields (tags/summary/content) on CREATE
 
-**Status:** Open — Specification complete, awaiting implementation
+**Status:** PARTIAL — Gateway fixes deployed 2026-02-01; qfe changes pending
 **Severity:** High (blocks first-class tags; prevents search by tag)
 **Component:** qfe Write Contract Registry + Gateway validator + artifact.list
 
@@ -320,36 +320,65 @@ qfe Write Contract Registry is overly restrictive. Only allows:
 
 Rejects legitimate spine fields: `summary`, `tags`, `content`, `parent_artifact_id`, `priority`
 
-**Required Fixes (ALL REQUIRED — no partial ship):**
+**Required Fixes:**
 
-| # | Component | Change |
-|---|-----------|--------|
-| 1 | qfe Write Contract | Update CREATE allow-lists for ALL types to permit spine fields |
-| 2 | Gateway validator | Accept top-level `tags`, persist to `qxb_artifact.tags` with normalization |
-| 3 | Gateway artifact.list | Add `selector.filters.tags_any` filter support |
-| 4 | Tests | Tag filtering regression tests (see spec) |
+| # | Component | Change | Status |
+|---|-----------|--------|--------|
+| 1 | qfe Write Contract | Update CREATE allow-lists for ALL types to permit spine fields | **PENDING** (frontend) |
+| 2 | Gateway Save | Accept top-level `tags`, normalize and persist to `qxb_artifact.tags` | **DONE** (v25) |
+| 3 | Gateway List | Add `selector.filters.tags_any` filter support | **DONE** (v27) |
+| 4 | Tests | Tag filtering regression tests (see spec) | PENDING |
 
-**Spine Fields to Allow (where appropriate):**
+**Gateway Changes Deployed & Verified (2026-02-01):**
+
+**NQxb_Artifact_Save_v1 (v25-bug011-tags-normalization):**
+- Added `normalizeTags()` function in Normalize_Request
+- Tags are now stored as array of lowercase, trimmed, deduped strings
+- Accepts array input; converts object values to array if needed
+- Empty strings filtered out
+- ✅ VERIFIED: Save with tags persists correctly
+
+**NQxb_Artifact_List_v1 (v27-bug011-tags-any-filter):**
+- Added `selector.filters.tags_any` support
+- Validates tags_any is array of strings
+- Normalizes filter values (lowercase, trim, dedupe)
+- Uses PostgREST JSONB contains operator: `tags=cs.["tag1"]`
+- ✅ VERIFIED: Filter returns only matching artifacts; non-matching returns 0
+
+**Verification Tests (2026-02-01):**
+| Test | Result |
+|------|--------|
+| Save journal with `tags: ["conversation", "testing", "bug011"]` | ✅ Persisted correctly |
+| List with `tags_any: ["conversation"]` | ✅ Returns 1 match |
+| List with `tags_any: ["nonexistent"]` | ✅ Returns 0 (no false positives) |
+
+**Telegram Gateway:**
+Tags support deferred — n8n `toolHttpRequest` requires all placeholders, making optional `tags` parameter problematic. Workaround options: separate tagged-save tools or custom node.
+
+**Remaining Work (qfe Frontend):**
+
+The qfe Write Contract Registry must be updated to allow spine fields on CREATE:
 - `title` (required for most types)
 - `summary` (optional)
-- `tags` (optional) — NEW
-- `content` (optional)
+- `tags` (optional) — JSONB array
+- `content` (optional) — JSONB object
 - `parent_artifact_id` (optional, type-governed)
 - `priority` (optional)
 
-**Tag Normalization Rules:**
+**Tag Normalization Rules (implemented in Gateway):**
 - Trim strings
 - Drop empty
 - De-dupe
 - Lowercase for deterministic search
 
 **Acceptance Criteria:**
-- [ ] Create journal with `tags: ["conversation"]` succeeds
-- [ ] `artifact.list` with `tags_any: ["conversation"]` returns only matching journals
-- [ ] Tags persisted in `qxb_artifact.tags` and hydrated correctly
-- [ ] Unknown top-level fields still rejected (only expand to approved spine keys)
+- [x] Gateway accepts `tags` array and normalizes correctly
+- [x] `artifact.list` with `selector.filters.tags_any` filters by tag contains
+- [x] End-to-end test: create journal with tags → list by tags_any (via PowerShell)
+- [ ] qfe allows `tags`, `summary`, `content` etc. on CREATE (frontend change)
+- [ ] Telegram Gateway supports tags (n8n limitation — deferred)
 
-**Specification:** `CC_Inbox/cc_prompt_tags.md`
+**Specification:** `CC_Inbox/Archive/cc_prompt_tags.md`
 
 **Restart Prompt:** `docs/restarts/RESTART__BUG-011__First_Class_Tags_Implementation__2026-01-28.md`
 

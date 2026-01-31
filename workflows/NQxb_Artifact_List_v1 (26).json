@@ -1,0 +1,927 @@
+{
+  "name": "NQxb_Artifact_List_v1",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1904,
+        336
+      ],
+      "id": "341fac71-6f63-4a75-ad1a-0d3c3915336d",
+      "name": "NQxb_Artifact_List_v1__In"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_List_v1__Normalize_Request\n// Canonicalize inbound request for artifact.list operation.\n// Accept artifact_type from EITHER:\n//   - selector.artifact_type (preferred when present), OR\n//   - top-level artifact_type (as sent by Gateway Build_List_Request)\n//\n// Policy: response-size hardening (Option 2A Clamp)\n// - default_limit = 50\n// - max_limit = 200\n// - missing/invalid/non-positive limit => 50\n// - limit > 200 => clamp to 200 (no error)\n\nconst raw = $json ?? {};\n\n// Support body-wrapped payloads\nconst body =\n  raw.body && typeof raw.body === \"object\" && !Array.isArray(raw.body)\n    ? raw.body\n    : null;\n\nconst req = body ?? raw;\n\n// Helper to ensure object\nconst asObj = (v) =>\n  v && typeof v === \"object\" && !Array.isArray(v) ? v : {};\n\nconst selector = asObj(req.selector);\n\n// Extract artifact_type from selector OR top-level\nconst selectorArtifactType = (selector.artifact_type ?? \"\").trim();\nconst topLevelArtifactType = (req.artifact_type ?? \"\").toString().trim();\n\nconst artifact_type =\n  selectorArtifactType !== \"\" ? selectorArtifactType\n  : topLevelArtifactType !== \"\" ? topLevelArtifactType\n  : \"\";\n\n// Other selector fields\nconst parent_artifact_id = selector.parent_artifact_id ?? null;\n\n// BUG-011: Extract tags_any filter (selector.filters.tags_any)\nconst filters = selector.filters && typeof selector.filters === \"object\" ? selector.filters : {};\nconst tags_any_raw = filters.tags_any ?? null;\n\nconst DEFAULT_LIMIT = 50;\nconst MAX_LIMIT = 200;\n\n// Normalize limit with clamp\nconst rawLimit = selector.limit;\nconst parsedLimit = parseInt(rawLimit, 10);\n\nconst requested_limit =\n  Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : null;\n\nconst applied_limit = Math.min(\n  Math.max(requested_limit ?? DEFAULT_LIMIT, 1),\n  MAX_LIMIT\n);\n\nconst was_clamped =\n  requested_limit !== null && requested_limit > MAX_LIMIT;\n\nconst limit = applied_limit;\n\nconst offset = Math.max(parseInt(selector.offset, 10) || 0, 0);\nconst hydrate = selector.hydrate === true;\n\nconst canonical = {\n  gw_action: req.gw_action ?? \"artifact.list\",\n  gw_workspace_id: req.gw_workspace_id ?? null,\n\n  // Flattened for easier access downstream\n  artifact_type,\n  parent_artifact_id,\n  limit,\n  offset,\n  hydrate,\n  tags_any: tags_any_raw,\n\n  // Preserve selector (unchanged)\n  selector,\n\n  // Optional: receipts for deterministic tests / debugging\n  meta: {\n    requested_limit,\n    applied_limit,\n    was_clamped,\n    default_limit: DEFAULT_LIMIT,\n    max_limit: MAX_LIMIT,\n  },\n};\n\n// Debug context\ncanonical._gw_debug = {\n  received_shape: body ? \"body\" : \"flat\",\n  operation: \"list\",\n  hydrate_requested: hydrate,\n  artifact_type_source:\n    selectorArtifactType !== \"\" ? \"selector.artifact_type\"\n    : topLevelArtifactType !== \"\" ? \"top_level.artifact_type\"\n    : \"empty\",\n};\n\nreturn [{ json: canonical }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1680,
+        336
+      ],
+      "id": "9358fc0f-9b3c-4614-9b75-275bdb9e681b",
+      "name": "NQxb_Artifact_List_v1__Normalize_Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_List_v1__Validate_Request\n// Purpose: Validate required fields + enforce deterministic window cap + establish paging anchor (as_of).\n// KGB rules:\n// - No silent empty outputs\n// - Deterministic pagination (within fetch cap)\n// - Stable paging across multiple calls via selector.as_of (created_at <= as_of)\n//\n// Policy update (Option 2A Clamp):\n// - Do NOT reject solely because limit > max.\n// - Normalize_Request is the enforcement point (default + clamp).\n// - Validate_Request confirms shape/sanity + enforces deterministic window cap.\n\nconst j = $json ?? {};\n\nconst gw_workspace_id = j.gw_workspace_id ?? null;\nconst artifact_type = j.artifact_type ?? null;\n\nconst selector_in =\n  (j.selector && typeof j.selector === \"object\" && !Array.isArray(j.selector))\n    ? j.selector\n    : {};\n\nconst limit_in = selector_in.limit ?? j.limit ?? 50;\nconst offset_in = selector_in.offset ?? j.offset ?? 0;\nconst hydrate_in = selector_in.hydrate ?? j.hydrate ?? false;\nconst include_fields_in = selector_in.include_fields ?? j.include_fields ?? null;\nconst as_of_in = selector_in.as_of ?? j.as_of ?? null;\n\n// BUG-011: Extract tags_any from flattened or selector.filters\nconst filters_obj = (selector_in.filters && typeof selector_in.filters === \"object\") ? selector_in.filters : {};\nconst tags_any_in = j.tags_any ?? filters_obj.tags_any ?? null;\n\nconst toInt = (v) => {\n  const n = Number(v);\n  return Number.isFinite(n) ? Math.trunc(n) : NaN;\n};\n\nconst limit = toInt(limit_in);\nconst offset = toInt(offset_in);\n\n// ---- required: workspace ----\nif (!gw_workspace_id || String(gw_workspace_id).trim() === \"\") {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"VALIDATION_ERROR\",\n        message: \"gw_workspace_id is required for artifact.list operation\",\n        details: { missing_field: \"gw_workspace_id\", received_value: gw_workspace_id },\n      },\n    },\n  }];\n}\n\n// ---- required: artifact_type ----\nif (!artifact_type || String(artifact_type).trim() === \"\") {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"VALIDATION_ERROR\",\n        message: \"artifact_type is required for artifact.list operation\",\n        details: { missing_field: \"artifact_type\", received_value: artifact_type },\n      },\n    },\n  }];\n}\n\n// ---- selector numeric sanity ----\nif (!Number.isFinite(limit) || !Number.isFinite(offset)) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"VALIDATION_ERROR\",\n        message: \"selector.limit and selector.offset must be numeric\",\n        details: { received_limit: limit_in, received_offset: offset_in },\n      },\n    },\n  }];\n}\n\n// NOTE: limit upper-bound is enforced upstream (Normalize_Request) via clamp.\n// Here we only ensure it's positive.\nif (limit < 1) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"VALIDATION_ERROR\",\n        message: \"selector.limit must be >= 1\",\n        details: { received_limit: limit },\n      },\n    },\n  }];\n}\n\nif (offset < 0) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"VALIDATION_ERROR\",\n        message: \"selector.offset must be >= 0\",\n        details: { received_offset: offset },\n      },\n    },\n  }];\n}\n\n// ---- BUG-011: tags_any validation ----\nlet tags_any_validated = null;\nif (tags_any_in !== null && tags_any_in !== undefined) {\n  if (!Array.isArray(tags_any_in)) {\n    return [{\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"VALIDATION_ERROR\",\n          message: \"selector.filters.tags_any must be an array of strings\",\n          details: { received_type: typeof tags_any_in, received_value: tags_any_in },\n        },\n      },\n    }];\n  }\n  // Normalize: trim, lowercase, dedupe, filter empty\n  const seen = new Set();\n  tags_any_validated = tags_any_in\n    .map(t => (typeof t === \"string\" ? t.trim().toLowerCase() : \"\"))\n    .filter(t => t !== \"\" && !seen.has(t) && seen.add(t));\n  if (tags_any_validated.length === 0) tags_any_validated = null;\n}\n\n// ---- deterministic window cap ----\n// IMPORTANT: FETCH_CAP must be >= max_limit (+1 for has_more).\n// Keep this as an internal deterministic safety window, independent of client limit.\nconst FETCH_CAP = 500;\nconst endExclusive = offset + limit + 1; // +1 supports meta.has_more truthfully\n\nif (endExclusive > FETCH_CAP) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"PAGINATION_WINDOW_EXCEEDED\",\n        message: `Requested pagination window exceeds deterministic cap (${FETCH_CAP}). Reduce offset/limit.`,\n        details: { fetch_cap: FETCH_CAP, requested_offset: offset, requested_limit: limit },\n      },\n    },\n  }];\n}\n\n// ---- paging anchor (as_of) ----\n// If not provided, establish it once per request (client must pass it back for subsequent pages)\nlet as_of = null;\nif (as_of_in && typeof as_of_in === \"string\" && as_of_in.trim() !== \"\") {\n  const t = Date.parse(as_of_in);\n  if (!Number.isFinite(t)) {\n    return [{\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"VALIDATION_ERROR\",\n          message: \"selector.as_of must be a valid ISO datetime string\",\n          details: { received_as_of: as_of_in },\n        },\n      },\n    }];\n  }\n  as_of = new Date(t).toISOString();\n} else {\n  as_of = new Date().toISOString();\n}\n\n// Build a resolved selector we will carry forward\nconst selector_resolved = {\n  ...selector_in,\n  limit,\n  offset,\n  hydrate: hydrate_in === true,\n  as_of,\n};\n\nif (Array.isArray(include_fields_in)) selector_resolved.include_fields = include_fields_in;\nif (tags_any_validated) {\n  const existingFilters = (selector_resolved.filters && typeof selector_resolved.filters === \"object\") ? selector_resolved.filters : {};\n  selector_resolved.filters = { ...existingFilters, tags_any: tags_any_validated };\n}\n\nreturn [{\n  json: {\n    ...j,\n    gw_workspace_id,\n    artifact_type,\n    selector: selector_resolved,\n    limit,\n    offset,\n    hydrate: selector_resolved.hydrate,\n    as_of,\n    tags_any: tags_any_validated,\n  },\n}];\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1456,
+        336
+      ],
+      "id": "7933c4d5-995e-4f82-90c3-13047502e29b",
+      "name": "NQxb_Artifact_List_v1__Validate_Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_List_v1__Build_PostgREST_Request\n// BUG-001 FIX: Build PostgREST URL with proper ORDER BY, OFFSET, LIMIT\n// This replaces the broken Supabase \"Get many rows\" node\n//\n// PostgREST query structure:\n// - workspace_id=eq.{uuid}\n// - artifact_type=eq.{type}\n// - deleted_at=is.null\n// - created_at=lte.{as_of}\n// - order=created_at.desc,artifact_id.desc\n// - limit={limit+1}  (for has_more detection)\n// - offset={offset}\n\n// NOTE: n8n sandbox disallows Node core modules (e.g., require('url')).\n// So we build the query string manually (encodeURIComponent) instead of URLSearchParams.\n\nconst j = $json ?? {};\n\nconst workspace_id = j.gw_workspace_id;\nconst artifact_type = j.artifact_type;\nconst limit = j.limit ?? 50;\nconst offset = j.offset ?? 0;\nconst as_of = j.as_of ?? new Date().toISOString();\nconst parent_artifact_id = j.parent_artifact_id ?? null;\n\n// BUG-011: Extract tags_any filter\nconst tags_any = Array.isArray(j.tags_any) ? j.tags_any : null;\n\n// --- Safe query builder (no URLSearchParams / no require) ---\nconst esc = (v) => encodeURIComponent(String(v));\nconst pairs = [];\n\n// Filters\npairs.push(`workspace_id=${esc(`eq.${workspace_id}`)}`);\npairs.push(`artifact_type=${esc(`eq.${artifact_type}`)}`);\npairs.push(`deleted_at=${esc('is.null')}`);\npairs.push(`created_at=${esc(`lte.${as_of}`)}`);\n\n// Optional parent filter\nif (parent_artifact_id) {\n  pairs.push(`parent_artifact_id=${esc(`eq.${parent_artifact_id}`)}`);\n}\n\n// BUG-011: Optional tags_any filter (JSONB array contains)\n// PostgREST: tags=cs.[\"tag1\"] means tags array contains this subset\n// For \"any of\" semantics, we check if tags contains ANY of the requested tags\nif (tags_any && tags_any.length > 0) {\n  const tagsJson = JSON.stringify(tags_any);\n  pairs.push(`tags=${esc(`cs.${tagsJson}`)}`);\n}\n\n// Deterministic ordering (critical for pagination)\npairs.push(`order=${esc('created_at.desc,artifact_id.desc')}`);\n\n// Pagination: fetch limit+1 for has_more detection\npairs.push(`limit=${esc(limit + 1)}`);\npairs.push(`offset=${esc(offset)}`);\n\nconst queryString = pairs.join('&');\n// --- end safe query builder ---\n\nreturn [{\n  json: {\n    ...j,\n    _postgrest: {\n      path: `/rest/v1/qxb_artifact?${queryString}`,\n      method: 'GET',\n      limit_requested: limit,\n      offset_requested: offset,\n      as_of_used: as_of,\n    }\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1008,
+        336
+      ],
+      "id": "6a361b9f-d828-4325-af8d-da7eca6c03c5",
+      "name": "NQxb_Artifact_List_v1__Build_PostgREST_Request"
+    },
+    {
+      "parameters": {
+        "url": "=https://npymhacpmxdnkqdzgxll.supabase.co{{ $json._postgrest.path }}\n",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -784,
+        336
+      ],
+      "id": "b8839a9e-30ed-4b67-98d3-791104173708",
+      "name": "NQxb_Artifact_List_v1__HTTP_Request_List",
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_List_v1__Apply_Filters_And_Pagination\n// BUG-001 FIX: Simplified - ordering and offset now handled at DB level\n//\n// Purpose:\n// - DE-DUPE (safety)\n// - Compute has_more from limit+1 fetch\n// - Package into _page_items + _meta\n//\n// NOTE: ORDER BY and OFFSET are now enforced by PostgREST.\n// This node only needs to handle has_more detection and output formatting.\n\nconst req = $node[\"NQxb_Artifact_List_v1__Validate_Request\"]?.json ?? {};\nconst postgrest = $node[\"NQxb_Artifact_List_v1__Build_PostgREST_Request\"]?.json?._postgrest ?? {};\n\nconst selector = (req.selector && typeof req.selector === \"object\") ? req.selector : {};\n\nconst limit = postgrest.limit_requested ?? Number(selector.limit ?? 50);\nconst offset = postgrest.offset_requested ?? Number(selector.offset ?? 0);\nconst as_of = postgrest.as_of_used ?? selector.as_of ?? req.as_of ?? null;\n\n// Gather rows from HTTP Request response\n// HTTP Request returns array directly or wrapped\nlet rows = [];\nconst allItems = $input.all();\n\nfor (const item of allItems) {\n  const data = item.json;\n  if (Array.isArray(data)) {\n    // Response was array at root\n    rows.push(...data);\n  } else if (data && typeof data === 'object') {\n    // Single object or wrapped\n    rows.push(data);\n  }\n}\n\n// DE-DUPE by artifact_id (safety - shouldn't be needed with proper DB query)\nconst seen = new Set();\nrows = rows.filter(r => {\n  const id = (r?.artifact_id ?? \"\").toString();\n  if (!id) return false;\n  if (seen.has(id)) return false;\n  seen.add(id);\n  return true;\n});\n\n// has_more computation:\n// PostgREST fetched (limit + 1), so if we have > limit rows, there's more\nlet has_more = false;\nlet page = rows;\n\nif (Number.isFinite(limit) && limit > 0) {\n  if (rows.length > limit) {\n    has_more = true;\n    page = rows.slice(0, limit);\n  } else {\n    has_more = false;\n    page = rows;\n  }\n} else {\n  has_more = false;\n  page = rows;\n}\n\nreturn [{\n  json: {\n    _page_items: page,\n    _meta: {\n      count: page.length,\n      limit: Number.isFinite(limit) ? limit : null,\n      offset: Number.isFinite(offset) ? offset : null,\n      has_more,\n      as_of: as_of ?? new Date().toISOString(),\n    },\n  },\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -560,
+        336
+      ],
+      "id": "9f21a466-1ebf-4164-9521-1af71791b702",
+      "name": "NQxb_Artifact_List_v1__Apply_Filters_And_Pagination"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "hydrate-check",
+              "leftValue": "={{ Boolean($items(\"NQxb_Artifact_List_v1__Normalize_Request\")[0]?.json?.selector?.hydrate) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -336,
+        336
+      ],
+      "id": "4a1d226f-ddba-4f56-8616-6aa8ff43ed3e",
+      "name": "NQxb_Artifact_List_v1__If_Hydrate"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_List_v1__Format_Base_Response\n// Purpose: Shape a stable non-hydrated list response.\n// Critical rule: If _page_items is empty, artifacts MUST be [] (no placeholder/null artifact).\n// KGB v1 additions: meta.has_more, meta.as_of (paging anchor)\n\nconst j = $json ?? {};\nconst req = $node[\"NQxb_Artifact_List_v1__Validate_Request\"]?.json ?? {};\n\nconst selector = req.selector ?? {};\nconst include_fields = Array.isArray(selector.include_fields) ? selector.include_fields : null;\n\nconst page_items = Array.isArray(j._page_items) ? j._page_items : [];\nconst meta_in = j._meta ?? {};\n\nconst safePick = (obj, fields) => {\n  if (!obj || typeof obj !== \"object\") return {};\n  const out = {};\n  for (const f of fields) out[f] = obj[f] ?? null;\n  return out;\n};\n\n// If include_fields is provided, project fields; otherwise return items as-is\nconst artifacts = include_fields\n  ? page_items.map((row) => safePick(row, include_fields))\n  : page_items;\n\n// Canonical response (note: meta.count is page count, not total)\nconst response = {\n  ok: true,\n  gw_action: req.gw_action ?? \"artifact.list\",\n  gw_workspace_id: req.gw_workspace_id ?? req.workspace_id ?? null,\n  artifact_type: req.artifact_type ?? null,\n  selector: req.selector ?? { hydrate: false, offset: 0, limit: 25 },\n  data: { artifacts },\n  meta: {\n    count: Number.isInteger(meta_in.count) ? meta_in.count : artifacts.length,\n    limit: Number.isInteger(meta_in.limit) ? meta_in.limit : (selector.limit ?? null),\n    offset: Number.isInteger(meta_in.offset) ? meta_in.offset : (selector.offset ?? null),\n    has_more: meta_in.has_more === true,\n    as_of: meta_in.as_of ?? selector.as_of ?? null,\n  },\n  timestamp: new Date().toISOString(),\n};\n\nreturn [{ json: response }];\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "a95968eb-7362-4b10-8dfd-a2d688ba8e9b",
+      "name": "NQxb_Artifact_List_v1__Format_Base_Response"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ ($json.artifact_type || $node[\"NQxb_Artifact_List_v1__Validate_Request\"].json.artifact_type || \"\").trim() }}",
+                    "rightValue": "project",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "82d8c625-1508-4acc-bdb6-a1b1e83bafae"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "ec1d6524-ccd0-426d-be0c-8be69fac3de8",
+                    "leftValue": "={{ ($json.artifact_type || $node[\"NQxb_Artifact_List_v1__Validate_Request\"].json.artifact_type || \"\").trim() }}",
+                    "rightValue": "journal",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "18bf1eab-4d77-4687-ab57-a88734550897",
+                    "leftValue": "={{ ($json.artifact_type || $node[\"NQxb_Artifact_List_v1__Validate_Request\"].json.artifact_type || \"\").trim() }}",
+                    "rightValue": "restart",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "3331edbf-ee29-4a61-a8d9-7c98c3f276b7",
+                    "leftValue": "={{ ($json.artifact_type || $node[\"NQxb_Artifact_List_v1__Validate_Request\"].json.artifact_type || \"\").trim() }}",
+                    "rightValue": "snapshot",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "2ac7f6bb-e868-4799-919c-9918b069b33c",
+                    "leftValue": "={{ ($json.artifact_type || $node[\"NQxb_Artifact_List_v1__Validate_Request\"].json.artifact_type || \"\").trim() }}",
+                    "rightValue": "instruction_pack",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -112,
+        512
+      ],
+      "id": "98b1807f-f728-43b7-bcab-919376b66ff7",
+      "name": "NQxb_Artifact_List_v1__Switch_ArtifactType"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "_page_items",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        0,
+        224
+      ],
+      "id": "408256f3-704e-4a97-953a-a1a9e5fecc7e",
+      "name": "NQxb_Artifact_List_v1__Explode_Project_Page"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "qxb_artifact_project",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_id",
+              "keyValue": "={{ $json.artifact_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        112,
+        224
+      ],
+      "id": "9a478802-c2d3-4fa7-835a-2f1af7099858",
+      "name": "NQxb_Artifact_List_v1__DB_Get_Project_Extension",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_List_v1__Merge_Project\n// v26 FIX: Process ALL items at once to avoid per-item execution issues\n//\n// GOVERNANCE: Strip lifecycle_stage from extension, only surface lifecycle_status\n\n// Get ALL extension items from DB_Get\nconst allExtItems = $input.all();\n\n// Get ALL spine items from Split Out\nconst allSpineItems = $items(\"NQxb_Artifact_List_v1__Explode_Project_Page\");\n\n// Build a map of spine by artifact_id for fast lookup\nconst spineById = new Map();\nfor (const item of allSpineItems) {\n  const id = item.json?.artifact_id;\n  if (id) spineById.set(id, item.json);\n}\n\n// Process each extension and merge with its spine\nconst results = [];\n\nfor (const extItem of allExtItems) {\n  const extRaw = extItem.json ?? {};\n  const artifact_id = extRaw.artifact_id;\n  \n  // Find matching spine\n  const spine = spineById.get(artifact_id) ?? {};\n  \n  if (!spine.artifact_id) {\n    // No spine found - include with error marker\n    results.push({\n      json: {\n        ...extRaw,\n        _merge_error: \"No matching spine found\",\n        _searched_artifact_id: artifact_id,\n      }\n    });\n    continue;\n  }\n  \n  // Extract extension fields, stripping duplicates and lifecycle_stage\n  const {\n    artifact_id: _aid,\n    artifact_type: _atype,\n    created_at: _cat,\n    updated_at: _uat,\n    lifecycle_stage, // strip to prevent dual-lifecycle ambiguity\n    ...extFields\n  } = extRaw;\n  \n  // Merge: spine first, then extension overlays\n  const merged = {\n    ...spine,\n    ...extFields,\n  };\n  \n  results.push({ json: merged });\n}\n\nreturn results;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        224
+      ],
+      "id": "7169c54e-dd1a-46d8-99dc-3db7f2e491b4",
+      "name": "NQxb_Artifact_List_v1__Merge_Project"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "_page_items",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        0,
+        416
+      ],
+      "id": "6732cf7b-27d6-461f-8877-9c1fe52b0fe0",
+      "name": "NQxb_Artifact_List_v1__Explode_Journal_Page"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "qxb_artifact_journal",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_id",
+              "keyValue": "={{ $json.artifact_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        112,
+        416
+      ],
+      "id": "d609ab68-e0f8-4d01-8807-076d916d44aa",
+      "name": "NQxb_Artifact_List_v1__DB_Get_Journal_Extension",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_List_v1__Merge_Journal\n// v26 FIX: Process ALL items at once to avoid per-item execution issues\n\n// Get ALL extension items from DB_Get\nconst allExtItems = $input.all();\n\n// Get ALL spine items from Split Out\nconst allSpineItems = $items(\"NQxb_Artifact_List_v1__Explode_Journal_Page\");\n\n// Build a map of spine by artifact_id for fast lookup\nconst spineById = new Map();\nfor (const item of allSpineItems) {\n  const id = item.json?.artifact_id;\n  if (id) spineById.set(id, item.json);\n}\n\n// Process each extension and merge with its spine\nconst results = [];\n\nfor (const extItem of allExtItems) {\n  const extRaw = extItem.json ?? {};\n  const artifact_id = extRaw.artifact_id;\n  \n  // Find matching spine\n  const spine = spineById.get(artifact_id) ?? {};\n  \n  if (!spine.artifact_id) {\n    results.push({\n      json: {\n        ...extRaw,\n        _merge_error: \"No matching spine found\",\n        _searched_artifact_id: artifact_id,\n      }\n    });\n    continue;\n  }\n  \n  // Extract extension fields, stripping duplicates\n  const {\n    artifact_id: _aid,\n    artifact_type: _atype,\n    created_at: _cat,\n    updated_at: _uat,\n    ...extFields\n  } = extRaw;\n  \n  // Merge: spine first, then extension overlays\n  const merged = {\n    ...spine,\n    ...extFields,\n  };\n  \n  results.push({ json: merged });\n}\n\nreturn results;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        416
+      ],
+      "id": "2925aca9-ea1b-4f1d-8ae2-304113ff7a73",
+      "name": "NQxb_Artifact_List_v1__Merge_Journal"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "_page_items",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        0,
+        608
+      ],
+      "id": "4484047b-a7fb-428a-a63a-4a08998a18bf",
+      "name": "NQxb_Artifact_List_v1__Explode_Restart_Page"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "qxb_artifact_restart",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_id",
+              "keyValue": "={{ $json.artifact_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        112,
+        608
+      ],
+      "id": "651bcfca-1e0b-4b8c-958b-503c5a32385e",
+      "name": "NQxb_Artifact_List_v1__DB_Get_Restart_Extension",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_List_v1__Merge_Restart\n// v26 FIX: Process ALL items at once to avoid per-item execution issues\n\n// Get ALL extension items from DB_Get\nconst allExtItems = $input.all();\n\n// Get ALL spine items from Split Out\nconst allSpineItems = $items(\"NQxb_Artifact_List_v1__Explode_Restart_Page\");\n\n// Build a map of spine by artifact_id for fast lookup\nconst spineById = new Map();\nfor (const item of allSpineItems) {\n  const id = item.json?.artifact_id;\n  if (id) spineById.set(id, item.json);\n}\n\n// Process each extension and merge with its spine\nconst results = [];\n\nfor (const extItem of allExtItems) {\n  const extRaw = extItem.json ?? {};\n  const artifact_id = extRaw.artifact_id;\n  \n  // Find matching spine\n  const spine = spineById.get(artifact_id) ?? {};\n  \n  if (!spine.artifact_id) {\n    results.push({\n      json: {\n        ...extRaw,\n        _merge_error: \"No matching spine found\",\n        _searched_artifact_id: artifact_id,\n      }\n    });\n    continue;\n  }\n  \n  // Extract extension fields, stripping duplicates\n  const {\n    artifact_id: _aid,\n    artifact_type: _atype,\n    created_at: _cat,\n    updated_at: _uat,\n    ...extFields\n  } = extRaw;\n  \n  // Merge: spine first, then extension overlays\n  const merged = {\n    ...spine,\n    ...extFields,\n  };\n  \n  results.push({ json: merged });\n}\n\nreturn results;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        608
+      ],
+      "id": "5db074ba-8b3f-4f0d-9002-858f0fd411d6",
+      "name": "NQxb_Artifact_List_v1__Merge_Restart"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "qxb_artifact_snapshot",
+        "limit": 100,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_id",
+              "condition": "eq",
+              "keyValue": "={{ ($json.artifact_id || '').trim() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        112,
+        800
+      ],
+      "id": "6eea3049-5cd7-424a-8eb6-ee70bdbd248e",
+      "name": "NQxb_Artifact_List_v1__DB_Get_Snapshot_Extension",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_List_v1__Merge_Snapshot\n// v26 FIX: Process ALL items at once to avoid per-item execution issues\n\n// Get ALL extension items from DB_Get\nconst allExtItems = $input.all();\n\n// Get ALL spine items from Split Out\nconst allSpineItems = $items(\"NQxb_Artifact_List_v1__Explode_Snapshot_Page\");\n\n// Build a map of spine by artifact_id for fast lookup\nconst spineById = new Map();\nfor (const item of allSpineItems) {\n  const id = item.json?.artifact_id;\n  if (id) spineById.set(id, item.json);\n}\n\n// Process each extension and merge with its spine\nconst results = [];\n\nfor (const extItem of allExtItems) {\n  const extRaw = extItem.json ?? {};\n  const artifact_id = extRaw.artifact_id;\n  \n  // Find matching spine\n  const spine = spineById.get(artifact_id) ?? {};\n  \n  if (!spine.artifact_id) {\n    results.push({\n      json: {\n        ...extRaw,\n        _merge_error: \"No matching spine found\",\n        _searched_artifact_id: artifact_id,\n      }\n    });\n    continue;\n  }\n  \n  // Extract extension fields, stripping duplicates\n  const {\n    artifact_id: _aid,\n    artifact_type: _atype,\n    created_at: _cat,\n    updated_at: _uat,\n    ...extFields\n  } = extRaw;\n  \n  // Merge: spine first, then extension overlays\n  const merged = {\n    ...spine,\n    ...extFields,\n  };\n  \n  results.push({ json: merged });\n}\n\nreturn results;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        800
+      ],
+      "id": "2475a66a-8b0d-4cbf-9b97-07cc70949926",
+      "name": "NQxb_Artifact_List_v1__Merge_Snapshot"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "numberInputs": 5,
+        "options": {
+          "includeUnpaired": true
+        }
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        560,
+        480
+      ],
+      "id": "edbe3a92-e10e-4d55-a93b-6c60898792a0",
+      "name": "NQxb_Artifact_List_v1__Combine_Hydrated_Results",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_List_v1__Format_Hydrated_Response\n// Purpose: Shape a stable hydrated list response using the SAME canonical envelope as base.\n// KGB v1 requirements:\n// - Stable shape: { ok, gw_action, gw_workspace_id, artifact_type, selector, data:{artifacts}, meta, timestamp }\n// - meta.count is page count (not total)\n// - meta.has_more + meta.as_of are preserved (computed upstream)\n// - Never return \"items\" at top-level (must be data.artifacts)\n// - No silent empty outputs: always return ONE item\n//\n// FIX: If upstream combine/hydrate yields zero items, return a valid empty envelope.\n// This prevents n8n from completing the webhook with 200 + empty body.\n\nconst req =\n  $node[\"NQxb_Artifact_List_v1__Validate_Request\"]?.json ??\n  $node[\"NQxb_Artifact_List_v1__Normalize_Request\"]?.json ??\n  {};\n\nconst selector = req.selector ?? { hydrate: true, offset: 0, limit: 25 };\n\n// Gather hydrated items (may be empty if combine/hydrate produced none)\nconst items = $input.all().map(i => i.json).filter(Boolean);\n\n// --- HARD GUARD: No silent empty outputs ---\n// If no hydrated items exist, we still return a canonical envelope with artifacts: []\nif (items.length === 0) {\n  return [{\n    json: {\n      ok: true,\n      gw_action: req.gw_action ?? \"artifact.list\",\n      gw_workspace_id: req.gw_workspace_id ?? req.workspace_id ?? null,\n      artifact_type: req.artifact_type ?? null,\n      selector,\n      data: { artifacts: [] },\n      meta: {\n        count: 0,\n        limit: (selector.limit ?? null),\n        offset: (selector.offset ?? null),\n        has_more: false,\n        as_of: selector.as_of ?? null,\n      },\n      timestamp: new Date().toISOString(),\n    }\n  }];\n}\n\n// Remove internal metadata fields from hydrated artifacts\nconst cleanedArtifacts = items.map(item => {\n  const { _list_meta, _gw_debug, _meta, _page_items, _merge_error, _searched_artifact_id, _spine_count, ...rest } = item;\n  return rest;\n});\n\n// Prefer authoritative pagination/meta from upstream (_meta), with fallback to legacy _list_meta\nconst meta_in =\n  (items[0]?._meta && typeof items[0]._meta === \"object\" ? items[0]._meta : null) ??\n  (items[0]?._list_meta && typeof items[0]._list_meta === \"object\" ? items[0]._list_meta : {}) ??\n  {};\n\n// Build canonical response envelope\nconst response = {\n  ok: true,\n  gw_action: req.gw_action ?? \"artifact.list\",\n  gw_workspace_id: req.gw_workspace_id ?? req.workspace_id ?? null,\n  artifact_type: req.artifact_type ?? null,\n  selector,\n  data: { artifacts: cleanedArtifacts },\n  meta: {\n    count: Number.isInteger(meta_in.count) ? meta_in.count : cleanedArtifacts.length,\n    limit: Number.isInteger(meta_in.limit) ? meta_in.limit : (selector.limit ?? null),\n    offset: Number.isInteger(meta_in.offset) ? meta_in.offset : (selector.offset ?? null),\n    has_more: meta_in.has_more === true,\n    as_of: meta_in.as_of ?? selector.as_of ?? null,\n  },\n  timestamp: new Date().toISOString(),\n};\n\nreturn [{ json: response }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        784,
+        336
+      ],
+      "id": "4ddfaf46-8d0a-4d66-abd8-408221a963f0",
+      "name": "NQxb_Artifact_List_v1__Format_Hydrated_Response"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "_page_items",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -112,
+        800
+      ],
+      "id": "ba114c54-48f2-4f67-a31a-b16d5fcf6d31",
+      "name": "NQxb_Artifact_List_v1__Explode_Snapshot_Page"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "qxb_artifact_instruction_pack",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.artifact_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        80,
+        1200
+      ],
+      "id": "360622d7-0354-41b1-8d6c-85ee1db37e98",
+      "name": "NQxb_Artifact_List_v1__DB_Get_Instruction_Pack_Extension1",
+      "alwaysOutputData": true,
+      "executeOnce": false,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_List_v1__Merge_Instruction_Pack\n// v26 FIX: Process ALL items at once to avoid per-item execution issues\n\n// Get ALL extension items from DB_Get\nconst allExtItems = $input.all();\n\n// Get ALL spine items from Split Out\nconst allSpineItems = $items(\"Split Out\");\n\n// Build a map of spine by artifact_id for fast lookup\nconst spineById = new Map();\nfor (const item of allSpineItems) {\n  const id = item.json?.artifact_id;\n  if (id) spineById.set(id, item.json);\n}\n\n// Heuristic to detect extension row\nconst looksLikeExtRow = (o) =>\n  o &&\n  typeof o === \"object\" &&\n  \"artifact_id\" in o &&\n  \"scope\" in o &&\n  \"active\" in o &&\n  (\"pack_format\" in o || \"priority\" in o) &&\n  !(\"artifact_type\" in o) &&\n  !(\"title\" in o);\n\n// Process each extension and merge with its spine\nconst results = [];\n\nfor (const extItem of allExtItems) {\n  const extRaw = extItem.json ?? {};\n  const artifact_id = extRaw.artifact_id;\n  \n  // Find matching spine\n  const spine = spineById.get(artifact_id) ?? {};\n  \n  if (!spine.artifact_id) {\n    results.push({\n      json: {\n        ...extRaw,\n        _merge_error: \"No matching spine found\",\n        _searched_artifact_id: artifact_id,\n      }\n    });\n    continue;\n  }\n  \n  // Build extension object\n  let extension = null;\n  if (looksLikeExtRow(extRaw)) {\n    const {\n      artifact_type, title, summary, tags, content,\n      parent_artifact_id, version, deleted_at,\n      owner_user_id, workspace_id,\n      created_at, updated_at,\n      ...rest\n    } = extRaw;\n    extension = Object.keys(rest).length ? rest : null;\n  }\n  \n  // Merge: spine + extension nested\n  const merged = {\n    ...spine,\n    extension,\n  };\n  \n  results.push({ json: merged });\n}\n\nreturn results;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        464,
+        1056
+      ],
+      "id": "7e898dbb-e088-4d0e-b991-0790a1b0639e",
+      "name": "NQxb_Artifact_List_v1__Merge_Instruction_Pack"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "_page_items",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -352,
+        1088
+      ],
+      "id": "48e80261-a3e6-4700-bb2a-3231d18c5900",
+      "name": "Split Out"
+    }
+  ],
+  "pinData": {
+    "NQxb_Artifact_List_v1__In": [
+      {
+        "json": {
+          "gw_action": "artifact.list",
+          "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+          "selector": {
+            "hydrate": true,
+            "limit": 2,
+            "offset": 0,
+            "artifact_type": "project"
+          }
+        }
+      }
+    ]
+  },
+  "connections": {
+    "NQxb_Artifact_List_v1__In": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__Normalize_Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_List_v1__Normalize_Request": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__Validate_Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_List_v1__Validate_Request": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__Build_PostgREST_Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_List_v1__Build_PostgREST_Request": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__HTTP_Request_List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_List_v1__HTTP_Request_List": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__Apply_Filters_And_Pagination",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_List_v1__Apply_Filters_And_Pagination": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__If_Hydrate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_List_v1__If_Hydrate": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__Switch_ArtifactType",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__Format_Base_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_List_v1__Switch_ArtifactType": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__Explode_Project_Page",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__Explode_Journal_Page",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__Explode_Restart_Page",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__Explode_Snapshot_Page",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_List_v1__Explode_Project_Page": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__DB_Get_Project_Extension",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_List_v1__DB_Get_Project_Extension": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__Merge_Project",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_List_v1__Merge_Project": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__Combine_Hydrated_Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_List_v1__Explode_Journal_Page": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__DB_Get_Journal_Extension",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_List_v1__DB_Get_Journal_Extension": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__Merge_Journal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_List_v1__Merge_Journal": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__Combine_Hydrated_Results",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_List_v1__Explode_Restart_Page": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__DB_Get_Restart_Extension",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_List_v1__DB_Get_Restart_Extension": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__Merge_Restart",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_List_v1__Merge_Restart": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__Combine_Hydrated_Results",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_List_v1__DB_Get_Snapshot_Extension": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__Merge_Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_List_v1__Merge_Snapshot": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__Combine_Hydrated_Results",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_List_v1__Combine_Hydrated_Results": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__Format_Hydrated_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_List_v1__Format_Base_Response": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__Format_Hydrated_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_List_v1__Explode_Snapshot_Page": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__DB_Get_Snapshot_Extension",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_List_v1__DB_Get_Instruction_Pack_Extension1": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__Merge_Instruction_Pack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_List_v1__Merge_Instruction_Pack": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__Combine_Hydrated_Results",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__DB_Get_Instruction_Pack_Extension1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "v27-bug011-tags-any-filter",
+  "meta": {
+    "instanceId": "154f6928422db881044f8d1647b40fc389c59337d14356c0ee681d50ffb55d7e"
+  },
+  "id": "5s1JWWNS3pGtMrSa",
+  "tags": []
+}
