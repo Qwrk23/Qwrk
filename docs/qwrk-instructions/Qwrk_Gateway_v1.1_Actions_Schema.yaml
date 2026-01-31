@@ -1,0 +1,200 @@
+openapi: 3.1.1
+
+info:
+  title: Qwrk Gateway v1 (Dev) — Actions Schema (Full Access Alpha)
+  version: 2.2.0-dev
+  description: >
+    Custom GPT Actions schema for Qwrk Alpha front-end.
+    Supports full Gateway v1 access: query, list, save, update, promote.
+    Auth via Basic Auth against n8n Gateway v1.
+    v2.2.0: BUG-011 fix - tags as array, selector.filters.tags_any support.
+
+servers:
+  - url: https://n8n.halosparkai.com
+    description: HaloSparkAI n8n gateway host
+
+paths:
+  /webhook/nqxb/gateway/v1:
+    post:
+      operationId: qwrk_gateway_v1
+      summary: Qwrk Gateway v1 Dispatcher
+      description: >
+        Dispatches all artifact actions (query, list, save, update, promote)
+        through the Qwrk Gateway v1.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GatewayRequest'
+      responses:
+        '200':
+          description: Gateway response (success or error)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayResponse'
+
+components:
+  schemas:
+
+    # =========================
+    # Root Request / Response
+    # =========================
+
+    GatewayRequest:
+      type: object
+      required:
+        - gw_action
+        - gw_workspace_id
+        - artifact_type
+      properties:
+        gw_action:
+          type: string
+          enum:
+            - artifact.query
+            - artifact.list
+            - artifact.save
+            - artifact.update
+            - artifact.promote
+        gw_workspace_id:
+          type: string
+          format: uuid
+        artifact_type:
+          type: string
+          enum:
+            - project
+            - journal
+            - snapshot
+            - restart
+        artifact_id:
+          type: string
+          format: uuid
+          description: Required for query, update, promote
+        title:
+          type: string
+        summary:
+          type: string
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 5
+        parent_artifact_id:
+          type:
+            - string
+            - 'null'
+          format: uuid
+          description: Optional parent artifact reference. May be null or omitted.
+        tags:
+          type: array
+          items:
+            type: string
+          description: Optional array of tags for categorization. Gateway normalizes to lowercase, trimmed, deduped.
+        content:
+          type: object
+          additionalProperties: true
+          description: Optional structured content payload.
+        lifecycle_status:
+          type: string
+          description: Lifecycle status (typically set by Gateway, not client).
+        selector:
+          $ref: '#/components/schemas/Selector'
+        extension:
+          $ref: '#/components/schemas/GenericExtension'
+        transition:
+          type: string
+          enum:
+            - seed_to_sapling
+            - sapling_to_tree
+            - tree_to_retired
+            - retired_to_tree
+        reason:
+          type: string
+
+    GatewayResponse:
+      type: object
+      required:
+        - ok
+      properties:
+        ok:
+          type: boolean
+        gw_action:
+          type: string
+        artifact_type:
+          type: string
+        workspace_id:
+          type: string
+          format: uuid
+        artifact:
+          type: object
+          additionalProperties: true
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        meta:
+          type: object
+          additionalProperties: true
+        error:
+          $ref: '#/components/schemas/GatewayError'
+
+    GatewayError:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+
+    # =========================
+    # Selector
+    # =========================
+
+    Selector:
+      type: object
+      properties:
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 500
+        offset:
+          type: integer
+          minimum: 0
+        hydrate:
+          type: boolean
+        as_of:
+          type: string
+          format: date-time
+        base_only:
+          type: boolean
+        filters:
+          $ref: '#/components/schemas/SelectorFilters'
+
+    SelectorFilters:
+      type: object
+      description: Optional filters for artifact.list
+      properties:
+        tags_any:
+          type: array
+          items:
+            type: string
+          description: Return artifacts with ANY of these tags (case-insensitive)
+
+    # =========================
+    # Extension Payloads
+    # =========================
+
+    GenericExtension:
+      type: object
+      description: >
+        Generic extension payload. Type-specific validation is enforced
+        by the Gateway, not by this schema.
+      properties: {}
+      additionalProperties: true
