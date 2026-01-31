@@ -2,7 +2,12 @@
 
 **Date:** 2026-01-31
 **Priority:** High (blocking normal operations)
-**Status:** Debugging in progress
+**Status:** RESOLVED
+
+**Resolution:** Chat Memory was causing AI to skip tool calls. Fixed by:
+1. Reduced contextWindowLength temporarily to test
+2. Added "CRITICAL RULE: Always call tools" to system prompt
+3. Permanent fix deployed to Gateway_Telegram workflow
 
 ---
 
