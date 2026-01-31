@@ -1,7 +1,7 @@
 # Qwrk Bug Tracker
 
 **Created:** 2026-01-27
-**Last Updated:** 2026-01-30 (BUG-013 added — Restart artifact save fails with schema mismatch)
+**Last Updated:** 2026-02-01 (BUG-013 CLOSED — restart save fixed; S2 journal fix deployed)
 
 ---
 
@@ -357,9 +357,9 @@ Rejects legitimate spine fields: `summary`, `tags`, `content`, `parent_artifact_
 
 ### BUG-012: Project artifacts save without content/summary
 
-**Status:** Open — Confirmed, workaround documented
+**Status:** CLOSED — Fix deployed and verified 2026-02-01
 **Severity:** Medium (data loss for project descriptions; workaround exists)
-**Component:** NQxb_Artifact_Save_v1 workflow (project write-path) OR Telegram Gateway payload handling
+**Component:** NQxb_Gateway_Telegram_v1 workflow (Tool_Save_Project node)
 
 **Symptoms:**
 - `artifact.save` with `artifact_type: project` returns success with valid `artifact_id`
@@ -377,33 +377,56 @@ Rejects legitimate spine fields: `summary`, `tags`, `content`, `parent_artifact_
 
 Both projects saved via Telegram Gateway with detailed content in the save command. Telegram confirmation shows content was received, but database shows empty fields.
 
-**Possible Root Causes:**
-1. Gateway Save workflow does not map `summary` or `content` from normalized request to DB insert for projects
-2. Telegram payload parsing strips content before reaching Gateway
-3. Field mapping in `DB_Insert_Artifact_Spine` node missing project-specific content handling
+**Root Cause (CONFIRMED 2026-02-01):**
+The `Tool_Save_Project` node in `NQxb_Gateway_Telegram_v1.json` was missing a `summary` parameter:
 
-**Workaround:**
-Save a companion journal with the full content:
+```json
+// BEFORE (broken):
+"jsonBody": "{ ... \"title\": \"{title}\", \"content\": {}, ... }",
+"placeholderDefinitions": {
+  "values": [
+    { "name": "title", ... }   // <-- NO summary parameter!
+  ]
+}
 ```
-Save journal titled "Seed Content - [Project Name]": [full content here]
+
+User content after the colon was completely ignored because there was no placeholder to capture it.
+
+**Fix Applied (2026-02-01):**
+Added `summary` parameter and placeholder to `Tool_Save_Project`:
+
+```json
+// AFTER (fixed):
+"jsonBody": "{ ... \"title\": \"{title}\", \"summary\": \"{summary}\", \"content\": {}, ... }",
+"placeholderDefinitions": {
+  "values": [
+    { "name": "title", "description": "Title for the project", "type": "string" },
+    { "name": "summary", "description": "The project description or summary text", "type": "string" }
+  ]
+}
 ```
+
+**File Modified:** `phase1.5-chat-gateway/NQxb_Gateway_Telegram_v1.json`
+
+**Verification (2026-02-01):**
+1. Deployed updated workflow to n8n
+2. Test: `Save project titled "BUG-012 Test": This is a test to verify project summary persistence...`
+3. Result: `summary` field populated correctly in database
+4. No duplicate created on retrieve operation
+
+**Closed:** 2026-02-01 — Fix verified working. Projects now persist summary field via Telegram.
 
 **Related:**
-- BUG-007 (similar issue with journal `entry_text` — FIXED in v24)
-- BUG-011 (Write Contract blocks spine fields — may be related)
-
-**Investigation Required:**
-1. Check `NQxb_Artifact_Save_v1` workflow for project content mapping
-2. Compare to journal fix in v24 — may need same pattern for projects
-3. Verify if BUG-011 Write Contract restriction is blocking content at qfe layer
+- BUG-007 (similar pattern — journal `entry_text` was missing from payload mapping)
+- BUG-011 (Write Contract blocks spine fields — separate issue for qfe/ChatGPT)
 
 ---
 
 ### BUG-013: Restart artifact save fails with schema mismatch
 
-**Status:** Open — Discovered during roadmap capture
+**Status:** CLOSED — Fix deployed and verified 2026-02-01
 **Severity:** Medium (workaround: save as journal instead)
-**Component:** NQxb_Artifact_Save_v1 workflow (restart write-path) OR Telegram AI Agent
+**Component:** NQxb_Gateway_Telegram_v1 workflow (Tool_Save_Restart node)
 
 **Symptoms:**
 - `artifact.save` with `artifact_type: restart` fails at Gateway
@@ -411,28 +434,136 @@ Save journal titled "Seed Content - [Project Name]": [full content here]
 - Details: "Expected string, received object → at restart_context"
 - Snapshot saves work; journal saves work; restart saves fail
 
-**Reproduction (2026-01-30):**
-Attempted to save restart via Telegram:
-```
-Save restart titled "RESTART - Trust Restoration Week...": [content]
-```
-Error returned from Gateway node `Qwrk_AI_Agent`.
+**Root Cause (CONFIRMED 2026-02-01):**
+Two issues identified:
 
-**Possible Root Causes:**
-1. Telegram AI Agent is constructing `restart_context` as object instead of string
-2. Gateway Save workflow expects different payload shape for restarts
-3. Schema validation mismatch between Telegram parser and Gateway contract
+1. **Wrong extension path:** `Tool_Save_Restart` used `extension.restart_context` but Gateway expects `extension.payload.body` (same pattern as snapshot)
 
-**Workaround:**
-Save restart content as a journal instead:
+2. **AI type confusion:** The AI Agent sometimes passed an object instead of string for the `restart_context` parameter
+
+**Fix Applied (2026-02-01):**
+Updated `Tool_Save_Restart` to match the working snapshot pattern:
+
+```json
+// BEFORE (broken):
+"extension": { "restart_context": "{restart_context}" }
+
+// AFTER (fixed):
+"extension": { "payload": { "body": "{restart_body}" } }
 ```
-Save journal titled "RESTART - [context]": [content]
-```
-Journals save reliably and can serve same purpose for session handoffs.
+
+**Files Modified:**
+- `phase1.5-chat-gateway/NQxb_Gateway_Telegram_v1.json`
+
+**Verification (2026-02-01):**
+1. Deployed updated workflow to n8n
+2. Test: `Save restart titled "TG-TEST-S5 Restart Save": This restart tests context persistence via Telegram.`
+3. Result: UUID `dc263f11-a263-4f90-8e56-83df2a6ad781` returned
+4. Database: `payload.body` contains the content correctly
+
+**Closed:** 2026-02-01 — Restart save now works via Telegram.
 
 **Related:**
-- BUG-012 (project content not persisted — similar save-path issue)
-- BUG-007 (journal content fix in v24 — pattern may apply)
+- BUG-012 (project summary — CLOSED, same pattern)
+- BUG-014 (parent_artifact_id — CLOSED, same pattern)
+
+---
+
+### BUG-014: parent_artifact_id not persisted on artifact.save
+
+**Status:** CLOSED — Fix deployed and verified 2026-02-01
+**Severity:** Medium (blocks artifact linking; workaround: manual SQL update)
+**Component:** NQxb_Gateway_Telegram_v1 workflow (Tool_Save_Journal node)
+
+**Symptoms:**
+- User tells Telegram to "link" a companion journal to its parent seed project
+- Telegram confirms the link was set
+- `parent_artifact_id` is NULL in database on retrieval
+- Artifacts appear unrelated despite user intent
+
+**Reproduction (2026-02-01):**
+
+| Journal | Expected Parent | Actual parent_artifact_id |
+|---------|-----------------|---------------------------|
+| `d8859f6c-...` (Seed Content - Journal Mode Redesign) | `136e5384-...` | NULL |
+| `4fcf15c7-...` (Seed Content - Telegram Web + QP1) | `00e5f131-...` | NULL |
+
+Both journals created via Telegram with explicit "link to parent" instruction. Telegram confirmed link, but database shows NULL.
+
+**Root Cause (CONFIRMED 2026-02-01):**
+Same pattern as BUG-012. `Tool_Save_Journal` had no `parent_artifact_id` parameter:
+- User says "link to parent X"
+- AI acknowledges but has no way to include parent_artifact_id in payload
+- Field never sent to Gateway
+
+**Fix Applied (2026-02-01):**
+Added `parent_artifact_id` parameter to `Tool_Save_Journal`:
+
+```json
+"parent_artifact_id": "{parent_artifact_id}",
+// ...
+{ "name": "parent_artifact_id", "description": "Optional UUID of parent artifact to link this journal to", "type": "string" }
+```
+
+**File Modified:** `phase1.5-chat-gateway/NQxb_Gateway_Telegram_v1.json`
+
+**Verification (2026-02-01):**
+1. Deployed updated workflow to n8n
+2. Test: `Save journal titled "BUG-014 Test - Linked Journal": ... Link this to parent artifact 8a5d5cd1-...`
+3. Result: `parent_artifact_id` populated correctly in database
+
+**Closed:** 2026-02-01 — Fix verified working. Journals now persist parent_artifact_id via Telegram.
+
+**Related:**
+- BUG-012 (project content not persisted — CLOSED, same pattern)
+
+---
+
+### BUG-015: artifact.promote has no validation requirements
+
+**Status:** Open — Feature gap identified
+**Severity:** Medium (governance gap; allows incomplete promotions)
+**Component:** NQxb_Artifact_Promote_v1 workflow
+
+**Symptoms:**
+- `artifact.promote` from seed → sapling succeeds with no content validation
+- Projects can be promoted even with empty summary/content
+- No check for linked companion content
+- No required fields or readiness criteria enforced
+
+**Reproduction (2026-02-01):**
+```
+Promote fc09a422-a53e-4e85-b3bf-f692763bc07a to sapling
+```
+Promotion succeeded despite project having empty summary. Only lifecycle_status changed.
+
+**Expected Behavior:**
+Promotion should validate readiness criteria before allowing transition:
+
+| Transition | Proposed Requirements |
+|------------|----------------------|
+| seed → sapling | Summary OR linked content exists; intent/goal defined |
+| sapling → tree | Branches defined; acceptance criteria locked |
+| tree → oak | All branches complete; KGB verification |
+| oak → archive | Explicit archive reason |
+
+**Impact:**
+- Governance gap allows "empty" saplings
+- Lifecycle stages lose semantic meaning
+- No forcing function for content maturity
+
+**Recommended Fix:**
+1. Define formal promotion requirements per transition
+2. Add validation node to Promote workflow
+3. Return `PROMOTION_REQUIREMENTS_NOT_MET` error with missing fields
+4. Document requirements in governance
+
+**Related:**
+- North Star v0.4 (lifecycle semantics)
+- Kernel Semantics Lock (lifecycle definitions)
+
+**Deferred Work:**
+Full exercise needed to define seed → sapling → tree → oak requirements with all field/content gates.
 
 ---
 

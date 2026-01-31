@@ -1,0 +1,1801 @@
+{
+  "name": "NQxb_Artifact_Save_v1",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -3776,
+        864
+      ],
+      "id": "e808c43d-4c7d-419b-b28f-6db9e7744fad",
+      "name": "NQxb_Artifact_Save_v1__In"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Save_v1__Normalize_Request\n// Canonicalize inbound save request with field presence tracking\n// Phase 3 contract: PATCH semantics for UPDATE\n// v1.2: Lifecycle alignment for project artifacts\n// v1.3: instruction_pack DB invariant — ensure content.scope is set from extension.scope (tool-safe)\n// v1.4: Convert empty string UUIDs to null (fixes Telegram empty parent_artifact_id)\n\nconst raw = $json ?? {};\n\nconst body =\n  raw.body && typeof raw.body === \"object\" && !Array.isArray(raw.body)\n    ? raw.body\n    : null;\n\nconst req = body ?? raw;\n\nconst asObj = (v) =>\n  v && typeof v === \"object\" && !Array.isArray(v) ? v : {};\n\nconst trimStr = (v) => (typeof v === \"string\" ? v.trim() : v);\n\n// Convert empty strings to null for UUID fields (Telegram sends \"\" for optional UUIDs)\nconst uuidOrNull = (v) => (typeof v === \"string\" && v.trim() !== \"\") ? v.trim() : null;\n\nconst artifact_id = uuidOrNull(req.artifact_id);\nconst is_update = artifact_id !== null && artifact_id !== \"\";\nconst artifact_type = (req.artifact_type ?? \"\").trim();\n\n// Track which fields were explicitly provided (for PATCH semantics)\nconst provided_fields = {\n  title: \"title\" in req,\n  summary: \"summary\" in req,\n  priority: \"priority\" in req,\n  lifecycle_status: \"lifecycle_status\" in req,\n  tags: \"tags\" in req,\n  content: \"content\" in req,\n  parent_artifact_id: \"parent_artifact_id\" in req,\n};\n\n// Lifecycle alignment for project artifacts (requirement #3)\nlet lifecycle_status = req.lifecycle_status ?? null;\nif (artifact_type === \"project\" && !is_update) {\n  // For project INSERT, align lifecycle_status with lifecycle_stage\n  const lifecycle_stage = req.extension?.lifecycle_stage;\n\n  if (lifecycle_stage && !lifecycle_status) {\n    // Copy lifecycle_stage to lifecycle_status if status not provided\n    lifecycle_status = lifecycle_stage;\n  }\n}\n\n// Canonicalize spine fields safely\nconst tags_obj = asObj(req.tags);\nconst content_obj = asObj(req.content);\nconst extension_obj = asObj(req.extension);\n\nconst canonical = {\n  gw_action: req.gw_action ?? \"artifact.save\",\n  gw_workspace_id: req.gw_workspace_id ?? null,\n  artifact_type: artifact_type,\n  artifact_id: artifact_id,\n  is_update: is_update,\n\n  // Owner (required for INSERT, ignored for UPDATE)\n  owner_user_id: req.owner_user_id ?? null,\n\n  // Spine fields\n  title: req.title ?? null,\n  summary: req.summary ?? null,\n  priority: req.priority ?? null,\n  lifecycle_status: lifecycle_status,\n  tags: tags_obj,\n  content: content_obj,\n  parent_artifact_id: uuidOrNull(req.parent_artifact_id),\n\n  // Extension fields (type-specific, passed as-is)\n  extension: extension_obj,\n\n  // Metadata for PATCH semantics\n  _provided_fields: provided_fields,\n};\n\n/**\n * instruction_pack DB invariant:\n * DB check constraint requires qxb_artifact.content.scope (non-empty) for instruction_pack.\n * The tool boundary may block/strip top-level content, so we enforce here from extension.scope.\n */\nif (canonical.artifact_type === \"instruction_pack\") {\n  const scope = (canonical.extension?.scope ?? \"\").toString().trim();\n  if (scope) {\n    // Force/overwrite content.scope to satisfy DB invariant\n    if (!canonical.content || typeof canonical.content !== \"object\" || Array.isArray(canonical.content)) {\n      canonical.content = {};\n    }\n    canonical.content.scope = scope;\n  }\n}\n\n// Debug (kept minimal + stable)\ncanonical._gw_debug = {\n  received_shape: body ? \"body\" : \"flat\",\n  operation: is_update ? \"UPDATE\" : \"INSERT\",\n  lifecycle_aligned:\n    artifact_type === \"project\" &&\n    !is_update &&\n    lifecycle_status !== req.lifecycle_status,\n  injected_content_scope:\n    canonical.artifact_type === \"instruction_pack\"\n      ? (canonical.content?.scope ?? null)\n      : null,\n};\n\nreturn [{ json: canonical }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3552,
+        864
+      ],
+      "id": "70ca00ae-ae20-49ae-b18d-72c908514b02",
+      "name": "NQxb_Artifact_Save_v1__Normalize_Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Save_v1__Validate_Request\n// Comprehensive validation with consistent envelope + explicit ok flag for routing\n// v2.0: Removed hardcoded validTypes array - now uses Type Registry Guard\n// v2.1: Added instruction_pack INSERT validation (scope/active/priority/pack_format)\n\nconst req = $json;\nconst errors = [];\n\n// Helpers\nconst isNonEmptyString = (v) => typeof v === 'string' && v.trim() !== '';\nconst trimOrNull = (v) => (typeof v === 'string' ? v.trim() : v ?? null);\n\n// Always required\nif (!isNonEmptyString(req.gw_workspace_id)) {\n  errors.push({ field: 'gw_workspace_id', reason: 'required' });\n}\n\nif (!isNonEmptyString(req.artifact_type)) {\n  errors.push({ field: 'artifact_type', reason: 'required' });\n}\n\nconst artifact_type = trimOrNull(req.artifact_type);\nconst is_update = req.is_update === true;\n\n// NOTE: artifact_type allow-list validation REMOVED\n// Type Registry Guard now handles this check downstream\n\n// Operation-specific requirements\nif (is_update) {\n  // UPDATE requirements\n  if (!isNonEmptyString(req.artifact_id)) {\n    errors.push({ field: 'artifact_id', reason: 'required for UPDATE operation' });\n  }\n\n  // If title is provided for UPDATE, it must be non-empty\n  if (req._provided_fields?.title && !isNonEmptyString(req.title)) {\n    errors.push({ field: 'title', reason: 'if provided for UPDATE, must be non-empty' });\n  }\n} else {\n  // INSERT requirements\n  if (!isNonEmptyString(req.owner_user_id)) {\n    errors.push({ field: 'owner_user_id', reason: 'required for INSERT operation' });\n  }\n\n  if (!isNonEmptyString(req.title)) {\n    errors.push({ field: 'title', reason: 'required for INSERT operation' });\n  }\n}\n\n// Type-specific validation\nif (artifact_type === 'project') {\n  if (!is_update) {\n    if (!isNonEmptyString(req.extension?.lifecycle_stage)) {\n      errors.push({ field: 'extension.lifecycle_stage', reason: 'required for project INSERT' });\n    }\n  }\n} else if (artifact_type === 'restart' || artifact_type === 'snapshot') {\n  if (!is_update) {\n    if (\n      !req.extension?.payload ||\n      typeof req.extension.payload !== 'object' ||\n      Array.isArray(req.extension.payload)\n    ) {\n      errors.push({\n        field: 'extension.payload',\n        reason: `required for ${artifact_type} INSERT (must be object)`,\n      });\n    }\n  }\n} else if (artifact_type === 'instruction_pack') {\n  if (!is_update) {\n    // Required extension metadata for instruction_pack INSERT (matches qxb_artifact_instruction_pack schema)\n    if (!isNonEmptyString(req.extension?.scope)) {\n      errors.push({ field: 'extension.scope', reason: 'required for instruction_pack INSERT' });\n    }\n\n    if (typeof req.extension?.active !== 'boolean') {\n      errors.push({\n        field: 'extension.active',\n        reason: 'required for instruction_pack INSERT (boolean)',\n      });\n    }\n\n    if (typeof req.extension?.priority !== 'number') {\n      errors.push({\n        field: 'extension.priority',\n        reason: 'required for instruction_pack INSERT (number)',\n      });\n    }\n\n    if (!isNonEmptyString(req.extension?.pack_format)) {\n      errors.push({\n        field: 'extension.pack_format',\n        reason: 'required for instruction_pack INSERT',\n      });\n    }\n  }\n}\n\n// If validation failed, return standardized error envelope\nif (errors.length > 0) {\n  return [\n    {\n      json: {\n        ok: false,\n        _gw_route: 'error',\n        gw_action: req.gw_action ?? null,\n        gw_workspace_id: req.gw_workspace_id ?? null,\n        artifact_type: artifact_type ?? null,\n        artifact_id: req.artifact_id ?? null,\n        is_update,\n        error: {\n          code: 'VALIDATION_ERROR',\n          message: `Validation failed for artifact.save operation (${is_update ? 'UPDATE' : 'INSERT'})`,\n          details: {\n            validation_errors: errors,\n            artifact_type: artifact_type ?? null,\n            operation: is_update ? 'UPDATE' : 'INSERT',\n          },\n        },\n      },\n    },\n  ];\n}\n\n// Valid — return explicit ok=true + pass-through request for downstream steps\nreturn [\n  {\n    json: {\n      ok: true,\n      _gw_route: 'ok',\n      ...req,\n    },\n  },\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3104,
+        864
+      ],
+      "id": "794a1b59-b3bc-4859-a75f-ee386016a320",
+      "name": "NQxb_Artifact_Save_v1__Validate_Request"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.is_update }}",
+                    "rightValue": "true",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true"
+                    },
+                    "id": "update-path"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "insert-path",
+                    "leftValue": "={{ $json.is_update }}",
+                    "rightValue": "false",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "false"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -1536,
+        864
+      ],
+      "id": "608a8f99-c5fd-47d8-99fb-cd1077824bc2",
+      "name": "NQxb_Artifact_Save_v1__Switch_InsertOrUpdate"
+    },
+    {
+      "parameters": {
+        "tableId": "qxb_artifact",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "workspace_id",
+              "fieldValue": "={{ $json.gw_workspace_id }}"
+            },
+            {
+              "fieldId": "owner_user_id",
+              "fieldValue": "={{ $json.owner_user_id }}"
+            },
+            {
+              "fieldId": "artifact_type",
+              "fieldValue": "={{ $json.artifact_type }}"
+            },
+            {
+              "fieldId": "title",
+              "fieldValue": "={{ $json.title }}"
+            },
+            {
+              "fieldId": "summary",
+              "fieldValue": "={{ $json.summary }}"
+            },
+            {
+              "fieldId": "priority",
+              "fieldValue": "={{ $json.priority }}"
+            },
+            {
+              "fieldId": "tags",
+              "fieldValue": "={{ $json.tags }}"
+            },
+            {
+              "fieldId": "content",
+              "fieldValue": "={{ $json.content }}"
+            },
+            {
+              "fieldId": "parent_artifact_id",
+              "fieldValue": "={{ $json.parent_artifact_id }}"
+            },
+            {
+              "fieldId": "lifecycle_status",
+              "fieldValue": "={{ $json.lifecycle_status }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1280,
+        544
+      ],
+      "id": "26148f51-24f6-4ae7-bb3b-a563d4aa4eba",
+      "name": "NQxb_Artifact_Save_v1__DB_Insert_Spine",
+      "alwaysOutputData": false,
+      "retryOnFail": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Save_v1__Normalize_Saved_ID\n// Purpose: Extract artifact_id from Supabase INSERT response AND carry forward\n// key request fields needed by downstream nodes (like lifecycle_stage).\n\nconst raw = $json ?? {};\n\n// Pull request (canonical) from Normalize_Request node so we don't lose context\nconst req = $node[\"NQxb_Artifact_Save_v1__Normalize_Request\"]?.json ?? {};\n\n// Try multiple possible locations for artifact_id in Supabase responses\nconst saved_artifact_id =\n  raw.artifact_id ||\n  raw.id ||\n  raw.data?.[0]?.artifact_id ||\n  raw.data?.[0]?.id ||\n  null;\n\nif (!saved_artifact_id) {\n  return [\n    {\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"SAVE_ID_MISSING\",\n          message: \"Could not extract saved artifact_id from Supabase INSERT response\",\n          details: {\n            keys_present: Object.keys(raw),\n          },\n        },\n      },\n    },\n  ];\n}\n\n// Output: keep insert response, AND carry forward lifecycle fields for downstream use\nreturn [\n  {\n    json: {\n      saved_artifact_id,\n      lifecycle_stage: req.extension?.lifecycle_stage ?? null,\n      operational_status: req.extension?.operational_state?.status ?? \"active\",\n      state_reason: req.extension?.state_reason ?? null,\n      _insert_response: raw,\n    },\n  },\n];\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -960,
+        320
+      ],
+      "id": "a79103af-db26-40a9-9d43-b72181c77bef",
+      "name": "NQxb_Artifact_Save_v1__Normalize_Saved_ID"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ ($node['NQxb_Artifact_Save_v1__Normalize_Request'].json.artifact_type ?? '').trim() }}",
+                    "rightValue": "project",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "type-project"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "type-journal",
+                    "leftValue": "={{ ($node['NQxb_Artifact_Save_v1__Normalize_Request'].json.artifact_type ?? '').trim() }}",
+                    "rightValue": "journal",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "type-restart",
+                    "leftValue": "={{ ($node['NQxb_Artifact_Save_v1__Normalize_Request'].json.artifact_type ?? '').trim() }}",
+                    "rightValue": "restart",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "type-snapshot",
+                    "leftValue": "={{ ($node['NQxb_Artifact_Save_v1__Normalize_Request'].json.artifact_type ?? '').trim() }}",
+                    "rightValue": "snapshot",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "56b89fe0-bbf9-4a26-b5eb-87b8688fff53",
+                    "leftValue": "={{ ($node['NQxb_Artifact_Save_v1__Normalize_Request'].json.artifact_type ?? '').trim() }}",
+                    "rightValue": "instruction_pack",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -608,
+        672
+      ],
+      "id": "7c0567ad-eab2-478a-a221-9868d164ad68",
+      "name": "NQxb_Artifact_Save_v1__Switch_Type_For_Insert"
+    },
+    {
+      "parameters": {
+        "tableId": "qxb_artifact_project",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "artifact_id",
+              "fieldValue": "={{ $json.saved_artifact_id }}"
+            },
+            {
+              "fieldId": "lifecycle_stage",
+              "fieldValue": "={{ $json.lifecycle_stage }}"
+            },
+            {
+              "fieldId": "operational_state",
+              "fieldValue": "={{ $json.operational_status }}"
+            },
+            {
+              "fieldId": "state_reason",
+              "fieldValue": "={{ $json.state_reason }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -384,
+        336
+      ],
+      "id": "344ee34e-7030-42e4-9f04-0e1187ac8f45",
+      "name": "NQxb_Artifact_Save_v1__DB_Insert_Project_Extension",
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check immutability for UPDATE operations\n// Return error envelope instead of throwing\n\nconst artifact_type = ($node['NQxb_Artifact_Save_v1__Normalize_Request'].json.artifact_type ?? '').trim();\n\nif (artifact_type === 'restart' || artifact_type === 'snapshot') {\n  return [\n    {\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"IMMUTABILITY_ERROR\",\n          message: `Artifact type '${artifact_type}' is immutable and cannot be updated. Only INSERT operations are allowed.`,\n          details: {\n            artifact_type: artifact_type,\n            artifact_id: $json.artifact_id,\n            operation_attempted: 'UPDATE',\n          },\n        },\n      },\n    },\n  ];\n}\n\n// Pass through if mutable type\nreturn [$input.item];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1312,
+        1440
+      ],
+      "id": "43fec734-d542-4b2c-8e37-692654f86f19",
+      "name": "NQxb_Artifact_Save_v1__Check_Immutability"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "qxb_artifact",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_id",
+              "keyValue": "={{ $json.artifact_id }}"
+            },
+            {
+              "keyName": "workspace_id",
+              "keyValue": "={{ $json.gw_workspace_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1088,
+        1440
+      ],
+      "id": "45c2f688-84fe-46e5-8779-1cac614ead88",
+      "name": "NQxb_Artifact_Save_v1__Fetch_Existing_Spine",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check if artifact exists, return NOT_FOUND if not\n// Implement PATCH semantics: merge request with existing values\n\nconst existing = $json;\nconst normalizeNode = $node['NQxb_Artifact_Save_v1__Normalize_Request'].json;\n\n// Check if artifact was found\nif (!existing || !existing.artifact_id) {\n  return [\n    {\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"NOT_FOUND\",\n          message: \"Artifact not found for UPDATE operation\",\n          details: {\n            artifact_id: normalizeNode.artifact_id,\n            workspace_id: normalizeNode.gw_workspace_id,\n            operation: 'UPDATE',\n          },\n        },\n      },\n    },\n  ];\n}\n\n// PATCH semantics: merge provided fields with existing\nconst provided = normalizeNode._provided_fields || {};\n\nconst merged = {\n  artifact_id: existing.artifact_id,\n  workspace_id: existing.workspace_id,\n  artifact_type: existing.artifact_type,\n  owner_user_id: existing.owner_user_id,\n  \n  // PATCH: only update if provided\n  title: provided.title ? normalizeNode.title : existing.title,\n  summary: provided.summary ? normalizeNode.summary : existing.summary,\n  priority: provided.priority ? normalizeNode.priority : existing.priority,\n  lifecycle_status: provided.lifecycle_status ? normalizeNode.lifecycle_status : existing.lifecycle_status,\n  tags: provided.tags ? normalizeNode.tags : existing.tags,\n  content: provided.content ? normalizeNode.content : existing.content,\n  parent_artifact_id: provided.parent_artifact_id ? normalizeNode.parent_artifact_id : existing.parent_artifact_id,\n  \n  // Pass through normalized request for downstream nodes\n  _normalized_request: normalizeNode,\n  _existing_artifact: existing,\n};\n\nreturn [{ json: merged }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -864,
+        1440
+      ],
+      "id": "e21c4f65-e861-4d06-80b0-c95218095dac",
+      "name": "NQxb_Artifact_Save_v1__Merge_PATCH_Spine"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "qxb_artifact",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_id",
+              "keyValue": "={{ $json.artifact_id }}"
+            },
+            {
+              "keyName": "workspace_id",
+              "keyValue": "={{ $json.workspace_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "title",
+              "fieldValue": "={{ $json.title }}"
+            },
+            {
+              "fieldId": "summary",
+              "fieldValue": "={{ $json.summary }}"
+            },
+            {
+              "fieldId": "priority",
+              "fieldValue": "={{ $json.priority }}"
+            },
+            {
+              "fieldId": "lifecycle_status",
+              "fieldValue": "={{ $json.lifecycle_status }}"
+            },
+            {
+              "fieldId": "parent_artifact_id",
+              "fieldValue": "={{ $json.parent_artifact_id }}"
+            },
+            {
+              "fieldId": "tags",
+              "fieldValue": "={{ $json.tags }}"
+            },
+            {
+              "fieldId": "content",
+              "fieldValue": "={{ $json.content }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        1440
+      ],
+      "id": "f2499f96-525d-4830-9acb-9f4aa6d4529e",
+      "name": "NQxb_Artifact_Save_v1__DB_Update_Spine",
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ ($node['NQxb_Artifact_Save_v1__Normalize_Request'].json.artifact_type ?? '').trim() }}",
+                    "rightValue": "project",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "update-project"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "update-journal",
+                    "leftValue": "={{ ($node['NQxb_Artifact_Save_v1__Normalize_Request'].json.artifact_type ?? '').trim() }}",
+                    "rightValue": "journal",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -416,
+        1440
+      ],
+      "id": "a51ffc9d-a38e-4eb5-bd72-230655857753",
+      "name": "NQxb_Artifact_Save_v1__Switch_Type_For_Update"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "qxb_artifact_project",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_id",
+              "keyValue": "={{ $node['NQxb_Artifact_Save_v1__Normalize_Request'].json.artifact_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -192,
+        1248
+      ],
+      "id": "6de822a3-7759-4d09-9788-ef822bd01dc2",
+      "name": "NQxb_Artifact_Save_v1__Fetch_Existing_Project_Extension",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "extension-exists",
+              "leftValue": "={{ $json.artifact_id ? true : false }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        32,
+        1248
+      ],
+      "id": "cfa77962-c581-43ff-94e9-0d0ba8518ff3",
+      "name": "NQxb_Artifact_Save_v1__Check_Project_Extension_Exists"
+    },
+    {
+      "parameters": {
+        "jsCode": "// PATCH semantics for project extension\n\nconst existing = $json;\nconst normalizeNode = $node['NQxb_Artifact_Save_v1__Normalize_Request'].json;\nconst extension = normalizeNode.extension || {};\n\n// Merge: only update fields that were explicitly provided in extension\nconst hasLifecycleStage = 'lifecycle_stage' in extension;\nconst hasOperationalState = 'operational_state' in extension;\nconst hasStateReason = 'state_reason' in extension;\n\nconst merged = {\n  artifact_id: normalizeNode.artifact_id,\n  lifecycle_stage: hasLifecycleStage ? extension.lifecycle_stage : (existing?.lifecycle_stage || null),\n  operational_state: hasOperationalState ? extension.operational_state : (existing?.operational_state || 'active'),\n  state_reason: hasStateReason ? extension.state_reason : (existing?.state_reason || null),\n};\n\nreturn [{ json: merged }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        256,
+        1152
+      ],
+      "id": "a92c29dd-9906-44d1-a457-e4e18b0e86e8",
+      "name": "NQxb_Artifact_Save_v1__Merge_PATCH_Project_Extension"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Create missing project extension row with defaults\n// Requirement #4: UPSERT behavior for UPDATE operations\n\nconst normalizeNode = $node['NQxb_Artifact_Save_v1__Normalize_Request'].json;\nconst extension = normalizeNode.extension || {};\n\n// Use provided values or defaults\nconst merged = {\n  artifact_id: normalizeNode.artifact_id,\n  lifecycle_stage: extension.lifecycle_stage || 'seed',\n  operational_state: extension.operational_state || 'active',\n  state_reason: extension.state_reason || null,\n};\n\nreturn [{ json: merged }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        256,
+        1344
+      ],
+      "id": "c8b04a19-21cd-4a25-bb33-f9a769a2a7fc",
+      "name": "NQxb_Artifact_Save_v1__Prepare_Insert_Missing_Project_Extension"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "qxb_artifact_project",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_id",
+              "keyValue": "={{ $json.artifact_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "lifecycle_stage",
+              "fieldValue": "={{ $json.lifecycle_stage }}"
+            },
+            {
+              "fieldId": "operational_state",
+              "fieldValue": "={{ $json.operational_state }}"
+            },
+            {
+              "fieldId": "state_reason",
+              "fieldValue": "={{ $json.state_reason }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        480,
+        1152
+      ],
+      "id": "91bc3a39-6f3f-4d9d-bd7e-a7203dad2b4c",
+      "name": "NQxb_Artifact_Save_v1__DB_Update_Project_Extension",
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert"
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        480,
+        1344
+      ],
+      "id": "31a1ca2f-63c6-458c-9fae-4a935e325f05",
+      "name": "NQxb_Artifact_Save_v1__DB_Insert_Missing_Project_Extension",
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "qxb_artifact_journal",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_id",
+              "keyValue": "={{ $node['NQxb_Artifact_Save_v1__Normalize_Request'].json.artifact_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -192,
+        1632
+      ],
+      "id": "6d4cbe9c-fcab-4d34-badc-02c295372abb",
+      "name": "NQxb_Artifact_Save_v1__Fetch_Existing_Journal_Extension",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "journal-extension-exists",
+              "leftValue": "={{ $json.artifact_id ? true : false }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        32,
+        1632
+      ],
+      "id": "7f54ad3b-19c2-403d-986e-adb5e8ab9ea4",
+      "name": "NQxb_Artifact_Save_v1__Check_Journal_Extension_Exists"
+    },
+    {
+      "parameters": {
+        "jsCode": "// PATCH semantics for journal extension\n\nconst existing = $json;\nconst normalizeNode = $node['NQxb_Artifact_Save_v1__Normalize_Request'].json;\nconst extension = normalizeNode.extension || {};\n\nconst hasEntryText = 'entry_text' in extension;\nconst hasPayload = 'payload' in extension;\n\nconst merged = {\n  artifact_id: normalizeNode.artifact_id,\n  entry_text: hasEntryText ? extension.entry_text : (existing?.entry_text || null),\n  payload: hasPayload ? extension.payload : (existing?.payload || null),\n};\n\nreturn [{ json: merged }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        256,
+        1536
+      ],
+      "id": "2509844e-29a7-4fa2-bda6-8a519479b9cc",
+      "name": "NQxb_Artifact_Save_v1__Merge_PATCH_Journal_Extension"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Create missing journal extension row with defaults\n// Requirement #4: UPSERT behavior for UPDATE operations\n\nconst normalizeNode = $node['NQxb_Artifact_Save_v1__Normalize_Request'].json;\nconst extension = normalizeNode.extension || {};\n\nconst merged = {\n  artifact_id: normalizeNode.artifact_id,\n  entry_text: extension.entry_text || null,\n  payload: extension.payload || null,\n};\n\nreturn [{ json: merged }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        256,
+        1728
+      ],
+      "id": "215a95ac-7e99-44b5-bf41-87e295222f33",
+      "name": "NQxb_Artifact_Save_v1__Prepare_Insert_Missing_Journal_Extension"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "qxb_artifact_journal",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_id",
+              "keyValue": "={{ $json.artifact_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "entry_text",
+              "fieldValue": "={{ $json.entry_text }}"
+            },
+            {
+              "fieldId": "payload",
+              "fieldValue": "={{ $json.payload }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        480,
+        1536
+      ],
+      "id": "c9073119-7b43-4887-8e3f-a8578593add4",
+      "name": "NQxb_Artifact_Save_v1__DB_Update_Journal_Extension",
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert"
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        480,
+        1728
+      ],
+      "id": "d17dabd4-4f47-46a3-81ce-6746492e8f61",
+      "name": "NQxb_Artifact_Save_v1__DB_Insert_Missing_Journal_Extension",
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.ok }}",
+                    "rightValue": false,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    },
+                    "id": "12e7bd7d-6f27-4c56-8683-b31eef48af24"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "f74a4bf1-326a-4ba1-8ca5-eb24e04f63e2",
+                    "leftValue": "={{ $json.ok }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -2432,
+        864
+      ],
+      "id": "72321532-6d80-47fd-9a81-33ac9d40bea4",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "tableId": "qxb_artifact_journal",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "artifact_id",
+              "fieldValue": "={{ $json.saved_artifact_id }}"
+            },
+            {
+              "fieldId": "entry_text",
+              "fieldValue": "={{ $node[\"NQxb_Artifact_Save_v1__Normalize_Request\"].json.extension.entry_text }}"
+            },
+            {
+              "fieldId": "payload",
+              "fieldValue": "={{ $node[\"NQxb_Artifact_Save_v1__Normalize_Request\"].json.extension.payload }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -384,
+        528
+      ],
+      "id": "27db8ef2-7c8c-4f7c-8934-5ee3d0b7fde0",
+      "name": "NQxb_Artifact_Save_v1__DB_Insert_Journal_Extension1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "qxb_artifact_snapshot",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "artifact_id",
+              "fieldValue": "={{ $json.saved_artifact_id }}"
+            },
+            {
+              "fieldId": "payload",
+              "fieldValue": "={{$node[\"NQxb_Artifact_Save_v1__Freeze_Extension_Payload\"].json._frozen_extension_payload}}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -384,
+        912
+      ],
+      "id": "1c822900-e22c-48c9-ac59-428e50c2c7f0",
+      "name": "NQxb_Artifact_Save_v1__DB_Insert_Snapshot_Extension1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "qxb_artifact_restart",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "artifact_id",
+              "fieldValue": "={{ $json.saved_artifact_id }}"
+            },
+            {
+              "fieldId": "payload",
+              "fieldValue": "={{$node[\"NQxb_Artifact_Save_v1__Freeze_Extension_Payload\"].json._frozen_extension_payload}}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -384,
+        720
+      ],
+      "id": "fbdf7dc6-2259-4304-94ea-7115204bfc39",
+      "name": "NQxb_Artifact_Save_v1__DB_Insert_Restart_Extension",
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Save_v1__Return_Response\n// FIX: fail-closed, never ok:true without a real artifact_id\n// FIX: preserve upstream error envelopes\n// FIX: map Supabase unique-violation (23505 / 409 / duplicate key) => CONFLICT (allow-listed)\n// FIX: handle \"ok:true but error:string\" (common with Supabase node + continueErrorOutput)\n// FIX: map IMMUTABILITY_ERROR => IMMUTABLE_RECORD (allow-listed)\n// NOTE: Error codes MUST come from locked allow-list (Phase 3 contract)\n\nconst j = $json ?? {};\nconst now = new Date().toISOString();\n\n// Locked allow-list (Phase 3 contract)\nconst ALLOWED_ERROR_CODES = new Set([\n  'AUTH_REQUIRED',\n  'WORKSPACE_FORBIDDEN',\n  'ARTIFACT_TYPE_NOT_ALLOWED',\n  'ACTION_NOT_ALLOWED',\n  'VALIDATION_ERROR',\n  'NOT_FOUND',\n  'CONFLICT',\n  'IMMUTABLE_RECORD',\n  'LIFECYCLE_TRANSITION_NOT_ALLOWED',\n  'SNAPSHOT_REQUIRED',\n  'INTERNAL_ERROR',\n]);\n\n// Helpers\nconst safeStr = (v) => (typeof v === 'string' ? v : v == null ? null : String(v));\nconst coalesce = (...vals) => {\n  for (const v of vals) if (v !== undefined && v !== null) return v;\n  return null;\n};\n\nconst isUniqueViolationText = (s) => {\n  const txt = (s ?? '').toString();\n  return (\n    txt.includes('\"code\":\"23505\"') ||\n    txt.includes('23505') ||\n    txt.toLowerCase().includes('duplicate key value violates unique constraint') ||\n    txt.toLowerCase().includes('violates unique constraint') ||\n    txt.toLowerCase().includes('unique constraint')\n  );\n};\n\nconst ctxNormalize = (() => {\n  try {\n    return $node['NQxb_Artifact_Save_v1__Normalize_Request']?.json ?? {};\n  } catch (e) {\n    return {};\n  }\n})();\n\nconst gw_action = coalesce(j.gw_action, ctxNormalize.gw_action, 'artifact.save');\n\n// Workspace id may appear as gw_workspace_id or workspace_id depending on stage\nconst workspace_id = coalesce(\n  j.gw_workspace_id,\n  j.workspace_id,\n  ctxNormalize.gw_workspace_id,\n  ctxNormalize.workspace_id\n);\n\nconst artifact_type = coalesce(j.saved_artifact_type, j.artifact_type, ctxNormalize.artifact_type);\n\n// ---- helper: build a proper error envelope with allow-list enforcement\nconst buildErrorEnvelope = ({ code, message, details, artifact_id = null }) => {\n  // Map known non-allowlisted internal codes into allowlist\n  let mapped = code;\n  if (mapped === 'IMMUTABILITY_ERROR') mapped = 'IMMUTABLE_RECORD';\n\n  const finalCode = ALLOWED_ERROR_CODES.has(mapped) ? mapped : 'INTERNAL_ERROR';\n\n  return [\n    {\n      json: {\n        ok: false,\n        _gw_route: 'error',\n        gw_action,\n        gw_workspace_id: workspace_id,\n        artifact_type,\n        artifact_id,\n        error: {\n          code: finalCode,\n          message: safeStr(message) ?? 'Gateway error',\n          details:\n            finalCode === mapped\n              ? (details ?? {})\n              : {\n                  original: { code, message, details },\n                  note: 'Error code not allow-listed; mapped to INTERNAL_ERROR',\n                },\n        },\n        timestamp: now,\n      },\n    },\n  ];\n};\n\n// 1) If upstream already produced an error envelope, preserve it (but enforce allow-list)\nif (j && (j.ok === false || j._gw_route === 'error')) {\n  const upstreamErr = j.error ?? {};\n  const upstreamCodeRaw = safeStr(upstreamErr.code);\n\n  // Special: map immutability into allowlist code\n  const upstreamCode =\n    upstreamCodeRaw === 'IMMUTABILITY_ERROR' ? 'IMMUTABLE_RECORD' : upstreamCodeRaw;\n\n  const code = ALLOWED_ERROR_CODES.has(upstreamCode) ? upstreamCode : 'INTERNAL_ERROR';\n  const message = safeStr(upstreamErr.message) ?? 'Gateway error';\n  const details = upstreamErr.details ?? {};\n\n  return [\n    {\n      json: {\n        ...j,\n        ok: false,\n        _gw_route: 'error',\n        gw_action,\n        gw_workspace_id: workspace_id,\n        artifact_type,\n        error: {\n          code,\n          message,\n          details: ALLOWED_ERROR_CODES.has(upstreamCode)\n            ? details\n            : {\n                original_error: upstreamErr,\n                note: 'Upstream error code was not allow-listed; mapped to INTERNAL_ERROR',\n              },\n        },\n        timestamp: now,\n      },\n    },\n  ];\n}\n\n// 2) n8n failure object (Continue On Fail output)\nif (j && (j.errorMessage || j.errorDescription || j.errorDetails || j.n8nDetails)) {\n  const httpCodeRaw = j.errorDetails?.httpCode;\n  const httpCode = Number(httpCodeRaw ?? NaN);\n\n  const raw = Array.isArray(j.errorDetails?.rawErrorMessage)\n    ? j.errorDetails.rawErrorMessage.join(' ')\n    : safeStr(j.errorDetails?.rawErrorMessage) ?? '';\n\n  const isUnique = (httpCode === 409) || isUniqueViolationText(raw);\n\n  const code = isUnique ? 'CONFLICT' : 'INTERNAL_ERROR';\n  const message = safeStr(j.errorDescription) ?? safeStr(j.errorMessage) ?? 'Request failed';\n\n  return buildErrorEnvelope({\n    code,\n    message,\n    details: {\n      httpCode: Number.isFinite(httpCode) ? httpCode : null,\n      rawErrorMessage: j.errorDetails?.rawErrorMessage ?? null,\n      n8nDetails: j.n8nDetails ?? null,\n    },\n  });\n}\n\n// 2a) IMPORTANT: Supabase node + continueErrorOutput often yields:\n// ok:true, _gw_route:'ok', artifact_id:null, error:'duplicate key value ...'\nif (typeof j.error === 'string' && j.error.trim() !== '') {\n  const errText = j.error.trim();\n  const code = isUniqueViolationText(errText) ? 'CONFLICT' : 'INTERNAL_ERROR';\n\n  return buildErrorEnvelope({\n    code,\n    message: isUniqueViolationText(errText)\n      ? 'Conflict: unique constraint violation'\n      : 'Upstream database error',\n    details: {\n      rawErrorMessage: errText,\n      note: 'Received ok:true with error:string (likely Supabase node error output)',\n    },\n  });\n}\n\n// 3) Normal success response\nconst isUpdate = j.is_update === true;\nconst op = isUpdate ? 'UPDATE' : 'INSERT';\n\nconst artifact_id = coalesce(j.saved_artifact_id, j.artifact_id);\nconst extension = j.extension ?? null;\n\n// FAIL-CLOSED: no artifact_id => INTERNAL_ERROR\nif (!artifact_id) {\n  return buildErrorEnvelope({\n    code: 'INTERNAL_ERROR',\n    message: 'artifact.save completed response stage without a valid artifact_id (fail-closed)',\n    details: {\n      operation: op,\n      note: 'Upstream insert/update did not yield an artifact_id; refusing to return ok:true',\n      keys_present: Object.keys(j ?? {}),\n    },\n  });\n}\n\nreturn [\n  {\n    json: {\n      ok: true,\n      gw_action,\n      artifact_id,\n      artifact_type,\n      workspace_id,\n      operation: op,\n      extension,\n      _owner_source: j._owner_source ?? null,\n      timestamp: now,\n    },\n  },\n];\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        1344
+      ],
+      "id": "0c91f05d-68fd-4ea6-81f4-45add603b680",
+      "name": "NQxb_Artifact_Save_v1__Return_Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Save_v1__Freeze_Extension_Payload\n// Freeze extension.payload early so later DB nodes cannot wipe it.\n\nconst payload =\n  $json?.extension && typeof $json.extension === \"object\" && !Array.isArray($json.extension)\n    ? ($json.extension.payload ?? {})\n    : {};\n\nreturn [\n  {\n    json: {\n      ...($json ?? {}),\n      _frozen_extension_payload: payload,\n    },\n  },\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2656,
+        864
+      ],
+      "id": "89ab5c7e-2ad8-4f52-a089-0c4e71b508de",
+      "name": "NQxb_Artifact_Save_v1__Freeze_Extension_Payload"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Save_v1__Derive_Owner_From_Auth\n// Derive owner_user_id from authenticated principal (Basic Auth username).\n// Ignore caller-supplied owner_user_id for INSERT safety.\n\nconst j = $json ?? {};\n\n// If already present (e.g., internal calls), keep it.\n// But for external callers, we will overwrite based on auth when possible.\nconst authUser =\n  j._gw_debug?.auth_username ??\n  j._gw_debug?.basic_username ??\n  null;\n\nif (!authUser) {\n  // No auth principal available -> cannot derive owner.\n  // Leave owner_user_id untouched and let validation fail with a clear reason.\n  j._owner_source = \"missing_auth_username\";\n  return [{ json: j }];\n}\n\n// MVP mapping: Basic Auth user -> qxb_user.user_id (known-good)\nif (authUser === \"qwrk-gateway\") {\n  j.owner_user_id = \"c52c7a57-74ad-433d-a07c-4dcac1778672\";\n  j._owner_source = \"auth_username_map\";\n  return [{ json: j }];\n}\n\n// Unknown auth user; let validation fail or add more mappings later\nj._owner_source = `no_mapping:${authUser}`;\nreturn [{ json: j }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2880,
+        864
+      ],
+      "id": "33093283-f6eb-475d-bcca-c84c2c0ec792",
+      "name": "NQxb_Artifact_Save_v1__Derive_Owner_From_Auth"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Save_v1__Set_Owner_User_ID_MVP\n// MVP: webhook is Basic-Auth protected; n8n does not expose auth principal reliably.\n// Treat this endpoint as a single trusted service principal.\n// Caller-supplied owner_user_id is ignored for INSERT.\n\nconst j = $json ?? {};\n\n// Determine operation (INSERT vs UPDATE)\nconst is_update =\n  typeof j.is_update === \"boolean\"\n    ? j.is_update\n    : false;\n\n// Only force owner for INSERT\nif (!is_update) {\n  j.owner_user_id = \"c52c7a57-74ad-433d-a07c-4dcac1778672\";\n\n  // Set and FREEZE owner source so it survives downstream $json overwrites\n  j._owner_source = \"mvp_service_principal\";\n  j._frozen_owner_source = \"mvp_service_principal\";\n} else {\n  // For UPDATE, do not change owner\n  j._owner_source = j._owner_source ?? \"update_no_change\";\n  j._frozen_owner_source = j._frozen_owner_source ?? j._owner_source;\n}\n\nreturn [{ json: j }];\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3328,
+        864
+      ],
+      "id": "0e4b217f-81db-4756-9d23-3c9a2c981f68",
+      "name": "NQxb_Artifact_Save_v1__Set_Owner_User_ID_MVP"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -160,
+        624
+      ],
+      "id": "c65fd18b-40d0-4775-85d7-725a915d2cec",
+      "name": "NQxb_Artifact_Save_v1__Merge_Context_For_Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Save_v1__Build_Response_Context\n// Purpose: Create a \"response context\" item that survives Supabase nodes overwriting $json.\n// This node runs after Normalize_Saved_ID and feeds Merge Input 1.\n\nconst j = $json ?? {};\n\n// Authoritative request snapshot\nconst reqNode = $node[\"NQxb_Artifact_Save_v1__Normalize_Request\"]?.json ?? {};\n\n// Authoritative owner-source from the node that sets it (survives overwrites)\nconst ownerNode = $node[\"NQxb_Artifact_Save_v1__Set_Owner_User_ID_MVP\"]?.json ?? {};\n\n// Frozen payload (authoritative for snapshot/restart)\nconst frozenNode = $node[\"NQxb_Artifact_Save_v1__Freeze_Extension_Payload\"]?.json ?? {};\nconst frozen_payload = frozenNode._frozen_extension_payload ?? null;\n\n// Resolve artifact_type/workspace from normalized request\nconst artifact_type =\n  reqNode.req_artifact_type ??\n  reqNode.artifact_type ??\n  null;\n\nconst workspace_id =\n  reqNode.req_workspace_id ??\n  reqNode.gw_workspace_id ??\n  reqNode.workspace_id ??\n  null;\n\n// Saved artifact id (post spine insert)\nconst saved_artifact_id =\n  j.saved_artifact_id ??\n  j.artifact_id ??\n  null;\n\n// Request-time extension intent (payload etc.)\nconst req_extension =\n  (reqNode.req_extension && typeof reqNode.req_extension === \"object\" && reqNode.req_extension !== null)\n    ? reqNode.req_extension\n    : (reqNode.extension && typeof reqNode.extension === \"object\" && reqNode.extension !== null)\n      ? reqNode.extension\n      : {};\n\n// Owner source (prefer frozen value from the Set_Owner node)\nconst owner_source =\n  ownerNode._frozen_owner_source ??\n  ownerNode._owner_source ??\n  reqNode._frozen_owner_source ??\n  reqNode._owner_source ??\n  null;\n\n// Action / operation\nconst gw_action = reqNode.gw_action ?? \"artifact.save\";\nconst is_update =\n  typeof reqNode.is_update === \"boolean\"\n    ? reqNode.is_update\n    : false;\n\nconst operation = is_update ? \"UPDATE\" : \"INSERT\";\n\n// Context item to merge with extension insert result\nconst out = {\n  gw_action,\n  artifact_type,\n  gw_workspace_id: workspace_id,\n  workspace_id,\n  saved_artifact_id,\n  artifact_id: saved_artifact_id,\n  is_update,\n  operation,\n  extension: req_extension,\n\n  // Carry frozen payload forward so Return_Response can be DB-truth aligned after Merge\n  _frozen_extension_payload: frozen_payload,\n\n  // TEMP debug trace (frozen)\n  _owner_source: owner_source,\n  _frozen_owner_source: owner_source,\n};\n\nreturn [{ json: out }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -384,
+        144
+      ],
+      "id": "a618ebac-d53b-44e6-a9db-d1fd4de2eea9",
+      "name": "NQxb_Artifact_Save_v1__Build_Response_Context"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "qxb_artifact_type_registry",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_type",
+              "keyValue": "={{ $node['Switch'].json.artifact_type }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -2208,
+        864
+      ],
+      "id": "86316c1a-db41-454b-8dd8-8eb411cbbdc7",
+      "name": "NQxb_Artifact_Save_v1__Lookup_Type_Registry",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Type Registry Guard\n// Check artifact type against qxb_artifact_type_registry\n// Error code: ARTIFACT_TYPE_NOT_ALLOWED\n// Fail-closed: no row or disabled = reject\n\n// Get original request from the Switch node (ok path)\nconst originalRequest = $node['Switch'].json;\n\n// Get registry lookup result (may be empty if no row found)\nconst registryRow = $json;\n\nconst artifact_type = originalRequest.artifact_type;\n\n// FAIL-CLOSED: No row found = type not registered\nif (!registryRow || !registryRow.artifact_type) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: 'error',\n      gw_action: originalRequest.gw_action ?? 'artifact.save',\n      gw_workspace_id: originalRequest.gw_workspace_id ?? null,\n      artifact_type: artifact_type,\n      artifact_id: originalRequest.artifact_id ?? null,\n      error: {\n        code: 'ARTIFACT_TYPE_NOT_ALLOWED',\n        message: `Artifact type '${artifact_type}' is not allowed`,\n        details: {\n          artifact_type: artifact_type,\n          reason: 'not_registered',\n          hint: 'Type must be registered in qxb_artifact_type_registry'\n        }\n      },\n      timestamp: new Date().toISOString()\n    }\n  }];\n}\n\n// Type found but disabled\nif (registryRow.enabled === false) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: 'error',\n      gw_action: originalRequest.gw_action ?? 'artifact.save',\n      gw_workspace_id: originalRequest.gw_workspace_id ?? null,\n      artifact_type: artifact_type,\n      artifact_id: originalRequest.artifact_id ?? null,\n      error: {\n        code: 'ARTIFACT_TYPE_NOT_ALLOWED',\n        message: `Artifact type '${artifact_type}' is not allowed`,\n        details: {\n          artifact_type: artifact_type,\n          reason: 'disabled',\n          registry_enabled: false,\n          hint: 'Type is registered but currently disabled'\n        }\n      },\n      timestamp: new Date().toISOString()\n    }\n  }];\n}\n\n// Type is registered and enabled - pass through original request\nreturn [{ json: originalRequest }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1984,
+        864
+      ],
+      "id": "a129f7d9-5b9a-43cf-85f2-e7a992200b68",
+      "name": "NQxb_Artifact_Save_v1__Type_Registry_Guard"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.ok }}",
+                    "rightValue": false,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    },
+                    "id": "registry-error"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "registry-ok",
+                    "leftValue": "={{ $json.ok }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -1760,
+        864
+      ],
+      "id": "e6727663-beaa-4c2f-8975-24884d590fb9",
+      "name": "NQxb_Artifact_Save_v1__Switch_Type_Registry"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "qxb_artifact_instruction_pack",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.saved_artifact_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "workspace_id",
+              "fieldValue": "={{ $node[\"NQxb_Artifact_Save_v1__Normalize_Request\"].json.gw_workspace_id }}"
+            },
+            {
+              "fieldId": "scope",
+              "fieldValue": "={{ $node[\"NQxb_Artifact_Save_v1__Normalize_Request\"].json.extension.scope }}"
+            },
+            {
+              "fieldId": "priority",
+              "fieldValue": "={{ $node[\"NQxb_Artifact_Save_v1__Normalize_Request\"].json.extension.priority }}"
+            },
+            {
+              "fieldId": "pack_format",
+              "fieldValue": "={{ $node[\"NQxb_Artifact_Save_v1__Normalize_Request\"].json.extension.pack_format }}"
+            },
+            {
+              "fieldId": "created_by_source",
+              "fieldValue": "={{ $node[\"NQxb_Artifact_Save_v1__Normalize_Request\"].json.extension.created_by_source }}"
+            },
+            {
+              "fieldId": "approved_at",
+              "fieldValue": "={{ $node[\"NQxb_Artifact_Save_v1__Normalize_Request\"].json.extension.approved_at }}"
+            },
+            {
+              "fieldId": "checksum_sha256",
+              "fieldValue": "={{ $node[\"NQxb_Artifact_Save_v1__Normalize_Request\"].json.extension.checksum_sha256 }}"
+            },
+            {
+              "fieldId": "active",
+              "fieldValue": "={{ $node[\"NQxb_Artifact_Save_v1__Normalize_Request\"].json.extension.active }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -384,
+        1104
+      ],
+      "id": "77771cac-0857-4e8d-94f1-c8c43df275a3",
+      "name": "NQxb_Artifact_Save_v1__DB_Insert_Instruction_Pack_Extension",
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ !!$json.saved_artifact_id && $json.ok !== false && $json._gw_route !== 'error' }}",
+                    "rightValue": "true",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    },
+                    "id": "e56ae45f-cf89-4e60-b1c2-6c2e88e1e45c"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -752,
+        320
+      ],
+      "id": "906fd1b1-53f4-4a11-bcc1-f6163c524f4d",
+      "name": "NQxb_Artifact_Save_v1__Switch_Guard_Saved_ID"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "NQxb_Artifact_Save_v1__In": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Normalize_Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__Normalize_Request": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Set_Owner_User_ID_MVP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__Validate_Request": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Derive_Owner_From_Auth",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__Switch_InsertOrUpdate": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Check_Immutability",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__DB_Insert_Spine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__DB_Insert_Spine": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Normalize_Saved_ID",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Return_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__Normalize_Saved_ID": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Switch_Guard_Saved_ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__Switch_Type_For_Insert": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__DB_Insert_Project_Extension",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__DB_Insert_Journal_Extension1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__DB_Insert_Restart_Extension",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__DB_Insert_Snapshot_Extension1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__DB_Insert_Instruction_Pack_Extension",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__DB_Insert_Project_Extension": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Merge_Context_For_Response",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__Check_Immutability": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Fetch_Existing_Spine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__Fetch_Existing_Spine": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Merge_PATCH_Spine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__Merge_PATCH_Spine": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__DB_Update_Spine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__DB_Update_Spine": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Switch_Type_For_Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__Switch_Type_For_Update": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Fetch_Existing_Project_Extension",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Fetch_Existing_Journal_Extension",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__Fetch_Existing_Project_Extension": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Check_Project_Extension_Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__Check_Project_Extension_Exists": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Merge_PATCH_Project_Extension",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Prepare_Insert_Missing_Project_Extension",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__Merge_PATCH_Project_Extension": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__DB_Update_Project_Extension",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__Prepare_Insert_Missing_Project_Extension": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__DB_Insert_Missing_Project_Extension",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__DB_Update_Project_Extension": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Return_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__DB_Insert_Missing_Project_Extension": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Return_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__Fetch_Existing_Journal_Extension": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Check_Journal_Extension_Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__Check_Journal_Extension_Exists": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Merge_PATCH_Journal_Extension",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Prepare_Insert_Missing_Journal_Extension",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__Merge_PATCH_Journal_Extension": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__DB_Update_Journal_Extension",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__Prepare_Insert_Missing_Journal_Extension": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__DB_Insert_Missing_Journal_Extension",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__DB_Update_Journal_Extension": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Return_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__DB_Insert_Missing_Journal_Extension": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Return_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [],
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Lookup_Type_Registry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__DB_Insert_Restart_Extension": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Merge_Context_For_Response",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__DB_Insert_Journal_Extension1": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Merge_Context_For_Response",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__DB_Insert_Snapshot_Extension1": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Merge_Context_For_Response",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__Freeze_Extension_Payload": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__Derive_Owner_From_Auth": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Freeze_Extension_Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__Set_Owner_User_ID_MVP": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Validate_Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__Merge_Context_For_Response": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Return_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__Build_Response_Context": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Merge_Context_For_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__Lookup_Type_Registry": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Type_Registry_Guard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__Type_Registry_Guard": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Switch_Type_Registry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__Switch_Type_Registry": {
+      "main": [
+        [],
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Switch_InsertOrUpdate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__DB_Insert_Instruction_Pack_Extension": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Merge_Context_For_Response",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Save_v1__Switch_Guard_Saved_ID": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Build_Response_Context",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "NQxb_Artifact_Save_v1__Switch_Type_For_Insert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Save_v1__Return_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "53788241-5e24-4aba-9a0f-1389f56f2c54",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "154f6928422db881044f8d1647b40fc389c59337d14356c0ee681d50ffb55d7e"
+  },
+  "id": "SYr4bZheUdCg2w1p",
+  "tags": []
+}
