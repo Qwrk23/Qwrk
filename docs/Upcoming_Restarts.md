@@ -8,18 +8,32 @@ Quick reference for build session handoffs.
 
 ## Ready to Execute
 
-### Trust Restoration Week - Build Session 1
-**Artifact ID:** `29f2f0d7-69bd-4759-ae2c-d003c9685f3e`
-**Type:** Journal (restart content)
-**Roadmap Snapshot:** `8b1043e3-1fc9-4ed9-bee9-6391184c6fdb`
-**Target:** Sunday 2026-02-02
+### BUG-011 Completion: Telegram Tags + QP1 Auto-Tagging
+**File:** `docs/restarts/RESTART__BUG-011__Telegram_Tags_and_QP1_Instructions__2026-02-01.md`
+**Target:** 2026-02-01 or 2026-02-02
+**Est. Time:** 30-45 min
 
 **Summary:**
-1. Fix BUG-012 (project content persistence)
-2. Fix BUG-011 (tags/summary in saves)
-3. Soft-delete 15 duplicate seeds
-4. Promote Gateway+Telegram to Tree
-5. Add monthly dead seed archival governance rule
+1. Re-add tags to Telegram save tools (with strict "always provide" rule)
+2. Update Gateway_Telegram system prompt for tag extraction + auto-generation
+3. Create QP1 tags instruction document
+
+**Context:** Gateway-side BUG-011 is complete (Save v25, List v27, Schema v2.2.0). This session completes Telegram integration.
+
+---
+
+### Trust Restoration Week - Remaining Items
+**Artifact ID:** `29f2f0d7-69bd-4759-ae2c-d003c9685f3e`
+**Status:** Partially complete
+
+**Completed:**
+- [x] BUG-012 (project content persistence)
+- [x] BUG-011 Gateway (tags normalization + filter)
+
+**Remaining:**
+- [ ] Soft-delete 15 duplicate seeds
+- [ ] Promote Gateway+Telegram to Tree
+- [ ] Add monthly dead seed archival governance rule
 
 ---
 
@@ -55,4 +69,4 @@ _(Move restarts here after execution)_
 - Duplicates or anomalies flagged
 - Top restart from queue with full content
 
-**Last Updated:** 2026-01-30
+**Last Updated:** 2026-02-01
