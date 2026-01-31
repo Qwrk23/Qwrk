@@ -246,7 +246,7 @@
         "genericAuthType": "httpBasicAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "{\n  \"gw_action\": \"artifact.save\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"project\",\n  \"title\": \"{title}\",\n  \"summary\": \"{summary}\",\n  \"content\": {},\n  \"extension\": {\n    \"lifecycle_stage\": \"seed\"\n  }\n}",
+        "jsonBody": "{\n  \"gw_action\": \"artifact.save\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"project\",\n  \"title\": \"{title}\",\n  \"tags\": [\"{tags}\"],\n  \"summary\": \"{summary}\",\n  \"content\": {},\n  \"extension\": {\n    \"lifecycle_stage\": \"seed\"\n  }\n}",
         "placeholderDefinitions": {
           "values": [
             {
@@ -257,6 +257,11 @@
             {
               "name": "summary",
               "description": "The project description or summary text",
+              "type": "string"
+            },
+            {
+              "name": "tags",
+              "description": "Comma-separated tags. Example: backlog,gateway,feature or governance,milestone",
               "type": "string"
             }
           ]
@@ -285,7 +290,7 @@
         "genericAuthType": "httpBasicAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "{\n  \"gw_action\": \"artifact.save\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"snapshot\",\n  \"title\": \"{title}\",\n  \"content\": {},\n  \"extension\": {\n    \"payload\": {\n      \"body\": \"{snapshot_body}\"\n    }\n  }\n}",
+        "jsonBody": "{\n  \"gw_action\": \"artifact.save\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"snapshot\",\n  \"title\": \"{title}\",\n  \"tags\": [\"{tags}\"],\n  \"content\": {},\n  \"extension\": {\n    \"payload\": {\n      \"body\": \"{snapshot_body}\"\n    }\n  }\n}",
         "placeholderDefinitions": {
           "values": [
             {
@@ -296,6 +301,11 @@
             {
               "name": "snapshot_body",
               "description": "The snapshot content/body text",
+              "type": "string"
+            },
+            {
+              "name": "tags",
+              "description": "Comma-separated tags. Example: milestone,governance or kgb,snapshot",
               "type": "string"
             }
           ]
@@ -324,7 +334,7 @@
         "genericAuthType": "httpBasicAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "{\n  \"gw_action\": \"artifact.save\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"restart\",\n  \"title\": \"{title}\",\n  \"content\": {},\n  \"extension\": {\n    \"payload\": {\n      \"body\": \"{restart_body}\"\n    }\n  }\n}",
+        "jsonBody": "{\n  \"gw_action\": \"artifact.save\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"restart\",\n  \"title\": \"{title}\",\n  \"tags\": [\"{tags}\"],\n  \"content\": {},\n  \"extension\": {\n    \"payload\": {\n      \"body\": \"{restart_body}\"\n    }\n  }\n}",
         "placeholderDefinitions": {
           "values": [
             {
@@ -335,6 +345,11 @@
             {
               "name": "restart_body",
               "description": "The restart context/instructions for resuming work",
+              "type": "string"
+            },
+            {
+              "name": "tags",
+              "description": "Comma-separated tags. Example: restart,context or bugfix,resume",
               "type": "string"
             }
           ]
@@ -412,7 +427,7 @@
         "genericAuthType": "httpBasicAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "{\n  \"gw_action\": \"artifact.save\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"instruction_pack\",\n  \"title\": \"{title}\",\n  \"content\": {\n    \"instructions\": \"{instructions}\"\n  },\n  \"extension\": {\n    \"scope\": \"workspace\",\n    \"pack_format\": \"v1\",\n    \"active\": true,\n    \"priority\": 100\n  }\n}",
+        "jsonBody": "{\n  \"gw_action\": \"artifact.save\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"instruction_pack\",\n  \"title\": \"{title}\",\n  \"tags\": [\"{tags}\"],\n  \"content\": {\n    \"instructions\": \"{instructions}\"\n  },\n  \"extension\": {\n    \"scope\": \"workspace\",\n    \"pack_format\": \"v1\",\n    \"active\": true,\n    \"priority\": 100\n  }\n}",
         "placeholderDefinitions": {
           "values": [
             {
@@ -423,6 +438,11 @@
             {
               "name": "instructions",
               "description": "The instruction content/rules for the pack",
+              "type": "string"
+            },
+            {
+              "name": "tags",
+              "description": "Comma-separated tags. Example: instruction,governance or prompt,rules",
               "type": "string"
             }
           ]
