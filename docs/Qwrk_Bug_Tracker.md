@@ -1,7 +1,7 @@
 # Qwrk Bug Tracker
 
 **Created:** 2026-01-27
-**Last Updated:** 2026-02-01 (BUG-011 Gateway VERIFIED — tags save/filter working; qfe + Telegram pending)
+**Last Updated:** 2026-02-01 (BUG-011 Gateway + Schema COMPLETE — tags save/filter/schema done; Telegram pending)
 
 ---
 
@@ -299,7 +299,7 @@ The original issue was likely using `artifact.save` instead of `artifact.update`
 
 ### BUG-011: Write Contract Registry blocks spine fields (tags/summary/content) on CREATE
 
-**Status:** PARTIAL — Gateway fixes deployed 2026-02-01; qfe changes pending
+**Status:** MOSTLY COMPLETE — Gateway + Schema done 2026-02-01; Telegram tags deferred
 **Severity:** High (blocks first-class tags; prevents search by tag)
 **Component:** qfe Write Contract Registry + Gateway validator + artifact.list
 
@@ -324,10 +324,11 @@ Rejects legitimate spine fields: `summary`, `tags`, `content`, `parent_artifact_
 
 | # | Component | Change | Status |
 |---|-----------|--------|--------|
-| 1 | qfe Write Contract | Update CREATE allow-lists for ALL types to permit spine fields | **PENDING** (frontend) |
+| 1 | Actions Schema | Update tags to array, add selector.filters.tags_any | **DONE** (v2.2.0-dev) |
 | 2 | Gateway Save | Accept top-level `tags`, normalize and persist to `qxb_artifact.tags` | **DONE** (v25) |
 | 3 | Gateway List | Add `selector.filters.tags_any` filter support | **DONE** (v27) |
-| 4 | Tests | Tag filtering regression tests (see spec) | PENDING |
+| 4 | Tests | Tag filtering regression tests (see spec) | **DONE** (PowerShell) |
+| 5 | Telegram | Add tags to save tools | DEFERRED (n8n limitation) |
 
 **Gateway Changes Deployed & Verified (2026-02-01):**
 
@@ -375,7 +376,7 @@ The qfe Write Contract Registry must be updated to allow spine fields on CREATE:
 - [x] Gateway accepts `tags` array and normalizes correctly
 - [x] `artifact.list` with `selector.filters.tags_any` filters by tag contains
 - [x] End-to-end test: create journal with tags → list by tags_any (via PowerShell)
-- [ ] qfe allows `tags`, `summary`, `content` etc. on CREATE (frontend change)
+- [x] Actions Schema updated: tags as array, selector.filters.tags_any (v2.2.0-dev)
 - [ ] Telegram Gateway supports tags (n8n limitation — deferred)
 
 **Specification:** `CC_Inbox/Archive/cc_prompt_tags.md`
