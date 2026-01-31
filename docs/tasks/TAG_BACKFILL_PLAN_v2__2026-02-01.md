@@ -1,22 +1,38 @@
-# Tag Backfill Plan v2
+# Tag Backfill Plan v2 (Prefix Taxonomy + Safe Execution)
 
 **Created:** 2026-02-01
-**Version:** 2.0 (incorporates QP1 review feedback)
-**Status:** PLAN ONLY - DO NOT EXECUTE WITHOUT REVIEW
+**Version:** 2.2 (CC + QP1 fully merged)
+**Status:** PLAN ONLY — DO NOT EXECUTE WITHOUT REVIEW + SAMPLING
+**Workspace:** `be0d3a48-c764-44f9-90c8-e846d9dbbd0a`
 **Related:** BUG-011 (First-Class Tags Implementation - COMPLETE)
+
+---
+
+## Core Principles (v2)
+
+1. **Governed truth stays governed:** `lifecycle_status` remains the canonical truth; tags are convenience.
+2. **Machine-inferred semantics are clearly marked:** `auto:` prefix for pattern/topic tags.
+3. **All backfill operations are idempotent:** safe to re-run; no duplicate tags.
+4. **All updates are guarded:** only operate on rows where `tags` is null or JSON array; never risk object/other types.
+5. **Preview before mutation:** every pattern rule requires a dry-run sample review before execution.
 
 ---
 
 ## Executive Summary
 
-This document provides a plan to backfill tags on existing artifacts in workspace `be0d3a48-c764-44f9-90c8-e846d9dbbd0a`.
+**Goal:** Backfill consistent, queryable tags onto existing artifacts with **low drift risk** and **high reversibility**.
 
 **Key Changes from v1:**
 - **Prefix taxonomy** to distinguish machine-derived from human-intent tags
 - **Dry-run preview queries** for each rule before execution
-- **Tightened regexes** to avoid over-tagging
-- **`jsonb_typeof` guards** for safety
+- **Tightened regexes** to avoid over-tagging (Rule 3B for previously-broad patterns)
+- **`jsonb_typeof` guards** for safety against non-array values
 - **Separated structural vs semantic tags**
+- **Tiered rollback strategy** (Tier 1: auto:, Tier 2: lc:, Tier 3: full reset)
+- **Structured preview categories** (A: deterministic, B: high-confidence, C: semantic)
+- **Approval gate** before mutation execution
+- **Decision log** for governance traceability
+- **Helper pattern** documentation for safe append operations
 
 ---
 
@@ -192,6 +208,56 @@ Apply `auto:` prefixed tags based on title patterns. These are machine-inferred 
 - `schema` — needs manual review
 - `session` — too generic
 - `test` — would over-tag
+
+---
+
+## Rule 3B: Previously-Broad Patterns (Manual Review Required)
+
+These patterns were removed from automatic backfill due to over-matching risk. They can be applied **after manual review** with tightened regex options.
+
+| Pattern (Broad) | Tightened Option | Tag Applied | Decision |
+|-----------------|------------------|-------------|----------|
+| `implementation` | `Implementation_Pack` (anchored) | `auto:implementation` | TBD after preview |
+| `schema` | `Schema_Reference` or `_Schema.yaml` | `auto:schema` | TBD after preview |
+| `session` | `Session:` (anchored) | `auto:session-log` | TBD after preview |
+| `test` | `Test_Pack` or `TestHarness` | `auto:testing` | TBD after preview |
+
+### Decision Process for Rule 3B
+
+1. Run preview with **broad** pattern — count matches
+2. Run preview with **tightened** pattern — count matches
+3. If tightened ≥ 80% of broad and looks clean → use tightened
+4. If tightened < 80% → manual tag or skip
+
+### Dry-Run Preview (Rule 3B — Tightened)
+
+```sql
+-- Preview: Implementation Pack titles only (not just "implementation")
+SELECT artifact_id, title, 'auto:implementation' as proposed_tag
+FROM qxb_artifact
+WHERE workspace_id = 'be0d3a48-c764-44f9-90c8-e846d9dbbd0a'
+  AND deleted_at IS NULL
+  AND title ~* 'Implementation[\s_]Pack'
+ORDER BY created_at DESC;
+
+-- Preview: Schema reference documents
+SELECT artifact_id, title, 'auto:schema' as proposed_tag
+FROM qxb_artifact
+WHERE workspace_id = 'be0d3a48-c764-44f9-90c8-e846d9dbbd0a'
+  AND deleted_at IS NULL
+  AND (title ~* 'Schema[\s_]Reference' OR title ~* '_Schema\.yaml')
+ORDER BY created_at DESC;
+
+-- Preview: Session logs (anchored)
+SELECT artifact_id, title, 'auto:session-log' as proposed_tag
+FROM qxb_artifact
+WHERE workspace_id = 'be0d3a48-c764-44f9-90c8-e846d9dbbd0a'
+  AND deleted_at IS NULL
+  AND title ~* '^Session:'
+ORDER BY created_at DESC;
+```
+
+---
 
 ### Dry-Run Preview Query (Rule 3)
 
@@ -538,6 +604,26 @@ WHERE workspace_id = 'be0d3a48-c764-44f9-90c8-e846d9dbbd0a'
 
 ---
 
+## Helper Pattern: Append then Deduplicate
+
+All backfill rules use the same safe append pattern:
+
+```sql
+-- Append tag only if not already present
+SET tags = COALESCE(tags, '[]'::jsonb) || '["new-tag"]'::jsonb
+WHERE ...
+  AND jsonb_typeof(COALESCE(tags, '[]'::jsonb)) = 'array'
+  AND NOT (COALESCE(tags, '[]'::jsonb) @> '["new-tag"]'::jsonb)
+```
+
+**Why this pattern?**
+1. `COALESCE(tags, '[]'::jsonb)` — handles null safely
+2. `jsonb_typeof(...) = 'array'` — guards against non-array values
+3. `NOT ... @>` — idempotent, won't duplicate if already present
+4. Post-backfill deduplication catches any edge cases
+
+---
+
 ## Post-Backfill: Deduplicate Tags
 
 ```sql
@@ -611,40 +697,47 @@ ORDER BY artifact_type, created_at DESC;
 
 ## Execution Checklist
 
-1. [ ] Run all dry-run preview queries
-2. [ ] Review preview results — manually verify 10-20 per rule
-3. [ ] Test on single artifact first
-4. [ ] Execute Rule 1 (type tags)
-5. [ ] Execute Rule 2 (lifecycle tags)
-6. [ ] Execute Rule 3 (pattern tags — one at a time)
-7. [ ] Execute Rule 4 (relationship tags)
-8. [ ] Execute Rule 5 (priority tags)
-9. [ ] Run deduplication
-10. [ ] Run verification queries
-11. [ ] Test Gateway `tags_any` filtering
-12. [ ] Save this plan as Qwrk Snapshot for governance
+### Phase 1: Dry-Run Previews (Approval Gate)
 
----
+Run all previews and categorize results:
 
-## Rollback Plan
+**Preview A — Deterministic (auto-approve):**
+- [ ] Rule 1: Type-based tags — should match artifact count per type
+- [ ] Rule 2: Lifecycle tags — should match projects with lifecycle_status
+- [ ] Rule 4: Relationship tags — should match parent/child relationships
+- [ ] Rule 5: Priority tags — should match non-default priorities
 
-```sql
--- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
--- !!                EMERGENCY ROLLBACK ONLY                !!
--- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+**Preview B — High Confidence (quick review):**
+- [ ] Rule 3: `^BUG-\d+` → `auto:bugfix`
+- [ ] Rule 3: `^RESTART[:\s]` → `auto:restart-prompt`
+- [ ] Rule 3: `^SNAPSHOT[:\s]` → `auto:milestone`
+- [ ] Rule 3: `^PRD[:\s_]` → `auto:prd`
 
--- Remove only auto: prefixed tags (preserve structural + human tags)
-UPDATE qxb_artifact
-SET tags = (
-    SELECT COALESCE(jsonb_agg(value), '[]'::jsonb)
-    FROM jsonb_array_elements_text(tags) as value
-    WHERE value NOT LIKE 'auto:%'
-)
-WHERE workspace_id = 'be0d3a48-c764-44f9-90c8-e846d9dbbd0a'
-  AND deleted_at IS NULL
-  AND jsonb_typeof(tags) = 'array'
-  AND tags @> '["auto:"]'::jsonb;
-```
+**Preview C — Semantic (careful review):**
+- [ ] Rule 3: `\yGateway\y` → `auto:gateway` — verify no false positives
+- [ ] Rule 3: `\yKGB\y` → `auto:kgb` — verify matches governance docs
+- [ ] Rule 3: `\yTelegram\y` → `auto:telegram`
+- [ ] Rule 3: `North\s*Star` → `auto:north-star`
+- [ ] Rule 3B: Review tightened patterns, record decision
+
+**✅ APPROVAL GATE:** Do not proceed until A+B look clean and C has been manually sampled.
+
+### Phase 2: Execution
+
+1. [ ] Test on single artifact first (pick one journal)
+2. [ ] Execute Rule 1 (type tags)
+3. [ ] Execute Rule 2 (lifecycle tags)
+4. [ ] Execute Rule 4 (relationship tags)
+5. [ ] Execute Rule 5 (priority tags)
+6. [ ] Execute Rule 3 (pattern tags — one at a time, anchored first)
+7. [ ] Run deduplication
+
+### Phase 3: Verification
+
+8. [ ] Run tag distribution query
+9. [ ] Run artifacts-without-tags query
+10. [ ] Test Gateway `tags_any` filtering
+11. [ ] Save execution snapshot to Qwrk
 
 ---
 
@@ -667,10 +760,104 @@ WHERE workspace_id = 'be0d3a48-c764-44f9-90c8-e846d9dbbd0a'
 
 ---
 
-## Governance Note
+## Decision Log
 
-**After execution, save this plan as a Qwrk Snapshot** to create a governance record of the tagging decision and execution.
+Record decisions made during execution for governance traceability.
+
+| Date | Rule | Decision | Rows Affected | Notes |
+|------|------|----------|---------------|-------|
+| _TBD_ | 3B: implementation | _TBD_ | _TBD_ | _After preview review_ |
+| _TBD_ | 3B: schema | _TBD_ | _TBD_ | _After preview review_ |
+| _TBD_ | 3B: session | _TBD_ | _TBD_ | _After preview review_ |
+| _TBD_ | 3B: test | _TBD_ | _TBD_ | _After preview review_ |
 
 ---
 
-**End of Plan v2**
+## Tiered Rollback Strategy
+
+If issues are discovered after execution:
+
+### Tier 1: Remove `auto:` tags only (safest)
+```sql
+UPDATE qxb_artifact
+SET tags = (
+    SELECT COALESCE(jsonb_agg(value), '[]'::jsonb)
+    FROM jsonb_array_elements_text(tags) as value
+    WHERE value NOT LIKE 'auto:%'
+)
+WHERE workspace_id = 'be0d3a48-c764-44f9-90c8-e846d9dbbd0a'
+  AND deleted_at IS NULL
+  AND jsonb_typeof(tags) = 'array'
+  AND EXISTS (
+      SELECT 1 FROM jsonb_array_elements_text(tags) t WHERE t LIKE 'auto:%'
+  );
+```
+
+### Tier 2: Remove `lc:` tags (lifecycle convenience)
+```sql
+UPDATE qxb_artifact
+SET tags = (
+    SELECT COALESCE(jsonb_agg(value), '[]'::jsonb)
+    FROM jsonb_array_elements_text(tags) as value
+    WHERE value NOT LIKE 'lc:%'
+)
+WHERE workspace_id = 'be0d3a48-c764-44f9-90c8-e846d9dbbd0a'
+  AND deleted_at IS NULL
+  AND jsonb_typeof(tags) = 'array'
+  AND EXISTS (
+      SELECT 1 FROM jsonb_array_elements_text(tags) t WHERE t LIKE 'lc:%'
+  );
+```
+
+### Tier 3: Full reset (emergency only)
+```sql
+-- Preserves only human-intent tags that don't have prefixes
+UPDATE qxb_artifact
+SET tags = (
+    SELECT COALESCE(jsonb_agg(value), '[]'::jsonb)
+    FROM jsonb_array_elements_text(tags) as value
+    WHERE value NOT LIKE 'auto:%'
+      AND value NOT LIKE 'lc:%'
+      AND value NOT LIKE 'p:%'
+      AND value NOT IN ('project','journal','snapshot','restart','instruction-pack','linked','has-children')
+)
+WHERE workspace_id = 'be0d3a48-c764-44f9-90c8-e846d9dbbd0a'
+  AND deleted_at IS NULL
+  AND jsonb_typeof(tags) = 'array';
+```
+
+---
+
+## Governance Snapshot Prompt
+
+After successful execution, save this to Qwrk:
+
+```
+Save snapshot titled "Tag Backfill v2 Execution Complete" tagged governance, milestone:
+
+## Summary
+Executed Tag Backfill Plan v2 on [DATE].
+
+## Scope
+- Workspace: be0d3a48-c764-44f9-90c8-e846d9dbbd0a
+- Rules executed: 1, 2, 3, 4, 5 [adjust as needed]
+- Total artifacts tagged: [COUNT]
+
+## Tag Distribution (post-execution)
+[Paste output of tag distribution query]
+
+## Decisions Made
+[Copy from Decision Log above]
+
+## Verification
+- Gateway tags_any filter: PASSED
+- Artifacts without tags: [COUNT]
+
+## Related
+- BUG-011: First-Class Tags Implementation
+- Plan document: docs/tasks/TAG_BACKFILL_PLAN_v2__2026-02-01.md
+```
+
+---
+
+**End of Plan v2.1 (CC + QP1 Merged)**
