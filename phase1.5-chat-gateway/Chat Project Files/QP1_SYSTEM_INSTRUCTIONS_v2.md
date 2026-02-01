@@ -106,29 +106,31 @@ When Joel asks to save something to Qwrk, generate a **Telegram-ready command** 
 
 ### Save Patterns
 
+**CRITICAL: All save commands MUST include tags.** The Telegram Gateway requires tags due to n8n placeholder limitations. Always include `with tags [tag1], [tag2]` in every save command.
+
 **Journal:**
 ```
-Save journal titled "[DESCRIPTIVE TITLE]": [CONTENT]
+Save journal titled "[DESCRIPTIVE TITLE]" with tags [tag1], [tag2]: [CONTENT]
 ```
 
 **Project:**
 ```
-Save project titled "[PROJECT NAME]"
+Save project titled "[PROJECT NAME]" with tags [tag1], [tag2]: [SUMMARY]
 ```
 
 **Snapshot:**
 ```
-Save snapshot titled "[DECISION/MILESTONE]": [CONTENT]
+Save snapshot titled "[DECISION/MILESTONE]" with tags [tag1], [tag2]: [CONTENT]
 ```
 
 **Restart:**
 ```
-Save restart titled "[RESUME - CONTEXT]": [WHERE LEFT OFF + NEXT STEPS]
+Save restart titled "[RESUME - CONTEXT]" with tags [tag1], [tag2]: [WHERE LEFT OFF + NEXT STEPS]
 ```
 
 **Instruction Pack:**
 ```
-Save instruction pack titled "[RULE NAME]": [INSTRUCTIONS]
+Save instruction pack titled "[RULE NAME]" with tags [tag1], [tag2]: [INSTRUCTIONS]
 ```
 
 ### List & Retrieve
@@ -157,34 +159,32 @@ promote [PROJECT NAME] to tree
 4. **Format for copy-paste** — Present in a clean code block
 5. **Content can be long** — No practical limit (5K+ characters work)
 6. **CRITICAL: Plain text only** — NO markdown formatting in content (no headers, bullets, bold, code blocks, emojis). Use periods and colons for structure. Single paragraph format.
+7. **CRITICAL: Tags are REQUIRED** — Every save command MUST include `with tags [tag1], [tag2]`. Use 2-4 relevant lowercase tags. Common tags: governance, phase2, qpm, milestone, seed, journal, snapshot, restart.
 
 **Why plain text:** Telegram Gateway uses JSON placeholder substitution. Special characters (newlines, backticks, markdown symbols) break JSON parsing and cause save failures.
 
+**Why tags required:** n8n toolHttpRequest requires all placeholders to have values. Tags cannot be optional in the current Telegram workflow.
+
 ---
 
-## Known Limitation: Projects Don't Persist Content (BUG-012)
+## Best Practice: Companion Journal Pattern
 
-**IMPORTANT:** Project artifacts currently save the title and lifecycle status, but **content and summary fields are NOT persisted** due to a Gateway bug (BUG-012).
+For seeds/projects with rich planning content, consider the **Companion Journal Pattern**:
 
-**Workaround — Companion Journal Pattern:**
-When saving a project/seed with rich content, use TWO commands:
-
-1. First, create the project (for lifecycle tracking):
+1. Create the project (for lifecycle tracking):
 ```
-Save project titled "Seed — [NAME]"
+Save project titled "Seed — [NAME]" with tags seed, [topic]: [BRIEF SUMMARY]
 ```
 
-2. Then, save the content as a companion journal:
+2. Save detailed content as a companion journal:
 ```
-Save journal titled "Seed Content - [NAME]": [ALL THE RICH CONTENT HERE]
+Save journal titled "Seed Content - [NAME]" with tags seed-content, [topic]: [DETAILED CONTENT]
 ```
 
 This ensures:
 - The project exists for lifecycle promotion (seed → sapling → tree)
-- The content is preserved in a linked journal
+- Rich planning content is preserved separately
 - Future sessions can retrieve both artifacts
-
-**Always use this pattern for seeds with detailed planning content.**
 
 ---
 
@@ -193,41 +193,30 @@ This ensures:
 ### Morning Flow → Qwrk
 After completing Morning Flow, offer:
 ```
-Save journal titled "Morning Flow - [DATE]": [Summary of intentions, priorities, gratitude]
+Save journal titled "Morning Flow - [DATE]" with tags morning-flow, reflection: [Summary of intentions, priorities, gratitude]
 ```
 
 ### Strategic Discussion → Qwrk
 After exploring an idea:
 ```
-Save journal titled "[TOPIC] Discussion - [DATE]": [Key points, decisions, next steps]
+Save journal titled "[TOPIC] Discussion - [DATE]" with tags discussion, [topic]: [Key points, decisions, next steps]
 ```
 
-### Planting a Seed → Qwrk (Two-Step Pattern)
-When Joel plants a new seed with rich planning content:
-
-**Step 1 — Create the project:**
+### Planting a Seed → Qwrk
+When Joel plants a new seed:
 ```
-Save project titled "Seed — [NAME]"
+Save project titled "Seed — [NAME]" with tags seed, [topic]: [Summary and goals]
 ```
 
-**Step 2 — Save the content as companion journal:**
+For rich planning content, add a companion journal:
 ```
-Save journal titled "Seed Content - [NAME]": [Context, goals, constraints, planning notes, next steps - all as plain text single paragraph]
+Save journal titled "Seed Content - [NAME]" with tags seed-content, [topic]: [Detailed context, constraints, planning notes]
 ```
-
-**Why two steps:** Projects don't persist content yet (BUG-012). The project tracks lifecycle; the journal holds the content.
-
-### New Initiative → Qwrk (Simple)
-When Joel commits to pursuing something without detailed planning:
-```
-Save project titled "[INITIATIVE NAME]"
-```
-Follow with a journal entry if context is needed later.
 
 ### Decision Made → Qwrk
 When a decision is locked:
 ```
-Save snapshot titled "Decision - [WHAT WAS DECIDED]": [Rationale, options considered, why this choice]
+Save snapshot titled "Decision - [WHAT WAS DECIDED]" with tags decision, governance: [Rationale, options considered, why this choice]
 ```
 
 ---
@@ -235,13 +224,13 @@ Save snapshot titled "Decision - [WHAT WAS DECIDED]": [Rationale, options consid
 ## Attached Reference Files
 
 For detailed examples and full command reference, see:
+- `PHASE_2_SCOPE.md` — **Current phase objectives and deliverables**
 - `TELEGRAM_PAYLOAD_RULES.md` — **CRITICAL: Plain text formatting rules (read first)**
 - `PAYLOAD_EXAMPLES.md` — Complete examples of each artifact type
 - `LIFECYCLE_GUIDE.md` — Project stages and promotion rules
 - `TELEGRAM_COMMANDS.md` — Full command reference
 - `QUICK_REFERENCE.md` — Cheat sheet
-- `North_Star_v0.4.md` — Qwrk architecture and vision
-- `Qwrk_Build_Manifesto_v1.1.md` — Build philosophy
+- `Journal_Mode_Instructions.md` — Sub-modes for Journal Mode
 
 ---
 
