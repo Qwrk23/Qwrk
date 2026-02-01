@@ -15,6 +15,7 @@ Artifact types in scope:
 - `snapshot`
 - `restart`
 - `journal` (included as first-class, schema details later)
+- `instruction_pack` (GPT front-end instruction extensions)
 
 **Core principle enforced:**
 - One canonical spine: `Qxb_Artifact`
@@ -90,6 +91,205 @@ Artifact types in scope:
 
 ---
 
+### Artifact Semantic Definitions — Execution Anatomy
+
+**Supersedes:** Branch/Leaf Governance Lock (2026-01-18)
+**Updated:** 2026-01-24 — Added Limb as optional intermediate layer
+
+#### Branch (artifact_type = branch)
+
+**Semantic role**
+A Branch is a strategic or functional module under a Project (Tree/Sapling).
+It exists to organize work into coherent domains but is not itself executable.
+
+**Required parent**
+- A Branch MUST have a parent artifact of type `project`
+
+**Disallowed parents**
+- `forest`
+- `thicket`
+- `flower`
+- `branch`
+- `limb`
+- `leaf`
+- `snapshot`
+- `restart`
+- `journal`
+
+**Allowed children**
+- `limb`
+- `leaf`
+
+**Disallowed children**
+- `forest`
+- `thicket`
+- `flower`
+- `project`
+- `snapshot`
+- `restart`
+- `journal`
+- `branch`
+
+#### Limb (artifact_type = limb) — Reserved
+
+**Semantic role**
+A Limb is a coherent workstream or phase within a Branch.
+Limbs provide an optional intermediate layer for organizing related work.
+
+**Implementation status:** Reserved for future use (schema deferred)
+
+**Required parent**
+- A Limb MUST have a parent artifact of type `branch`
+
+**Disallowed parents**
+- `forest`
+- `thicket`
+- `flower`
+- `project`
+- `limb`
+- `leaf`
+- `snapshot`
+- `restart`
+- `journal`
+
+**Allowed children**
+- `leaf`
+
+**Disallowed children**
+- `forest`
+- `thicket`
+- `flower`
+- `project`
+- `snapshot`
+- `restart`
+- `journal`
+- `branch`
+- `limb`
+
+#### Leaf (artifact_type = leaf)
+
+**Semantic role**
+A Leaf is an executable action item under a Branch or Limb.
+Leaves represent concrete, actionable work.
+
+**Required parent**
+- A Leaf MUST have a parent artifact of type `branch` OR `limb`
+
+**Disallowed parents**
+- `forest`
+- `thicket`
+- `flower`
+- `project`
+- `leaf`
+- `snapshot`
+- `restart`
+- `journal`
+
+**Disallowed children**
+- Any artifact type (Leaves are terminal)
+
+---
+
+### Canonical Execution Anatomy Rule
+
+**Canonical project execution anatomy (non-negotiable)**
+
+```
+Tree/Sapling (project)
+  → Branch
+    → Limb (optional)
+      → Leaf
+```
+
+**Limbs are OPTIONAL.** Simple projects may use `Branch → Leaf` directly.
+
+Valid patterns:
+```
+# Simple (no Limbs)
+Project → Branch → Leaf
+
+# Complex (with Limbs)
+Project → Branch → Limb → Leaf
+```
+
+Any deviation from these patterns is an invalid state.
+
+---
+
+### Invalid-State Rules — Execution Anatomy
+
+- A Branch cannot exist without a Project parent
+- A Limb cannot exist without a Branch parent
+- A Leaf cannot exist without a Branch or Limb parent
+- A Branch cannot parent another Branch
+- A Limb cannot parent another Limb
+- A Leaf cannot parent any artifact
+- A Project cannot directly parent a Leaf
+- A Project cannot directly parent a Limb
+
+These rules are semantic locks, regardless of current enforcement mechanism.
+
+---
+
+### Backward Compatibility
+
+- Existing `Branch → Leaf` relationships remain valid
+- Limbs are additive — no migration required
+
+---
+
+### Flower Exclusion Rule (Binding)
+
+- Flowers are not part of project execution trees
+- Flowers MUST NOT appear under Projects, Branches, Limbs, or Leaves
+- Limbs MUST NOT appear under Flowers
+- Flowers remain lightweight, non-execution artifacts outside the Branch/Limb/Leaf execution anatomy
+
+Any Flower found within a project execution lineage represents a governance violation.
+
+---
+
+### Artifact Semantic Definitions — System Extensions
+
+#### Instruction Pack (artifact_type = instruction_pack)
+
+**Semantic role**
+An Instruction Pack stores structured instruction extensions for GPT front-ends.
+It allows rich behavioral rules, templates, and examples to be loaded dynamically at session initialization, extending base system instructions beyond character limits.
+
+**Required parent**
+- `parent_artifact_id` MUST be NULL (instruction_packs are root-level)
+
+**Disallowed parents**
+- All artifact types (instruction_packs cannot be parented)
+
+**Disallowed children**
+- All artifact types (instruction_packs do not parent other artifacts)
+
+**Scope constraint (binding)**
+- Each instruction pack has a `scope` stored in `content.scope`
+- Valid scopes: `global`, `view:list`, `view:detail`, `action:save`, `action:update`, `action:promote`
+- One active instruction_pack per (workspace_id, scope) enforced by DB constraint
+
+**Mutability**
+- Mutable — content can be updated, packs can be deactivated or replaced
+- Unlike snapshot/restart, instruction_pack is not immutable
+
+**Content structure (content jsonb, required fields):**
+- `pack_version` — Version identifier
+- `scope` — Scope key (must match extension table)
+- `invariants` — Hard rules that must never be violated
+- `rules` — Behavioral rules and constraints
+- `templates` — Output formatting templates
+- `examples` — Example interactions or payloads
+
+**Initialization protocol**
+- GPT front-ends call `artifact.list` with `artifact_type=instruction_pack` at session start
+- Filter by scope tags and merge into session memory
+- Must complete before any other actions are permitted
+
+---
+
 ### Known Unknowns (Explicitly Deferred to Phase 2+)
 
 - Exact `Qxb_Artifact_Project` structured fields vs content jsonb split
@@ -139,6 +339,7 @@ Define Kernel v1 type table schemas (paper-only) that extend the canonical spine
 - `snapshot`
 - `restart`
 - `journal`
+- `instruction_pack`
 
 All types extend `Qxb_Artifact` using class-table inheritance:
 - Type table PK = FK: `artifact_id → Qxb_Artifact.artifact_id`
@@ -253,6 +454,32 @@ Journals are owner-private by default, with explicit sharing later if added.
 **Invariants:**
 - Owner-private by default
 - No lifecycle semantics in Kernel v1
+
+#### 5) Qxb_Artifact_Instruction_Pack
+
+**Extends:** `Qxb_Artifact`
+
+**Structured fields:**
+- `scope` (text, not null) — scope key (global, view:list, view:detail, action:save, etc.)
+- `pack_version` (text, nullable) — version identifier for the instruction pack
+- `active` (boolean, default true) — whether this pack is currently active
+
+**Content (content jsonb) required structure:**
+- `pack_version` — Version identifier (mirrored in structured field for query convenience)
+- `scope` — Scope key (must match structured field)
+- `invariants` — Hard rules that must never be violated
+- `rules` — Behavioral rules and constraints
+- `templates` — Output formatting templates
+- `examples` — Example interactions or payloads
+
+**Constraints:**
+- Partial unique index: one active instruction_pack per (workspace_id, scope)
+- Trigger enforces content.scope matches extension.scope
+
+**Invariants:**
+- Mutable (unlike snapshot/restart)
+- Root-level only (parent_artifact_id must be NULL)
+- One active pack per scope per workspace
 
 ---
 
@@ -467,6 +694,16 @@ All decisions below are binding for Kernel v1 unless explicitly versioned later.
 
 ✅ Design complete.
 ❌ No workflows, schemas, or implementation have begun.
+
+---
+
+### Version Note
+
+**2026-01-24:** Added `limb` as reserved artifact type for Structure Layer. Limbs are an optional intermediate layer between Branches and Leaves, representing coherent workstreams or phases. Updated execution anatomy to `Project → Branch → Limb (optional) → Leaf`. Updated parent/child rules: Leaf can now parent to Branch OR Limb. Supersedes 2026-01-18 Branch/Leaf lock.
+
+**2026-01-19:** Added `instruction_pack` as Kernel v1 artifact type for GPT front-end instruction extensions. Defined semantic role, scope constraints, mutability rules, and paper schema.
+
+**2026-01-18:** Added semantic locks for Branch and Leaf execution anatomy; clarified invalid states and Flower exclusion.
 
 ---
 
