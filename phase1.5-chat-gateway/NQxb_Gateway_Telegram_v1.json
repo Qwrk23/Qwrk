@@ -75,7 +75,7 @@
         "genericAuthType": "httpBasicAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "{\n  \"gw_action\": \"artifact.list\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"{artifact_type}\",\n  \"selector\": {\n    \"limit\": {limit},\n    \"hydrate\": false\n  }\n}",
+        "jsonBody": "{\n  \"gw_action\": \"artifact.list\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"{artifact_type}\",\n  \"selector\": {\n    \"limit\": {limit},\n    \"offset\": {offset},\n    \"hydrate\": false\n  }\n}",
         "placeholderDefinitions": {
           "values": [
             {
@@ -85,7 +85,12 @@
             },
             {
               "name": "limit",
-              "description": "Maximum number of results to return (default 10, max 50)",
+              "description": "Maximum number of results to return (default 50, max 200)",
+              "type": "number"
+            },
+            {
+              "name": "offset",
+              "description": "Number of results to skip for pagination (default 0). Use offset=50 to get page 2 when limit=50.",
               "type": "number"
             }
           ]
@@ -114,7 +119,7 @@
         "genericAuthType": "httpBasicAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "{\n  \"gw_action\": \"artifact.list\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"{artifact_type}\",\n  \"selector\": {\n    \"limit\": {limit},\n    \"hydrate\": false,\n    \"filters\": {\n      \"tags_any\": [\"{tag}\"]\n    }\n  }\n}",
+        "jsonBody": "{\n  \"gw_action\": \"artifact.list\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"{artifact_type}\",\n  \"selector\": {\n    \"limit\": {limit},\n    \"offset\": {offset},\n    \"hydrate\": false,\n    \"filters\": {\n      \"tags_any\": [\"{tag}\"]\n    }\n  }\n}",
         "placeholderDefinitions": {
           "values": [
             {
@@ -124,7 +129,12 @@
             },
             {
               "name": "limit",
-              "description": "Maximum number of results to return (default 10, max 50)",
+              "description": "Maximum number of results to return (default 50, max 200)",
+              "type": "number"
+            },
+            {
+              "name": "offset",
+              "description": "Number of results to skip for pagination (default 0). Use offset=50 to get page 2 when limit=50.",
               "type": "number"
             },
             {
@@ -539,7 +549,7 @@
         "genericAuthType": "httpBasicAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "{\n  \"gw_action\": \"artifact.list_deleted\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"{artifact_type}\",\n  \"selector\": {\n    \"limit\": {limit}\n  }\n}",
+        "jsonBody": "{\n  \"gw_action\": \"artifact.list_deleted\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"{artifact_type}\",\n  \"selector\": {\n    \"limit\": {limit},\n    \"offset\": {offset}\n  }\n}",
         "placeholderDefinitions": {
           "values": [
             {
@@ -549,7 +559,12 @@
             },
             {
               "name": "limit",
-              "description": "Maximum number of results (default 10)",
+              "description": "Maximum number of results (default 50, max 200)",
+              "type": "number"
+            },
+            {
+              "name": "offset",
+              "description": "Number of results to skip for pagination (default 0)",
               "type": "number"
             }
           ]
