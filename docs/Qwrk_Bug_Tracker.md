@@ -1,7 +1,7 @@
 # Qwrk Bug Tracker
 
 **Created:** 2026-01-27
-**Last Updated:** 2026-02-01 (BUG-011 Gateway + Schema COMPLETE — tags save/filter/schema done; Telegram pending)
+**Last Updated:** 2026-01-31 (BUG-004 deferred to Phase 3; Phase 1 locked)
 
 ---
 
@@ -56,8 +56,8 @@ Add `If_Hydrate` conditional node (similar to List workflow pattern)
 
 ### BUG-004: instruction_pack Update not implemented
 
-**Status:** Open — Fix specified, awaiting implementation
-**Severity:** Medium (upgraded - blocks Qwrk self-modification of packs)
+**Status:** DEFERRED TO PHASE 3
+**Severity:** Medium
 **Component:** NQxb_Artifact_Update_v1 workflow (v10)
 
 **Symptoms:**
@@ -68,7 +68,10 @@ Add `If_Hydrate` conditional node (similar to List workflow pattern)
 **Root Cause:**
 `Switch_Type_For_Update` only has a `project` branch. instruction_pack falls through with no handler.
 
-**Approved Mutability Rules:**
+**Why Phase 3:**
+In Phase 1-2 (QP1 + Telegram), instruction packs are simulated via .md files attached to QP1's project files. Dynamic instruction_pack loading from the database only becomes relevant in Phase 3 when the custom front-end (using n8n AI Agent as the chat interface) is built.
+
+**Approved Mutability Rules (for Phase 3):**
 | Field | Table | Mutability |
 |-------|-------|------------|
 | `content` | spine | UPDATE_ALLOWED |
@@ -79,7 +82,7 @@ Add `If_Hydrate` conditional node (similar to List workflow pattern)
 
 **Fix Specification:** `docs/BUG-004_Instruction_Pack_Update_Fix.md`
 
-**Implementation Summary:**
+**Implementation Summary (Phase 3):**
 1. Add instruction_pack rules to Check_Mutability_Rules
 2. Add instruction_pack branch to Switch_Type_For_Update
 3. Create Prepare_Instruction_Pack_Update node
