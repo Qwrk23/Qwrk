@@ -1,5 +1,14 @@
 # CLAUDE.md
 
+> **PROTECTED FILE — DO NOT DELETE OR EDIT WITHOUT CONSENT**
+>
+> This file is critical project infrastructure. Claude Code MUST:
+> - **NEVER** delete this file under any circumstances
+> - **NEVER** edit this file without explicit user consent in the current conversation
+> - **IMMEDIATELY STOP** and alert the user if this file is missing or corrupted
+>
+> A git pre-commit hook blocks deletion. Bypass requires `--no-verify` (emergency only).
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
@@ -10,7 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Backend: Supabase Kernel v1**
 - Database: PostgreSQL with Row Level Security (RLS) enabled on all tables
-- Project ref: `npymhacpmxdnkdgzxll`
+- Project ref: `npymhacpmxdnkqdzgxll`
 - Authentication: Supabase Auth integrated with custom user mapping
 
 **Gateway Layer: n8n Workflows**
@@ -111,6 +120,21 @@ Error (TYPE_MISMATCH example):
   }
 }
 ```
+
+### Workflow Deployment Checklist (CRITICAL)
+
+When updating ANY sub-workflow called by Gateway (Save, Query, List, Update, Promote):
+
+1. **Archive current version** to `workflows/Archive/`
+2. **Apply fix and save** with incremented version number (e.g., `(24)` → `(25)`)
+3. **Update Gateway workflow** — The Gateway's "Execute Workflow" node must point to the new version
+   - Example: If Save goes from `(24)` → `(25)`, update `NQxb_Gateway_v1` node `call_save` to reference `(25)`
+   - The Gateway workflow ID references are in the "Execute Workflow" nodes
+4. **Export updated Gateway** with incremented version
+5. **Import BOTH workflows** to n8n (sub-workflow first, then Gateway)
+6. **Activate both**
+
+**Forgetting step 3 means the Gateway still calls the old version — fix will appear to have no effect!**
 
 ## Schema Truth Policy — DDL-as-Truth
 
@@ -240,6 +264,133 @@ See `docs/schema/AAA_New_Qwrk__Execution_Order__Kernel_v1__v1.0__2025-12-30.md`
 - Types: Schema, RLS_Patch, KGB, Snapshot, Execution_Order
 - Always use versioning (v1.0, v1.1, etc.)
 
+## Session Management
+
+**Governance:** Session continuity is managed via `sessions/README.md`. This section defines CC trigger behavior.
+
+### Session Trigger Phrases
+
+When user's **first message** contains any of these phrases (or close variations):
+- "New session"
+- "Start session"
+- "I'm back"
+- "Let's go"
+- "Starting fresh"
+
+### Required Behavior on Session Trigger
+
+1. **Check for orphaned session** — Look for `sessions/CURRENT_SESSION.md`
+   - If exists: Warn user and offer Resume / Summarize+Close / Discard options
+2. **Read prior context:**
+   - Load `sessions/OPEN_THREADS.md` (canonical thread list)
+   - Load `sessions/LATEST_END_SESSION.md` (last session details)
+3. **Present handoff summary:**
+   - Open threads from `OPEN_THREADS.md`
+   - Last session summary (from `LATEST_END_SESSION.md`)
+   - Any blockers or carry-over reminders
+4. **Ask for session intent** — Offer options derived from open threads
+5. **Create session marker** — Write `sessions/CURRENT_SESSION.md` with timestamp and intent
+6. **Rolling Memory Sync Check** — Compare `for-q` tagged artifacts against current rolling file
+   - Read latest `Qwrk_RollingMem/Qwrk_Rolling_Memory__for-q__*.md` (by date)
+   - Query Supabase for artifacts tagged `for-q` with valid `for_q_*` fields
+   - If new artifacts exist not in rolling file: report delta, offer to regenerate
+   - If Gateway unavailable: skip silently (non-blocking)
+
+### Uncertainty Rule
+
+If uncertain whether user wants formal session mode, ask:
+> "Would you like me to open a formal session?"
+
+**Do NOT proceed with other work until session mode is resolved.**
+
+### Session End
+
+On phrases like "end session", "wrap up", "close out":
+1. **Update `sessions/OPEN_THREADS.md`:**
+   - Add new threads discovered this session
+   - Close resolved threads (move to Closed table)
+   - Update notes/priorities as needed
+2. Archive `LATEST_END_SESSION.md` to `sessions/Archive/`
+3. Write new `LATEST_END_SESSION.md` using **Restart Protocol Format** (see below)
+4. Delete `CURRENT_SESSION.md` (if exists)
+
+### Restart Protocol Format (for LATEST_END_SESSION.md)
+
+The restart prompt section of `LATEST_END_SESSION.md` must include:
+
+| Section | Content |
+|---------|---------|
+| Session Context | Session type (Planning/Execution/Troubleshooting/Mixed), execution surface |
+| Thread Inventory | Table with Status: Complete / In-Progress / Blocked / Deferred |
+| Decisions Locked | Decisions made this session — do not reopen unless explicitly asked |
+| Constraints Discovered | Blockers, limitations, guardrails identified |
+| Files Touched | Created / Modified / Archived this session |
+| Open Questions | Raised but not resolved |
+| Resume Instructions | **Option A** (Directed: specific next action) or **Option B** (Open: await direction) |
+
+See `phase1.5-chat-gateway/Chat Project Files/CONVERSATION_RESTART_PROTOCOL.md` for full template.
+
+### Session Checkpoint Protocol
+
+**Context usage thresholds:**
+
+| % Used | Action |
+|--------|--------|
+| **70-75%** | Proactive checkpoint — ideal time to save session state |
+| **80%** | Soft deadline — save and restart before next major topic |
+| **85%+** | Danger zone — context compression may lose planning nuance |
+
+**Why checkpoint early for planning work:**
+- As context fills, earlier details get summarized/compressed
+- Planning requires holding multiple threads (governance, saplings, constraints) simultaneously
+- Recovery buffer prevents forced save mid-thought
+
+**Checkpoint procedure:**
+1. Notify user of context usage level
+2. Offer to save session state now
+3. If user agrees: run normal session end procedure
+4. Write restart prompt with active planning context preserved
+
+**Mid-session staleness rule:**
+- Accept that governance/constraint changes during a session take effect next session
+- Simpler and safer than mid-session rule updates
+- User can always force restart if urgent
+
+### Rolling Memory Sync Protocol
+
+**Purpose:** Keep CC's rolling governance memory current with Supabase truth.
+
+**Trigger:** Session start (after reading OPEN_THREADS.md, step 6 above)
+
+**Process:**
+1. Find latest rolling file: `Qwrk_RollingMem/Qwrk_Rolling_Memory__for-q__*.md`
+2. Extract artifact_ids from Section B entries
+3. Query Supabase: `SELECT artifact_id FROM qxb_artifact WHERE tags ? 'for-q'`
+4. Compare: identify new artifacts not in rolling file
+5. If delta exists:
+   - Report: "Found X new for-q artifacts not in rolling memory"
+   - Offer: "Regenerate rolling file now?"
+6. If no delta: proceed silently
+
+**Non-blocking:** If Gateway returns 403/error, log warning and continue session.
+
+**Manual override:** User can always request `regenerate for-q rolling file` mid-session.
+
+**Size Governance (monitor only):**
+
+| Metric | X (Trigger) | Y (Target) | Notes |
+|--------|-------------|------------|-------|
+| Entry count | 50 entries | 35 entries | Roll off oldest 15 when triggered |
+| File size | 150kb | 100kb | Equivalent threshold |
+
+**Current state:** ~10kb / 9 entries — significant headroom remains.
+
+**Roll-off procedure (when needed):**
+1. Identify oldest entries by `created_at`
+2. Move full entries to `Qwrk_RollingMem/Archive/Qwrk_Rolling_Memory__for-q__YYYY-MM-DD__rolled.md`
+3. Keep only index reference in Section C (artifact_id + title + date)
+4. Section A constraints always stay (compact summaries)
+
 ## Important Constraints
 
 **Immutability Rules:**
@@ -283,6 +434,29 @@ See `docs/schema/AAA_New_Qwrk__Execution_Order__Kernel_v1__v1.0__2025-12-30.md`
 Do NOT invent schemas, enums, tables, endpoints, Gateway actions, lifecycle rules, or payload shapes.
 
 If you lack authoritative truth, STOP and ask for the exact file/section.
+
+### 2.5) Database Read-Only Rule (CRITICAL)
+
+Claude Code MUST NOT execute any operation that modifies database state. Gateway access is restricted to `artifact.query` and `artifact.list` ONLY.
+
+**Allowed (READ only):**
+- `artifact.query` via Gateway (PowerShell)
+- `artifact.list` via Gateway (PowerShell)
+
+**NOT Allowed:**
+- `artifact.save` via Gateway
+- `artifact.promote` via Gateway
+- `artifact.update` via Gateway
+- Any INSERT, UPDATE, DELETE SQL execution
+- Any operation that modifies database state
+
+**Required behavior for writes:**
+1. Generate the SQL or Gateway payload
+2. Present it to the user for review
+3. User executes manually (Supabase SQL Editor, PowerShell, etc.)
+4. CC verifies result via READ query after user confirms execution
+
+**Rationale:** Write and delete operations are irreversible and require human oversight. CC provides the payload; human executes.
 
 ### 3) Absolute No-Overwrite Rule
 
@@ -438,9 +612,197 @@ For every change:
 - Update the relevant README (or create one if missing)
 - Include: scope, decisions touched (should be none unless approved), tests, and rollback instructions
 
+### 9) Parallel Build Safety Rule (CRITICAL)
+
+When adding new functionality to any system component that is already in active use, CC MUST default to a parallel, isolated build-and-test approach rather than modifying the live implementation directly.
+
+**Core Requirements (Non-Negotiable):**
+
+1. **Protection of existing functionality is first-class**
+   - Live or production-used workflows must not be modified directly when introducing new capabilities
+   - "Production" includes anything currently in use, even if labeled MVP
+
+2. **Parallel workflow/environment is the default**
+   - When feasible, CC must create a cloned or parallel workflow, instance, or environment that is contract-identical to the live system
+   - All new functionality is implemented and validated in the parallel version first
+
+3. **No-regression guarantee**
+   - Existing functionality must remain operational and unchanged throughout development
+   - Validation must explicitly confirm that the live path still works as before
+
+4. **Controlled merge-back**
+   - New functionality is merged into the live system only after validation succeeds
+   - Merge-back is a deliberate, approved step — not implicit or automatic
+
+5. **Scope discipline**
+   - Parallel builds are for feature addition only
+   - Cleanup, refactors, or architectural "improvements" to the live path are out of scope unless explicitly authorized
+
+**Rationale:** Phase 1 established this pattern successfully (parallel Gateway workflows for bearer-auth). This rule makes it permanent governance, not ad-hoc.
+
 ---
 
 ## CHANGELOG - CLAUDE.md Updates
+
+### v11 - 2026-02-05
+**What changed:** Added Parallel Build Safety Rule (Section 9)
+
+**Why:**
+- Phase 1 successfully used parallel workflows to develop new functionality without breaking live systems
+- This pattern must become permanent governance, not ad-hoc
+- Protects production from regression during feature development
+
+**Scope of impact:**
+- New section 9 in "New Qwrk Governance Rules for CC"
+- CC must now default to parallel builds when adding features to live systems
+- Merge-back requires explicit approval
+
+**How to validate:**
+- When asked to add features to a live workflow, CC should propose parallel build
+- CC should not modify live paths directly unless explicitly authorized
+- Validation step must confirm live path still works
+
+**Previous version:** `Archive/CLAUDE__v10__2026-02-05.md`
+
+### v10 - 2026-02-05
+**What changed:** Added Rolling Memory Sync Protocol to Session Management
+
+**Why:**
+- CC should automatically detect new `for-q` artifacts at session start
+- Rolling memory file needs to stay current with Supabase truth
+- Size governance needed for future when entry count grows
+
+**Scope of impact:**
+- New step 6 in "Required Behavior on Session Trigger": Rolling Memory Sync Check
+- New subsection "Rolling Memory Sync Protocol" with full process
+- Size thresholds: 50 entries trigger, 35 entries target (monitor only for now)
+- Roll-off procedure documented for when limits are hit
+
+**How to validate:**
+- On "new session", CC should check for new for-q artifacts
+- If new artifacts found, CC reports delta and offers regeneration
+- If Gateway unavailable, CC continues silently (non-blocking)
+
+**Previous version:** `Archive/CLAUDE__v9__2026-02-05.md`
+
+### v9 - 2026-02-04
+**What changed:** Added Restart Protocol Format to Session End section
+
+**Why:**
+- Designed robust Conversation Restart Protocol for Qwrk (ChatGPT)
+- CC should use same structured format for session continuity
+- Thread inventory, decisions locked, constraints, files touched ensure complete handoff
+
+**Scope of impact:**
+- Session End now references Restart Protocol Format
+- New subsection documents required sections for LATEST_END_SESSION.md restart prompt
+- References `CONVERSATION_RESTART_PROTOCOL.md` for full template
+
+**How to validate:**
+- On "end session", CC writes LATEST_END_SESSION.md with Thread Inventory table
+- Restart prompt includes: Session Context, Decisions Locked, Constraints, Files Touched, Resume Instructions
+- Next session can resume with full context preserved
+
+**Previous version:** `Archive/CLAUDE__v8__2026-02-04.md`
+
+### v8 - 2026-02-04
+**What changed:** Added Database Read-Only Rule (Section 2.5)
+
+**Why:**
+- CC was executing Gateway write operations (save, promote, update) via PowerShell
+- Write/delete operations are irreversible and require human oversight
+- Need explicit governance preventing CC from modifying database state
+
+**Scope of impact:**
+- CC can ONLY use `artifact.query` and `artifact.list` via Gateway
+- All write operations must be provided as SQL/payload for user to execute manually
+- CC verifies results via read query after user confirms execution
+
+**How to validate:**
+- CC should never execute artifact.save, artifact.promote, or artifact.update
+- CC should present SQL or Gateway payloads for user review
+- CC should only run PowerShell for query/list operations
+
+**Previous version:** `Archive/CLAUDE__v7__2026-02-03.md`
+
+### v7 - 2026-02-03
+**What changed:** Added Workflow Deployment Checklist to n8n Gateway Workflow Rules section
+
+**Why:**
+- When updating sub-workflows (Save, Query, List, etc.), the Gateway must also be updated to point to the new version
+- Forgetting this step means the fix appears to have no effect (Gateway still calls old workflow)
+- User identified this as a recurring risk during BUG-020 fix deployment
+
+**Scope of impact:**
+- New subsection under "n8n Gateway Workflow Rules"
+- CC must now remind user to update Gateway when any sub-workflow is modified
+- 6-step checklist ensures complete deployment
+
+**How to validate:**
+- When CC updates a sub-workflow, it should remind user about Gateway update
+- Checklist appears in CLAUDE.md under n8n Gateway section
+
+**Previous version:** `Archive/CLAUDE__v6__2026-02-03.md`
+
+### v6 - 2026-02-03
+**What changed:** Added OPEN_THREADS.md as single source of truth for cross-session thread tracking
+
+**Why:**
+- Open threads were scattered across end session docs
+- Carry-over threads could get lost if one session's handoff was incomplete
+- Needed single canonical list for unresolved work
+
+**Scope of impact:**
+- New file: `sessions/OPEN_THREADS.md`
+- Session start now reads OPEN_THREADS.md + LATEST_END_SESSION.md
+- Session end now updates OPEN_THREADS.md before writing end session record
+
+**How to validate:**
+- On "new session", CC presents threads from OPEN_THREADS.md
+- On "end session", CC updates OPEN_THREADS.md (adds new, closes resolved)
+- Threads persist correctly across multiple sessions
+
+**Previous version:** `Archive/CLAUDE__v5__2026-02-03.md`
+
+### v5 - 2026-02-03
+**What changed:** Added Session Checkpoint Protocol to Session Management section
+
+**Why:**
+- Need documented guidance on when to proactively save session state
+- Planning work degrades as context fills — need thresholds
+- 70-75% identified as optimal checkpoint window through usage
+
+**Scope of impact:**
+- New subsection in Session Management: "Session Checkpoint Protocol"
+- CC should now be aware of context thresholds and offer checkpoints
+- Mid-session staleness rule documented (governance changes take effect next session)
+
+**How to validate:**
+- CC should proactively mention context usage when approaching 70%
+- CC should offer to checkpoint before major new topics at high usage
+- Planning continuity should improve across session boundaries
+
+**Previous version:** `Archive/CLAUDE__v4__2026-02-03.md`
+
+### v4 - 2026-02-02
+**What changed:** Added Session Management section with trigger phrase recognition
+
+**Why:**
+- CC failed to recognize "New session" as session start trigger
+- User had to explicitly remind CC to enter session mode
+- Need deterministic behavior when session phrases are detected
+
+**Scope of impact:**
+- New section added after "Development Workflow", before "Important Constraints"
+- CC must now check for session triggers on first message of conversation
+- If uncertain, CC must ask before proceeding with other work
+
+**How to validate:**
+- Say "New session" as first message — CC should read LATEST_END_SESSION.md and present handoff
+- CC should create CURRENT_SESSION.md and ask for session intent
+- On "end session", CC should archive and write new end session record
+
+**Previous version:** `Archive/CLAUDE__v3__2026-02-02.md`
 
 ### v3 - 2026-01-03
 **What changed:** Added Pattern C (Archive-based versioning) as preferred default
