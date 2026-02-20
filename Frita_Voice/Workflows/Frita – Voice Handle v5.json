@@ -1,0 +1,822 @@
+{
+  "name": "Frita – Voice Handle v5",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "twilio/voice/walk/handle",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -896,
+        400
+      ],
+      "id": "1047a1c1-fbf4-407e-8536-79da05bbb5fc",
+      "name": "Webhook",
+      "webhookId": "e5000001-wh01-4aaa-b001-000000000001"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e5000001-a001-4aaa-b001-000000000001",
+              "name": "normalized_text",
+              "value": "={{$json.body.SpeechResult.toLowerCase().trim()}}",
+              "type": "string"
+            },
+            {
+              "id": "e5000001-a002-4aaa-b001-000000000001",
+              "name": "raw_speech",
+              "value": "={{$json.body.SpeechResult}}",
+              "type": "string"
+            },
+            {
+              "id": "e5000001-a003-4aaa-b001-000000000001",
+              "name": "identity_status",
+              "value": "={{$json.query.idstatus || 'unknown'}}",
+              "type": "string"
+            },
+            {
+              "id": "e5000001-a004-4aaa-b001-000000000001",
+              "name": "caller_first_name",
+              "value": "={{$json.query.fname || ''}}",
+              "type": "string"
+            },
+            {
+              "id": "e5000001-a005-4aaa-b001-000000000001",
+              "name": "caller_last_name",
+              "value": "={{$json.query.lname || ''}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -688,
+        400
+      ],
+      "id": "06e3b435-73e3-4121-9ef5-f6d6abc0a6d6",
+      "name": "Extract State"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e5000001-s001-4aaa-b001-000000000001",
+                    "leftValue": "={{$json.normalized_text}}",
+                    "rightValue": "password",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "password_reset"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e5000001-s002-4aaa-b001-000000000001",
+                    "leftValue": "={{$json.normalized_text}}",
+                    "rightValue": "locked out",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "password_reset"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e5000001-s003-4aaa-b001-000000000001",
+                    "leftValue": "={{$json.normalized_text}}",
+                    "rightValue": "reset",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "password_reset"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e5000001-s004-4aaa-b001-000000000001",
+                    "leftValue": "={{$json.normalized_text}}",
+                    "rightValue": "forgot",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "password_reset"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e5000001-s005-4aaa-b001-000000000001",
+                    "leftValue": "={{$json.normalized_text}}",
+                    "rightValue": "wifi",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "guest_wifi"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e5000001-s006-4aaa-b001-000000000001",
+                    "leftValue": "={{$json.normalized_text}}",
+                    "rightValue": "wi-fi",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "guest_wifi"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e5000001-s007-4aaa-b001-000000000001",
+                    "leftValue": "={{$json.normalized_text}}",
+                    "rightValue": "wireless",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "guest_wifi"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e5000001-s008-4aaa-b001-000000000001",
+                    "leftValue": "={{$json.normalized_text}}",
+                    "rightValue": "internet",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "guest_wifi"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e5000001-s009-4aaa-b001-000000000001",
+                    "leftValue": "={{$json.normalized_text}}",
+                    "rightValue": "benefits",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "benefits_contact"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e5000001-s010-4aaa-b001-000000000001",
+                    "leftValue": "={{$json.normalized_text}}",
+                    "rightValue": "insurance",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "benefits_contact"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e5000001-s011-4aaa-b001-000000000001",
+                    "leftValue": "={{$json.normalized_text}}",
+                    "rightValue": "medical",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "benefits_contact"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e5000001-s012-4aaa-b001-000000000001",
+                    "leftValue": "={{$json.normalized_text}}",
+                    "rightValue": "health",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "benefits_contact"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -480,
+        400
+      ],
+      "id": "7907c618-6c73-4941-b8d8-9c178c20d016",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e5000001-c001-4aaa-b001-000000000001",
+              "leftValue": "={{$json.identity_status}}",
+              "rightValue": "confirmed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -240,
+        112
+      ],
+      "id": "813bff5d-3818-4213-a481-eace2bedba97",
+      "name": "Identity Confirmed?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e5000001-r001-4aaa-b001-000000000001",
+              "name": "intent",
+              "value": "password_reset",
+              "type": "string"
+            },
+            {
+              "id": "e5000001-r002-4aaa-b001-000000000001",
+              "name": "response_text",
+              "value": "=I can help with that. I recognize this phone number as {{$json.caller_first_name}} {{$json.caller_last_name}}. I'll unlock your account and text you the next steps shortly.",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        0,
+        0
+      ],
+      "id": "b9f8b9e2-9d87-40d2-bbbc-e76eeb46b87a",
+      "name": "Set Recognized"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e5000001-r003-4aaa-b001-000000000001",
+              "name": "intent",
+              "value": "password_reset",
+              "type": "string"
+            },
+            {
+              "id": "e5000001-r004-4aaa-b001-000000000001",
+              "name": "response_text",
+              "value": "I can help with that. I'll open a ticket and have someone from the service desk contact you shortly.",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        0,
+        208
+      ],
+      "id": "8a925e93-e084-4118-a4fe-33527fe73a42",
+      "name": "Set Not Recognized"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e5000001-r005-4aaa-b001-000000000001",
+              "name": "intent",
+              "value": "guest_wifi",
+              "type": "string"
+            },
+            {
+              "id": "e5000001-r006-4aaa-b001-000000000001",
+              "name": "response_text",
+              "value": "I'll text you the guest Wi-Fi information now.",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -240,
+        512
+      ],
+      "id": "f37374ec-7cfa-41c7-b8e8-21b7db7e4b03",
+      "name": "Set guest_wifi"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e5000001-r007-4aaa-b001-000000000001",
+              "name": "intent",
+              "value": "benefits_contact",
+              "type": "string"
+            },
+            {
+              "id": "e5000001-r008-4aaa-b001-000000000001",
+              "name": "response_text",
+              "value": "I'll text you the benefits help desk information.",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -240,
+        704
+      ],
+      "id": "c90cfc53-7f8d-456d-b04f-ec5e321b202d",
+      "name": "Set benefits_contact"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e5000001-r009-4aaa-b001-000000000001",
+              "name": "intent",
+              "value": "unknown",
+              "type": "string"
+            },
+            {
+              "id": "e5000001-r010-4aaa-b001-000000000001",
+              "name": "response_text",
+              "value": "I'm sorry - I didn't catch a supported request. I'll create a ticket and have someone follow up.",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -240,
+        912
+      ],
+      "id": "4aaeddb4-1e60-4ab2-9d1b-d8573b64f60a",
+      "name": "Set unknown"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "=<Response>\n  <Say>{{$json.response_text}}</Say>\n</Response>",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/xml"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        224,
+        512
+      ],
+      "id": "39ffae69-8bcd-4ebf-93b3-38ac319ecf44",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "n8n.halosparkai.com",
+            "user-agent": "TwilioProxy/1.1",
+            "content-type": "application/x-www-form-urlencoded; charset=UTF-8"
+          },
+          "params": {},
+          "query": {
+            "fname": "Joel",
+            "lname": "Blagg",
+            "idstatus": "confirmed"
+          },
+          "body": {
+            "Called": "+12312591770",
+            "Direction": "inbound",
+            "SpeechResult": "I'm locked out of my computer.",
+            "Confidence": "0.8617299",
+            "CallSid": "CAwalk-test-0001",
+            "To": "+12312591770",
+            "CallStatus": "in-progress",
+            "From": "+18177156827",
+            "AccountSid": "SCRUBBED_TWILIO_ACCOUNT_SID",
+            "Caller": "+18177156827",
+            "FromCity": "ARLINGTON",
+            "FromState": "TX",
+            "FromCountry": "US"
+          },
+          "webhookUrl": "https://n8n.halosparkai.com/webhook/twilio/voice/walk/handle",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract State": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Identity Confirmed?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Identity Confirmed?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Identity Confirmed?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Identity Confirmed?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set guest_wifi",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set guest_wifi",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set guest_wifi",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set guest_wifi",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set benefits_contact",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set benefits_contact",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set benefits_contact",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set benefits_contact",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set unknown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Identity Confirmed?": {
+      "main": [
+        [
+          {
+            "node": "Set Recognized",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Not Recognized",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Recognized": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Not Recognized": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set guest_wifi": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set benefits_contact": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set unknown": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "6d22a352-2620-478d-a238-2a9ef2e02d63",
+  "meta": {
+    "instanceId": "154f6928422db881044f8d1647b40fc389c59337d14356c0ee681d50ffb55d7e"
+  },
+  "id": "fta44WX3HMtpfErq",
+  "tags": []
+}

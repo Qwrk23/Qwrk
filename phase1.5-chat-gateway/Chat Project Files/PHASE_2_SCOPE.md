@@ -64,10 +64,10 @@ Implement Gateway enforcement of transition requirements:
 ## Current Architecture (Phase 1-2)
 
 ```
-QP1 (ChatGPT) → Telegram → Gateway_Telegram (n8n) → Gateway (n8n) → Supabase
+Qwrk Chat (ChatGPT) → Telegram → Gateway_Telegram (n8n) → Gateway (n8n) → Supabase
 ```
 
-Pre-instruction packs via .md files attached to QP1 project files.
+Pre-instruction packs via .md files attached to ChatGPT Project (Qwrk) files.
 
 ---
 

@@ -1,0 +1,315 @@
+{
+  "name": "Frita – Voice Confirm Identity",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "twilio/voice/confirm-identity",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -640,
+        112
+      ],
+      "id": "869c86d8-9795-454f-b13e-13a1d35ddd66",
+      "name": "Webhook",
+      "webhookId": "e3000001-wh01-4aaa-b001-000000000001"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e3000001-a001-4aaa-b001-000000000001",
+              "name": "normalized_text",
+              "value": "={{$json.body.SpeechResult.toLowerCase().trim()}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -448,
+        112
+      ],
+      "id": "3c65d33c-139f-4595-bc67-bb19a70b7754",
+      "name": "Normalize Speech"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e3000001-c001-4aaa-b001-000000000001",
+                    "leftValue": "={{$json.normalized_text}}",
+                    "rightValue": "yes",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "confirmed"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e3000001-c002-4aaa-b001-000000000001",
+                    "leftValue": "={{$json.normalized_text}}",
+                    "rightValue": "yeah",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "confirmed"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e3000001-c003-4aaa-b001-000000000001",
+                    "leftValue": "={{$json.normalized_text}}",
+                    "rightValue": "yep",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "confirmed"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e3000001-c004-4aaa-b001-000000000001",
+                    "leftValue": "={{$json.normalized_text}}",
+                    "rightValue": "correct",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "confirmed"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e3000001-c005-4aaa-b001-000000000001",
+                    "leftValue": "={{$json.normalized_text}}",
+                    "rightValue": "that's me",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "confirmed"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -240,
+        112
+      ],
+      "id": "76a09d6a-03b8-4de5-8a73-37a7f6f99acf",
+      "name": "Yes or No?"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "=<Response>\n  <Say voice=\"alice\">Great! How can I help you today?</Say>\n  <Gather input=\"speech\" timeout=\"5\" action=\"/webhook/twilio/voice/walk/handle?fname={{$node['Webhook'].json.query.fname}}&amp;lname={{$node['Webhook'].json.query.lname}}&amp;idstatus=confirmed\" method=\"POST\">\n    <Say voice=\"alice\">Please briefly tell me what you need help with.</Say>\n  </Gather>\n  <Say voice=\"alice\">I didn't catch that. Please try calling again.</Say>\n</Response>",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/xml"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        0,
+        0
+      ],
+      "id": "610c414d-b4a6-4fcb-b1c3-201c199d4dd2",
+      "name": "TwiML Confirmed"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "<Response>\n  <Say voice=\"alice\">No problem. Can you tell me your employee ID number?</Say>\n  <Gather input=\"speech\" timeout=\"8\" action=\"/webhook/twilio/voice/employee-id\" method=\"POST\">\n    <Say voice=\"alice\">Go ahead with your employee ID.</Say>\n  </Gather>\n  <Say voice=\"alice\">I didn't catch that. Please try calling again.</Say>\n</Response>",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/xml"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        0,
+        208
+      ],
+      "id": "55442b1a-86f3-4006-9bc5-15661a35a5e3",
+      "name": "TwiML Denied"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Speech",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Speech": {
+      "main": [
+        [
+          {
+            "node": "Yes or No?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Yes or No?": {
+      "main": [
+        [
+          {
+            "node": "TwiML Confirmed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "TwiML Confirmed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "TwiML Confirmed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "TwiML Confirmed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "TwiML Confirmed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "TwiML Denied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "f2308d90-d052-4642-bf6c-f612cb21b096",
+  "meta": {
+    "instanceId": "154f6928422db881044f8d1647b40fc389c59337d14356c0ee681d50ffb55d7e"
+  },
+  "id": "QFmSEPeDGAFLtQ9z",
+  "tags": []
+}

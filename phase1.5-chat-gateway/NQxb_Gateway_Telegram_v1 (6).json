@@ -1,0 +1,1279 @@
+{
+  "name": "NQxb_Gateway_Telegram_v1",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.message.text }}",
+        "options": {
+          "systemMessage": "You are Qwrk, a personal knowledge assistant connected via Telegram. You help save artifacts to the Qwrk system.\n\n## Your Capabilities\n\nYou have tools to interact with the Qwrk Gateway:\n- **qwrk_list** - List artifacts by type (journal, project, snapshot, restart, instruction_pack). Parameters: artifact_type, limit (default 50), offset (default 0 for page 1). Returns artifact_id, title, date sorted by newest first. Use this for unfiltered lists.\n- **qwrk_list_tagged** - List artifacts filtered by a single tag. Parameters: artifact_type, limit, offset (default 0), tag. Use this when user wants to filter by tag.\n- **qwrk_query** - Get full details of a specific artifact by UUID\n- **qwrk_save_journal** - Create a new journal entry (supports optional tags array)\n- **qwrk_save_project** - Create a new project (starts as 'seed', supports optional tags array)\n- **qwrk_save_snapshot** - Create an immutable snapshot (point-in-time record)\n- **qwrk_save_restart** - Create a restart prompt (context for resuming work)\n- **qwrk_save_instruction_pack** - Create an instruction pack (rules/shortcuts for Qwrk)\n- **qwrk_promote** - Promote a project through lifecycle stages (seed→sapling→tree→oak→archive)\n- **qwrk_update** - Update an existing artifact's fields\n- **qwrk_delete** - Soft-delete an artifact by UUID (recoverable)\n- **qwrk_restore** - Restore a soft-deleted artifact by UUID\n- **qwrk_list_deleted** - List soft-deleted artifacts by type. Parameters: artifact_type, limit, offset (default 0). Use to find UUIDs for restore.\n\n## CRITICAL: List Parameters\n\n**ALWAYS provide ALL parameters for list tools:**\n- limit: Use 50 as default, or whatever user requests\n- offset: Use 0 for first page, 50 for page 2 (when limit=50), etc.\n\nFor pagination: \"list next 50\" means offset = previous_offset + limit\n\n## CRITICAL: How to Retrieve/Query Artifacts\n\n**artifact_id is a UUID, NOT a title.** Example: `a4091656-bcb4-4555-9a35-6c214e22b7e6`\n\nWhen user asks to retrieve, show, or get details of an artifact:\n1. FIRST call qwrk_list with the appropriate artifact_type to get the list with artifact_ids\n2. Find the matching artifact by title or position (1 = first/most recent)\n3. THEN call qwrk_query with the actual artifact_id UUID from step 1\n\n**NEVER pass a title to artifact_id. Always use the UUID.**\n\n## How Users Will Interact\n\nUsers will often paste content from other conversations (like ChatGPT) and ask you to save it. Common patterns:\n\n1. \"Save this as a journal titled 'Topic Name'\" followed by pasted content\n2. \"Save journal: [title]\" followed by content\n3. \"retrieve 1\" or \"get first journal\" - means get details of most recent\n4. \"retrieve [title]\" - find by title in list, then query by UUID\n5. \"list snapshots\" or \"show my restarts\" - list by type\n6. \"promote [project] to sapling\" - lifecycle promotion\n\n## Lifecycle Transitions (for qwrk_promote)\n\nProjects follow this lifecycle: seed → sapling → tree → oak → archive\n\nValid transitions:\n- seed_to_sapling\n- sapling_to_tree\n- tree_to_oak\n- oak_to_archive\n\nTo promote, you need the project's artifact_id (use qwrk_list first).\n\n## Response Guidelines\n\n1. Be concise - Telegram messages have a 4096 character limit\n2. For lists, show: number, title, artifact_id (truncated), date\n3. **IMPORTANT: For large lists (>25 items), show first 25 and add:** \"Showing 25 of [total]. Say 'list next 25 [type]' for more.\"\n4. If unclear what to save, ask: \"What title should I use?\"\n5. For retrieval, show full content from the query result (truncate if over 3000 chars)\n\n## CRITICAL: Write Operation Response Requirements\n\nAfter EVERY successful **save**, **update**, or **promote** action, you MUST return:\n\n1. **artifact_id** — the full UUID (never truncate)\n2. **Full artifact contents** — all fields returned by the Gateway\n\nThis is mandatory for verification. Format clearly with UUID prominent at the top.\n\n**Save/Update response format:**\n✓ Saved [artifact_type]\n\nartifact_id: [full UUID]\ntitle: [title]\nartifact_type: [type]\nsummary: [if present]\ntags: [array]\nlifecycle_status: [if applicable]\ncontent/payload: [full content as saved]\n\n\n\n**Promote response format:**\n✓ Promoted\n\nartifact_id: [full UUID]\ntitle: [title]\nartifact_type: project\nlifecycle_status: [new status]\ntransition: [old] → [new]\n\n\n\n## Examples\n\nUser: \"Save this as a journal titled 'AI Notes'\" + content\n→ Use qwrk_save_journal\n→ Reply:\n✓ Saved journal\n\nartifact_id: a4091656-bcb4-4555-9a35-6c214e22b7e6\ntitle: AI Notes\nartifact_type: journal\ntags: []\nentry_text: [full content as saved]\n\n\n\nUser: \"list journals\"\n→ Use qwrk_list with artifact_type='journal', limit=50, offset=0\n→ Reply: \"1. AI Notes (a409...) - Jan 29\\n2. Test Entry (b512...) - Jan 28\"\n\nUser: \"list next 50 journals\" (after seeing first 50)\n→ Use qwrk_list with artifact_type='journal', limit=50, offset=50\n→ Reply with journals 51-100\n\nUser: \"list last 5 projects\"\n→ Use qwrk_list with artifact_type='project', limit=5, offset=0\n→ Reply with 5 most recent projects (already sorted newest first)\n\nUser: \"list snapshots\"\n→ Use qwrk_list with artifact_type='snapshot', limit=50, offset=0\n→ Reply: \"1. Phase 1.5 Validated (c123...) - Jan 29\"\n\nUser: \"retrieve 1\"\n→ First: call qwrk_list with the relevant artifact_type\n→ Then: call qwrk_query with artifact_type and artifact_id='<UUID from position 1>'\n→ Reply with the full content\n\nUser: \"retrieve AI Notes\"\n→ First: call qwrk_list with artifact_type='journal'\n→ Find 'AI Notes' in results, get its artifact_id\n→ Then: call qwrk_query with that UUID\n→ Reply with the full content\n\nUser: \"Save snapshot: Phase 1.5 Complete\" + content\n→ Use qwrk_save_snapshot with title and snapshot_body\n→ Reply:\n✓ Saved snapshot\n\nartifact_id: b7c82d91-1234-5678-abcd-ef0123456789\ntitle: Phase 1.5 Complete\nartifact_type: snapshot\ntags: []\npayload: [full snapshot_body as saved]\n\n\n\nUser: \"Save restart: Resume Gateway Work\" + context\n→ Use qwrk_save_restart with title and restart_body\n→ Reply:\n✓ Saved restart\n\nartifact_id: c8d93e02-2345-6789-bcde-f01234567890\ntitle: Resume Gateway Work\nartifact_type: restart\ntags: []\npayload: [full restart_body as saved]\n\n\n\nUser: \"promote BUG-010 Update Test Project to sapling\"\n→ First: call qwrk_list with artifact_type='project'\n→ Find the project, get its artifact_id\n→ Call qwrk_promote with artifact_type='project', artifact_id=UUID, transition='seed_to_sapling', reason='User requested'\n→ Reply:\n✓ Promoted\n\nartifact_id: d9e04f13-3456-7890-cdef-012345678901\ntitle: BUG-010 Update Test Project\nartifact_type: project\nlifecycle_status: sapling\ntransition: seed → sapling\n\n\n\nUser: \"Save instruction pack: My Shortcuts\" + rules\n→ Use qwrk_save_instruction_pack with title and instructions\n→ Reply:\n✓ Saved instruction_pack\n\nartifact_id: e0f15024-4567-8901-def0-123456789012\ntitle: My Shortcuts\nartifact_type: instruction_pack\ntags: []\ninstructions: [full instructions as saved]\n\n\n\nUser: \"Save journal titled 'AI Meeting Notes' with tags conversation and planning\" + content\n→ Use qwrk_save_journal with title, entry_text, and tags=[\"conversation\", \"planning\"]\n→ Reply:\n✓ Saved journal\n\nartifact_id: f1026135-5678-9012-ef01-234567890123\ntitle: AI Meeting Notes\nartifact_type: journal\ntags: [\"conversation\", \"planning\"]\nentry_text: [full content as saved]\n\n\n\nUser: \"Save journal titled 'Quick Note'\" + content (no tags mentioned)\n→ Use qwrk_save_journal with title, entry_text, and tags=[] (always provide empty array if no tags)\n→ Reply:\n✓ Saved journal\n\nartifact_id: g2137246-6789-0123-f012-345678901234\ntitle: Quick Note\nartifact_type: journal\ntags: []\nentry_text: [full content as saved]\n\n\n\nUser: \"list journals tagged conversation\"\n→ Use qwrk_list_tagged with artifact_type='journal', limit=50, offset=0, tag='conversation'\n→ Reply with matching journals only\n\nUser: \"list journals\" (no tag filter)\n→ Use qwrk_list with artifact_type='journal', limit=50, offset=0\n→ Reply with all journals\n\nUser: \"update journal a4091656-bcb4-4555-9a35-6c214e22b7e6 add tag meeting\"\n→ Use qwrk_update with artifact_id and updated tags\n→ Reply:\n✓ Updated journal\n\nartifact_id: a4091656-bcb4-4555-9a35-6c214e22b7e6\ntitle: AI Notes\nartifact_type: journal\ntags: [\"meeting\"]\nentry_text: [full content]\n\n\n\n## Delete/Restore (Soft Delete)\n\nArtifacts can be soft-deleted (hidden but recoverable) and restored.\n\n**CRITICAL: Delete requires UUID, not title.** If user says \"delete [title]\", first list to find the UUID.\n\nUser: \"delete project a4091656-bcb4-4555-9a35-6c214e22b7e6\"\n→ Use qwrk_delete with artifact_id='a4091656-bcb4-4555-9a35-6c214e22b7e6'\n→ Reply: \"Deleted: [title] (artifact_id: a4091656-bcb4-4555-9a35-6c214e22b7e6) — can be restored\"\n\nUser: \"delete the Test Project seed\"\n→ First: call qwrk_list with artifact_type='project' to find UUID\n→ Then: call qwrk_delete with the UUID\n→ Reply: \"Deleted: Test Project (artifact_id: [full UUID]) — can be restored\"\n\nUser: \"list deleted journals\"\n→ Use qwrk_list_deleted with artifact_type='journal', limit=50, offset=0\n→ Reply with list of deleted journals and their UUIDs\n\nUser: \"restore b512c3d4-...\"\n→ Use qwrk_restore with artifact_id='b512c3d4-...'\n→ Reply: \"Restored: [title] (artifact_id: b512c3d4-...)\"\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        -896,
+        208
+      ],
+      "id": "8f9d2aa8-4615-4032-98df-3f96f7dcdd1d",
+      "name": "Qwrk_AI_Agent"
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1296,
+        208
+      ],
+      "id": "9773b513-8dbe-4c9c-bed5-688e6c00d5a9",
+      "name": "Telegram_Trigger",
+      "webhookId": "qwrk-telegram-gateway",
+      "credentials": {
+        "telegramApi": {
+          "id": "VTIn4SmsgbApQNj2",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -1008,
+        432
+      ],
+      "id": "285d4401-e18f-427c-a5a4-f5e4292d0a62",
+      "name": "OpenAI_Chat_Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "3qeqNHpRHRid8LaS",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"gw_action\": \"artifact.list\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"{artifact_type}\",\n  \"selector\": {\n    \"limit\": {limit},\n    \"offset\": {offset},\n    \"hydrate\": false\n  }\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "artifact_type",
+              "description": "Type to list: journal, project, snapshot, restart, or instruction_pack",
+              "type": "string"
+            },
+            {
+              "name": "limit",
+              "description": "Maximum number of results to return (default 50, max 200)",
+              "type": "number"
+            },
+            {
+              "name": "offset",
+              "description": "Number of results to skip for pagination (default 0). Use offset=50 to get page 2 when limit=50.",
+              "type": "number"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        -816,
+        432
+      ],
+      "id": "ed958a91-0a55-4d32-8597-e84e17275066",
+      "name": "Tool_List",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "jTp4W3tGrw2s036g",
+          "name": "Qwrk Ingest Basic Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"gw_action\": \"artifact.list\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"{artifact_type}\",\n  \"selector\": {\n    \"limit\": {limit},\n    \"offset\": {offset},\n    \"hydrate\": false,\n    \"filters\": {\n      \"tags_any\": [\"{tag}\"]\n    }\n  }\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "artifact_type",
+              "description": "Type to list: journal, project, snapshot, restart, or instruction_pack",
+              "type": "string"
+            },
+            {
+              "name": "limit",
+              "description": "Maximum number of results to return (default 50, max 200)",
+              "type": "number"
+            },
+            {
+              "name": "offset",
+              "description": "Number of results to skip for pagination (default 0). Use offset=50 to get page 2 when limit=50.",
+              "type": "number"
+            },
+            {
+              "name": "tag",
+              "description": "Single tag to filter by. Example: auto:gateway or governance",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        -704,
+        432
+      ],
+      "id": "ac8768c6-df74-43f2-82f0-c83eacdc4ffd",
+      "name": "Tool_List_Tagged",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "jTp4W3tGrw2s036g",
+          "name": "Qwrk Ingest Basic Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"gw_action\": \"artifact.query\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"{artifact_type}\",\n  \"artifact_id\": \"{artifact_id}\"\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "artifact_type",
+              "description": "Type: project, journal, snapshot, restart, or instruction_pack",
+              "type": "string"
+            },
+            {
+              "name": "artifact_id",
+              "description": "UUID of the artifact",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        -608,
+        432
+      ],
+      "id": "e0c919d4-eb19-447c-932f-ce27c5ac16d2",
+      "name": "Tool_Query",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "jTp4W3tGrw2s036g",
+          "name": "Qwrk Ingest Basic Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"gw_action\": \"artifact.save\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"journal\",\n  \"title\": \"{title}\",\n  \"tags\": [\"{tags}\"],\n  \"parent_artifact_id\": \"{parent_artifact_id}\",\n  \"content\": {},\n  \"extension\": {\n    \"entry_text\": \"{entry_text}\"\n  }\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "title",
+              "description": "Title for the journal entry",
+              "type": "string"
+            },
+            {
+              "name": "entry_text",
+              "description": "The journal content to save",
+              "type": "string"
+            },
+            {
+              "name": "tags",
+              "description": "Comma-separated tags. Example: backlog,gateway,feature or governance,milestone",
+              "type": "string"
+            },
+            {
+              "name": "parent_artifact_id",
+              "description": "Optional UUID of parent artifact to link this journal to (e.g., parent seed project)",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        -416,
+        432
+      ],
+      "id": "1c0ae7a0-9856-4a3b-bda8-b373a98f337e",
+      "name": "Tool_Save_Journal",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "jTp4W3tGrw2s036g",
+          "name": "Qwrk Ingest Basic Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"gw_action\": \"artifact.save\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"project\",\n  \"title\": \"{title}\",\n  \"tags\": [\"{tags}\"],\n  \"summary\": \"{summary}\",\n  \"content\": {},\n  \"extension\": {\n    \"lifecycle_stage\": \"seed\"\n  }\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "title",
+              "description": "Title for the project",
+              "type": "string"
+            },
+            {
+              "name": "summary",
+              "description": "The project description or summary text",
+              "type": "string"
+            },
+            {
+              "name": "tags",
+              "description": "Comma-separated tags. Example: backlog,gateway,feature or governance,milestone",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        -208,
+        432
+      ],
+      "id": "5d7e4191-e339-4b82-bbfa-996d82eaff8d",
+      "name": "Tool_Save_Project",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "jTp4W3tGrw2s036g",
+          "name": "Qwrk Ingest Basic Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"gw_action\": \"artifact.save\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"snapshot\",\n  \"title\": \"{title}\",\n  \"tags\": [\"{tags}\"],\n  \"content\": {},\n  \"extension\": {\n    \"payload\": {\n      \"body\": \"{snapshot_body}\"\n    }\n  }\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "title",
+              "description": "Title for the snapshot",
+              "type": "string"
+            },
+            {
+              "name": "snapshot_body",
+              "description": "The snapshot content/body text",
+              "type": "string"
+            },
+            {
+              "name": "tags",
+              "description": "Comma-separated tags. Example: milestone,governance or kgb,snapshot",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        432
+      ],
+      "id": "d0f79b12-1171-4e77-9dc5-57c319308b17",
+      "name": "Tool_Save_Snapshot",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "jTp4W3tGrw2s036g",
+          "name": "Qwrk Ingest Basic Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"gw_action\": \"artifact.save\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"restart\",\n  \"title\": \"{title}\",\n  \"tags\": [\"{tags}\"],\n  \"content\": {},\n  \"extension\": {\n    \"payload\": {\n      \"body\": \"{restart_body}\"\n    }\n  }\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "title",
+              "description": "Title for the restart prompt",
+              "type": "string"
+            },
+            {
+              "name": "restart_body",
+              "description": "The restart context/instructions for resuming work",
+              "type": "string"
+            },
+            {
+              "name": "tags",
+              "description": "Comma-separated tags. Example: restart,context or bugfix,resume",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        208,
+        432
+      ],
+      "id": "617bb3a8-7a36-48e6-a052-e79392d128fc",
+      "name": "Tool_Save_Restart",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "jTp4W3tGrw2s036g",
+          "name": "Qwrk Ingest Basic Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"gw_action\": \"artifact.promote\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"{artifact_type}\",\n  \"artifact_id\": \"{artifact_id}\",\n  \"transition\": \"{transition}\",\n  \"reason\": \"{reason}\"\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "artifact_type",
+              "description": "Type of artifact to promote (usually 'project')",
+              "type": "string"
+            },
+            {
+              "name": "artifact_id",
+              "description": "UUID of the artifact to promote",
+              "type": "string"
+            },
+            {
+              "name": "transition",
+              "description": "Lifecycle transition: seed_to_sapling, sapling_to_tree, tree_to_oak, or oak_to_archive",
+              "type": "string"
+            },
+            {
+              "name": "reason",
+              "description": "Reason for the promotion",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        416,
+        432
+      ],
+      "id": "7a98d858-8f15-4147-8b60-6b87fac282bf",
+      "name": "Tool_Promote",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "jTp4W3tGrw2s036g",
+          "name": "Qwrk Ingest Basic Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"gw_action\": \"artifact.save\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"instruction_pack\",\n  \"title\": \"{title}\",\n  \"tags\": [\"{tags}\"],\n  \"content\": {\n    \"instructions\": \"{instructions}\"\n  },\n  \"extension\": {\n    \"scope\": \"workspace\",\n    \"pack_format\": \"v1\",\n    \"active\": true,\n    \"priority\": 100\n  }\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "title",
+              "description": "Title for the instruction pack",
+              "type": "string"
+            },
+            {
+              "name": "instructions",
+              "description": "The instruction content/rules for the pack",
+              "type": "string"
+            },
+            {
+              "name": "tags",
+              "description": "Comma-separated tags. Example: instruction,governance or prompt,rules",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        624,
+        432
+      ],
+      "id": "595fa810-f32d-464e-89db-577891a06eba",
+      "name": "Tool_Save_Instruction_Pack",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "jTp4W3tGrw2s036g",
+          "name": "Qwrk Ingest Basic Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"gw_action\": \"artifact.delete\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_id\": \"{artifact_id}\"\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "artifact_id",
+              "description": "UUID of the artifact to soft-delete. Must be exact UUID, not title.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        832,
+        432
+      ],
+      "id": "34947a24-6150-49b8-87ef-59bec2ad1dc5",
+      "name": "Tool_Delete",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "jTp4W3tGrw2s036g",
+          "name": "Qwrk Ingest Basic Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"gw_action\": \"artifact.restore\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_id\": \"{artifact_id}\"\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "artifact_id",
+              "description": "UUID of the deleted artifact to restore.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1040,
+        432
+      ],
+      "id": "9167159a-0fc0-4bf0-a7f0-3aaddae2cd0c",
+      "name": "Tool_Restore",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "jTp4W3tGrw2s036g",
+          "name": "Qwrk Ingest Basic Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"gw_action\": \"artifact.list_deleted\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"{artifact_type}\",\n  \"selector\": {\n    \"limit\": {limit},\n    \"offset\": {offset}\n  }\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "artifact_type",
+              "description": "Type to list deleted: journal, project, snapshot, restart, or instruction_pack",
+              "type": "string"
+            },
+            {
+              "name": "limit",
+              "description": "Maximum number of results (default 50, max 200)",
+              "type": "number"
+            },
+            {
+              "name": "offset",
+              "description": "Number of results to skip for pagination (default 0)",
+              "type": "number"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1248,
+        432
+      ],
+      "id": "97ea3e42-6cb2-47dc-ab89-d24b9e1a9836",
+      "name": "Tool_List_Deleted",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "jTp4W3tGrw2s036g",
+          "name": "Qwrk Ingest Basic Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Telegram_Trigger').item.json.message.chat.id }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -1184,
+        432
+      ],
+      "id": "f3e41eb1-0909-43c9-a1c2-ecc3e4431033",
+      "name": "Chat_Memory"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Hard block: If AI output contains save-success semantics on non-save path,\n// discard entirely and return fixed system message.\n// v5-keywords-only: Only block save-success keywords (removed structured fields - too broad)\nconst output = $input.first().json.output || '';\n\n// Save-success indicators only\n// These words only appear when claiming a save occurred\nconst saveSuccessPatterns = [\n  /\\bsaved\\b/i,\n  /\\bcreated\\b/i,\n  /\\bpersisted\\b/i\n];\n\nconst hasSaveSuccess = saveSuccessPatterns.some(p => p.test(output));\n\nif (hasSaveSuccess) {\n  return {\n    sanitized_output: 'No save was performed. To save something, please use an explicit save command.'\n  };\n}\n\nreturn { sanitized_output: output };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "3862da41-246b-46ef-9e3b-6824353cb3b7",
+      "name": "Sanitize_Non_Save_Response"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram_Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.output }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "ab0f787b-35cd-4d20-8de9-ff2d0698b12f",
+      "name": "Send_Response",
+      "webhookId": "2f28240c-a694-433f-a7c9-a49beb806a8e",
+      "credentials": {
+        "telegramApi": {
+          "id": "VTIn4SmsgbApQNj2",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Telegram_Trigger').item.json.message.text.toLowerCase().trim() }}",
+                    "rightValue": "^save\\s+(journal|project|snapshot|restart|instruction\\s*pack)",
+                    "operator": {
+                      "type": "string",
+                      "operation": "regex"
+                    }
+                  }
+                ],
+                "combinator": "or"
+              },
+              "renameOutput": true,
+              "outputKey": "save_intent"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Telegram_Trigger').item.json.message.text.toLowerCase() }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notEmpty"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "other"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -528,
+        208
+      ],
+      "id": "4f72fadc-71c2-41e6-a83f-2c5e3de8a93b",
+      "name": "Check_Save_Intent"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract claimed artifact_id and type from AI output\nconst output = $input.first().json.output || '';\n\n// UUID pattern\nconst uuidPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;\nconst uuidMatches = output.match(uuidPattern);\n\n// Try to find artifact_id specifically labeled\nconst artifactIdPattern = /artifact_id:\\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i;\nconst artifactIdMatch = output.match(artifactIdPattern);\n\n// Extract artifact type from output\nconst typePattern = /artifact_type:\\s*(journal|project|snapshot|restart|instruction_pack)/i;\nconst typeMatch = output.match(typePattern);\n\n// Also check for type in save confirmation\nconst savedTypePattern = /✓\\s*Saved\\s+(journal|project|snapshot|restart|instruction_pack)/i;\nconst savedTypeMatch = output.match(savedTypePattern);\n\n// Infer type from original message if not in output\nconst originalMsg = $('Telegram_Trigger').item.json.message.text.toLowerCase();\nlet inferredType = null;\nif (originalMsg.includes('journal')) inferredType = 'journal';\nelse if (originalMsg.includes('project')) inferredType = 'project';\nelse if (originalMsg.includes('snapshot')) inferredType = 'snapshot';\nelse if (originalMsg.includes('restart')) inferredType = 'restart';\nelse if (originalMsg.includes('instruction')) inferredType = 'instruction_pack';\n\n// Determine the claimed artifact_id (prefer explicitly labeled)\nconst claimedId = artifactIdMatch ? artifactIdMatch[1] : (uuidMatches ? uuidMatches[0] : null);\n\n// Determine type (prefer output, fall back to inferred)\nconst claimedType = typeMatch ? typeMatch[1] : (savedTypeMatch ? savedTypeMatch[1] : inferredType);\n\nreturn {\n  claimed_artifact_id: claimedId,\n  claimed_type: claimedType,\n  has_claim: !!(claimedId && claimedType),\n  ai_output: output,\n  original_message: $('Telegram_Trigger').item.json.message.text\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -304,
+        208
+      ],
+      "id": "9b7d8676-9187-4db8-aef7-4447864fea39",
+      "name": "Extract_AI_Claim"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-claim-condition",
+              "leftValue": "={{ $json.has_claim }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -112,
+        208
+      ],
+      "id": "a17c73cc-231f-45f4-95df-3e6752c4d213",
+      "name": "Check_Has_Claim"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"gw_action\": \"artifact.query\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"{{ $json.claimed_type }}\",\n  \"artifact_id\": \"{{ $json.claimed_artifact_id }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        96,
+        208
+      ],
+      "id": "5604e538-2316-49a8-bc07-326253c3b194",
+      "name": "Verify_Persistence_Authoritative",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "jTp4W3tGrw2s036g",
+          "name": "Qwrk Ingest Basic Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "verification-check",
+              "leftValue": "={{ $json.data.artifact?.artifact_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        304,
+        208
+      ],
+      "id": "9d4377ce-a561-4503-81b2-85b8fa30dd3f",
+      "name": "Check_Verification"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"verified_message\": \"✅ Verified Save\\n\\nartifact_id: {{ $json.data.artifact.artifact_id }}\\ntitle: {{ $json.data.artifact.title }}\\nartifact_type: {{ $json.data.artifact.artifact_type }}\\ntags: {{ ($json.data.artifact.tags || []).join(', ') }}\\nlifecycle_status: {{ $json.data.artifact.lifecycle_status || 'n/a' }}\\ncreated_at: {{ $json.data.artifact.created_at }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        496,
+        112
+      ],
+      "id": "807b7a45-6a9c-44a0-9daf-1d9d9a77b312",
+      "name": "Build_Verified_Success"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"failure_message\": \"⚠️ SAVE VERIFICATION FAILED\\n\\nThe artifact could not be verified in the database.\\nThe save did not occur.\\n\\nPlease try again with a clear save command.\\nIf this persists, contact support.\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        496,
+        304
+      ],
+      "id": "94a08f58-503f-4226-a0d7-63fd6df2d09c",
+      "name": "Build_Verification_Failure"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"failure_message\": \"⚠️ SAVE FAILED\\n\\nA save was requested but no artifact ID was returned.\\nThe save did not occur.\\n\\nPlease try again with a clear save command.\\n\\nOriginal request: {{ $('Telegram_Trigger').item.json.message.text.substring(0, 200) }}...\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        96,
+        400
+      ],
+      "id": "af20a579-73ef-4e6c-9398-e5023e4a68f8",
+      "name": "Build_No_ID_Failure"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram_Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.verified_message }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        704,
+        112
+      ],
+      "id": "c4fdc0e1-232f-4848-be84-145a7630dcce",
+      "name": "Send_Verified_Success",
+      "webhookId": "30380d81-3824-4d1e-b72e-bb1fa11427f7",
+      "credentials": {
+        "telegramApi": {
+          "id": "VTIn4SmsgbApQNj2",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram_Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.failure_message }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        704,
+        304
+      ],
+      "id": "de117825-bbda-497d-9f35-bdc21319c2d4",
+      "name": "Send_Verification_Failure",
+      "webhookId": "a4c261f7-d376-4c24-a388-9c98251743a1",
+      "credentials": {
+        "telegramApi": {
+          "id": "VTIn4SmsgbApQNj2",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram_Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.failure_message }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        304,
+        400
+      ],
+      "id": "bd6092bb-130f-4f18-8be8-57656628e9f0",
+      "name": "Send_No_ID_Failure",
+      "webhookId": "f9472ee2-e54b-46c9-936f-b05643f1f1a6",
+      "credentials": {
+        "telegramApi": {
+          "id": "VTIn4SmsgbApQNj2",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"gw_action\": \"artifact.update\",\n  \"gw_workspace_id\": \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"owner_user_id\": \"7097c16c-ed88-4e49-983f-1de80e5cfcea\",\n  \"artifact_type\": \"{artifact_type}\",\n  \"artifact_id\": \"{artifact_id}\",\n  \"fields\": {\n    \"title\": \"{title}\",\n    \"summary\": \"{summary}\",\n    \"tags\": [\"{tags}\"]\n  }\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "artifact_type",
+              "description": "Type: project, journal, snapshot, restart, or instruction_pack",
+              "type": "string"
+            },
+            {
+              "name": "artifact_id",
+              "description": "UUID of the artifact to update",
+              "type": "string"
+            },
+            {
+              "name": "title",
+              "description": "New title (optional, provide current if unchanged)",
+              "type": "string"
+            },
+            {
+              "name": "summary",
+              "description": "New summary (optional)",
+              "type": "string"
+            },
+            {
+              "name": "tags",
+              "description": "Comma-separated tags to set",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        -512,
+        432
+      ],
+      "id": "4bf10180-b82a-4b8f-96c8-0c82b2210049",
+      "name": "Tool_Update",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "jTp4W3tGrw2s036g",
+          "name": "Qwrk Ingest Basic Auth"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram_Trigger": {
+      "main": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI_Chat_Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool_List": {
+      "ai_tool": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool_List_Tagged": {
+      "ai_tool": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool_Query": {
+      "ai_tool": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool_Save_Journal": {
+      "ai_tool": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool_Save_Project": {
+      "ai_tool": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool_Save_Snapshot": {
+      "ai_tool": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool_Save_Restart": {
+      "ai_tool": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool_Promote": {
+      "ai_tool": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool_Save_Instruction_Pack": {
+      "ai_tool": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool_Delete": {
+      "ai_tool": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool_Restore": {
+      "ai_tool": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool_List_Deleted": {
+      "ai_tool": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool_Update": {
+      "ai_tool": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat_Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qwrk_AI_Agent": {
+      "main": [
+        [
+          {
+            "node": "Check_Save_Intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check_Save_Intent": {
+      "main": [
+        [
+          {
+            "node": "Extract_AI_Claim",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract_AI_Claim": {
+      "main": [
+        [
+          {
+            "node": "Check_Has_Claim",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check_Has_Claim": {
+      "main": [
+        [
+          {
+            "node": "Verify_Persistence_Authoritative",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build_No_ID_Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify_Persistence_Authoritative": {
+      "main": [
+        [
+          {
+            "node": "Check_Verification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check_Verification": {
+      "main": [
+        [
+          {
+            "node": "Build_Verified_Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build_Verification_Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build_Verified_Success": {
+      "main": [
+        [
+          {
+            "node": "Send_Verified_Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build_Verification_Failure": {
+      "main": [
+        [
+          {
+            "node": "Send_Verification_Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build_No_ID_Failure": {
+      "main": [
+        [
+          {
+            "node": "Send_No_ID_Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "bug019-v8-no-sanitizer",
+  "meta": {
+    "instanceId": "154f6928422db881044f8d1647b40fc389c59337d14356c0ee681d50ffb55d7e"
+  },
+  "id": "uBjJG1n7xK4Vjb3Z",
+  "tags": []
+}

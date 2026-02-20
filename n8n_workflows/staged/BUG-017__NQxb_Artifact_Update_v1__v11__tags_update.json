@@ -1,0 +1,816 @@
+{
+  "name": "NQxb_Artifact_Update_v1",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -2400,
+        224
+      ],
+      "id": "8a437c4f-955b-441e-954d-c70cd4d7da19",
+      "name": "NQxb_Artifact_Update_v1__In"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Normalize_Request\n// v2: Add tags support (add/remove semantics at spine level)\n// UPDATE-ONLY: Require artifact_id, reject if missing\n\nconst raw = $json ?? {};\n\nconst body =\n  raw.body && typeof raw.body === \"object\" && !Array.isArray(raw.body)\n    ? raw.body\n    : null;\n\nconst req = body ?? raw;\n\nconst asObj = (v) =>\n  v && typeof v === \"object\" && !Array.isArray(v) ? v : {};\n\nconst artifact_id = req.artifact_id ?? null;\nconst artifact_type = (req.artifact_type ?? \"\").trim();\n\n// UPDATE_ONLY: artifact_id is REQUIRED\nif (!artifact_id || artifact_id.trim() === '') {\n  return [\n    {\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"UPDATE_ONLY\",\n          message: \"artifact.update is update-only. Use artifact.create for new artifacts.\",\n          details: {\n            hint: \"artifact_id field is required for UPDATE operations.\"\n          },\n        },\n      },\n    },\n  ];\n}\n\n// Parse tags (top-level, NOT inside extension)\n// Only set tags if there are actual operations to perform\nconst rawTags = req.tags ?? null;\nlet tags = null;\nif (rawTags && typeof rawTags === \"object\" && !Array.isArray(rawTags)) {\n  const add = Array.isArray(rawTags.add)\n    ? rawTags.add.filter(t => typeof t === \"string\" && t.trim() !== \"\").map(t => t.trim())\n    : [];\n  const remove = Array.isArray(rawTags.remove)\n    ? rawTags.remove.filter(t => typeof t === \"string\" && t.trim() !== \"\").map(t => t.trim())\n    : [];\n  if (add.length > 0 || remove.length > 0) {\n    tags = { add, remove };\n  }\n}\n\nconst canonical = {\n  gw_action: req.gw_action ?? \"artifact.update\",\n  gw_workspace_id: req.gw_workspace_id ?? null,\n  artifact_type: artifact_type,\n  artifact_id: artifact_id.trim(),\n\n  // Extension fields (type-specific, validated downstream)\n  extension: asObj(req.extension),\n\n  // Tags (spine-level, add/remove semantics) — v2\n  tags: tags,\n\n  // deleted_at (BLOCKED - UNDECIDED per Mutability Registry)\n  deleted_at: req.deleted_at ?? null,\n};\n\ncanonical._gw_debug = {\n  received_shape: body ? \"body\" : \"flat\",\n  operation: \"UPDATE\",\n  has_tags: tags !== null,\n};\n\nreturn [{ json: canonical }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2176,
+        224
+      ],
+      "id": "5e6ddd02-e095-4f2f-b8fd-3e9101c517a9",
+      "name": "NQxb_Artifact_Update_v1__Normalize_Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Validate_Request\n// v3.0: Tags support — either extension OR tags required (not both mandatory)\n// UPDATE-only validation (strict, predictable, preserves payload)\n\nconst req = $json ?? {};\nconst errors = [];\n\nfunction isNonEmptyString(v) {\n  return typeof v === \"string\" && v.trim().length > 0;\n}\n\nfunction asObj(v) {\n  return v && typeof v === \"object\" && !Array.isArray(v) ? v : {};\n}\n\n// Required: gw_workspace_id\nif (!isNonEmptyString(req.gw_workspace_id)) {\n  errors.push({ field: \"gw_workspace_id\", reason: \"required\", expected: \"uuid string\" });\n}\n\n// Required: artifact_type\nif (!isNonEmptyString(req.artifact_type)) {\n  errors.push({ field: \"artifact_type\", reason: \"required\", expected: \"non-empty string\" });\n}\n\n// Required: artifact_id\nif (!isNonEmptyString(req.artifact_id)) {\n  errors.push({ field: \"artifact_id\", reason: \"required\", expected: \"uuid string\" });\n}\n\n// v3: Either extension (with fields) OR tags must be provided\nconst ext = asObj(req.extension);\nconst hasExtension = Object.keys(ext).length > 0;\nconst hasTags = req.tags !== null && req.tags !== undefined;\n\nif (!hasExtension && !hasTags) {\n  errors.push({\n    field: \"extension_or_tags\",\n    reason: \"required\",\n    expected: \"At least one of: extension (object with fields) or tags (object with add/remove arrays)\"\n  });\n}\n\n// Validate tags structure if provided\nif (hasTags) {\n  const tags = req.tags;\n  if (typeof tags !== \"object\" || Array.isArray(tags)) {\n    errors.push({ field: \"tags\", reason: \"invalid_type\", expected: \"object with add and/or remove arrays\" });\n  } else {\n    if (tags.add !== undefined && !Array.isArray(tags.add)) {\n      errors.push({ field: \"tags.add\", reason: \"invalid_type\", expected: \"array of strings\" });\n    }\n    if (tags.remove !== undefined && !Array.isArray(tags.remove)) {\n      errors.push({ field: \"tags.remove\", reason: \"invalid_type\", expected: \"array of strings\" });\n    }\n    if (Array.isArray(tags.add)) {\n      const bad = tags.add.filter(t => typeof t !== \"string\");\n      if (bad.length > 0) {\n        errors.push({ field: \"tags.add\", reason: \"invalid_values\", expected: \"all elements must be strings\" });\n      }\n    }\n    if (Array.isArray(tags.remove)) {\n      const bad = tags.remove.filter(t => typeof t !== \"string\");\n      if (bad.length > 0) {\n        errors.push({ field: \"tags.remove\", reason: \"invalid_values\", expected: \"all elements must be strings\" });\n      }\n    }\n  }\n}\n\nif (errors.length > 0) {\n  return [\n    {\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"VALIDATION_ERROR\",\n          message: \"Validation failed for artifact.update (UPDATE)\",\n          details: {\n            validation_errors: errors,\n            operation: \"UPDATE\",\n            artifact_type: req.artifact_type ?? null,\n            artifact_id: req.artifact_id ?? null,\n          },\n        },\n        gw_action: req.gw_action ?? \"artifact.update\",\n        gw_workspace_id: req.gw_workspace_id ?? null,\n        artifact_type: req.artifact_type ?? null,\n        artifact_id: req.artifact_id ?? null,\n        _gw_debug: req._gw_debug ?? undefined,\n      },\n    },\n  ];\n}\n\n// Pass-through with normalized fields\nreturn [\n  {\n    json: {\n      ...req,\n      ok: true,\n      _gw_route: \"ok\",\n      gw_action: req.gw_action ?? \"artifact.update\",\n      extension: ext,\n      tags: req.tags ?? null,\n      deleted_at: req.deleted_at ?? null,\n      _gw_debug: {\n        ...(req._gw_debug ?? {}),\n        operation: \"UPDATE\",\n        received_shape: (req._gw_debug && req._gw_debug.received_shape) ? req._gw_debug.received_shape : \"flat\",\n      },\n    },\n  },\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1952,
+        224
+      ],
+      "id": "e572dd73-c21b-4cf2-9e9d-faa67c46aee5",
+      "name": "NQxb_Artifact_Update_v1__Validate_Request"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "error-check",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "false"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1728,
+        224
+      ],
+      "id": "ebeedd9f-d1eb-4878-a2c5-3d900342e9d8",
+      "name": "NQxb_Artifact_Update_v1__Guard_Error_ShortCircuit"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "qxb_artifact_type_registry",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_type",
+              "keyValue": "={{ $node['NQxb_Artifact_Update_v1__Guard_Error_ShortCircuit'].json.artifact_type }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1504,
+        304
+      ],
+      "id": "a2b971c9-084d-41b2-bbe5-8ae0bae59fe9",
+      "name": "NQxb_Artifact_Update_v1__Lookup_Type_Registry",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase \u2013 Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Type Registry Guard\n// Check artifact type against qxb_artifact_type_registry\n// Error code: ARTIFACT_TYPE_NOT_ALLOWED\n// Fail-closed: no row or disabled = reject\n\n// Get original request from the Guard_Error_ShortCircuit node (ok path)\nconst originalRequest = $node['NQxb_Artifact_Update_v1__Guard_Error_ShortCircuit'].json;\n\n// Get registry lookup result (may be empty if no row found)\nconst registryRow = $json;\n\nconst artifact_type = originalRequest.artifact_type;\n\n// FAIL-CLOSED: No row found = type not registered\nif (!registryRow || !registryRow.artifact_type) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: 'error',\n      gw_action: originalRequest.gw_action ?? 'artifact.update',\n      gw_workspace_id: originalRequest.gw_workspace_id ?? null,\n      artifact_type: artifact_type,\n      artifact_id: originalRequest.artifact_id ?? null,\n      error: {\n        code: 'ARTIFACT_TYPE_NOT_ALLOWED',\n        message: `Artifact type '${artifact_type}' is not allowed`,\n        details: {\n          artifact_type: artifact_type,\n          reason: 'not_registered',\n          hint: 'Type must be registered in qxb_artifact_type_registry'\n        }\n      },\n      timestamp: new Date().toISOString()\n    }\n  }];\n}\n\n// Type found but disabled\nif (registryRow.enabled === false) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: 'error',\n      gw_action: originalRequest.gw_action ?? 'artifact.update',\n      gw_workspace_id: originalRequest.gw_workspace_id ?? null,\n      artifact_type: artifact_type,\n      artifact_id: originalRequest.artifact_id ?? null,\n      error: {\n        code: 'ARTIFACT_TYPE_NOT_ALLOWED',\n        message: `Artifact type '${artifact_type}' is not allowed`,\n        details: {\n          artifact_type: artifact_type,\n          reason: 'disabled',\n          registry_enabled: false,\n          hint: 'Type is registered but currently disabled'\n        }\n      },\n      timestamp: new Date().toISOString()\n    }\n  }];\n}\n\n// Type is registered and enabled - pass through original request\nreturn [{ json: originalRequest }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1280,
+        304
+      ],
+      "id": "5074b160-fd78-44b4-a114-24c53a9cfd5d",
+      "name": "NQxb_Artifact_Update_v1__Type_Registry_Guard"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.ok }}",
+                    "rightValue": false,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    },
+                    "id": "registry-error"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "registry-ok",
+                    "leftValue": "={{ $json.ok }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -1056,
+        304
+      ],
+      "id": "2335be2d-d60a-4471-8065-7b94798d750d",
+      "name": "NQxb_Artifact_Update_v1__Switch_Type_Registry"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "qxb_artifact",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_id",
+              "keyValue": "={{ $json.artifact_id }}"
+            },
+            {
+              "keyName": "workspace_id",
+              "keyValue": "={{ $json.gw_workspace_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -832,
+        320
+      ],
+      "id": "b1c1b88c-3f36-46d4-9131-d2e368277042",
+      "name": "NQxb_Artifact_Update_v1__Fetch_Existing_Spine",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase \u2013 Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Check_Mutability_Rules\n// v2: Mutability Registry v2 — Universal spine-level tag updates\n//\n// Tags are organizational metadata, not extension content.\n// Tags can be updated on ALL artifact types (including snapshot, restart).\n// Extension immutability rules remain unchanged.\n//\n// Decision matrix:\n//   tags_only on any type          → ALLOW (bypass extension check)\n//   tags + extension on immutable  → BLOCK (extension immutable, tags not applied)\n//   tags + extension on journal    → BLOCK (journal undecided, tags not applied)\n//   tags + extension on project    → ALLOW (validate extension per allowlist)\n//   extension_only on project      → ALLOW (existing v1 behavior)\n\nconst existing = $json;\nconst normalizeNode = $node['NQxb_Artifact_Update_v1__Normalize_Request'].json;\n\n// Check if artifact was found\nif (!existing || !existing.artifact_id) {\n  return [\n    {\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"NOT_FOUND\",\n          message: \"Artifact not found for UPDATE operation\",\n          details: {\n            artifact_id: normalizeNode.artifact_id,\n            workspace_id: normalizeNode.gw_workspace_id,\n            operation: \"UPDATE\",\n          },\n        },\n      },\n    },\n  ];\n}\n\nconst artifact_type = existing.artifact_type?.trim();\n\n// Detect what's being updated\nconst hasTags = normalizeNode.tags !== null && normalizeNode.tags !== undefined;\nconst extension = normalizeNode.extension || {};\nconst extensionFields = Object.keys(extension);\nconst hasExtension = extensionFields.length > 0;\nconst tagsOnly = hasTags && !hasExtension;\n\n// RULE: deleted_at is UNDECIDED_BLOCKED\nif (normalizeNode.deleted_at !== null && normalizeNode.deleted_at !== undefined) {\n  return [\n    {\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"MUTABILITY_ERROR\",\n          message: \"Field 'deleted_at' is UNDECIDED_BLOCKED and cannot be updated.\",\n          details: {\n            field: \"deleted_at\",\n            artifact_type: artifact_type,\n            artifact_id: existing.artifact_id,\n            registry_rule: \"UNDECIDED_BLOCKED\",\n            source: \"Mutability Registry v2\",\n          },\n        },\n      },\n    },\n  ];\n}\n\n// RULE: snapshot and restart — extension immutable, tags allowed\nif (artifact_type === \"snapshot\" || artifact_type === \"restart\") {\n  if (hasExtension) {\n    return [\n      {\n        json: {\n          ok: false,\n          _gw_route: \"error\",\n          error: {\n            code: \"IMMUTABILITY_ERROR\",\n            message: `Artifact type '${artifact_type}' is immutable. Extension fields cannot be updated. Only tag updates are allowed.`,\n            details: {\n              artifact_type: artifact_type,\n              artifact_id: existing.artifact_id,\n              operation_attempted: \"UPDATE\",\n              registry_rule: \"CREATE_ONLY (extension), UPDATE_ALLOWED (tags)\",\n              source: \"Mutability Registry v2\",\n              hint: hasTags ? \"Remove extension fields from your request. Tags can be updated separately.\" : undefined,\n            },\n          },\n        },\n      },\n    ];\n  }\n  // tags_only on snapshot/restart → ALLOW (fall through to success)\n}\n\n// RULE: journal — extension undecided, tags allowed\nif (artifact_type === \"journal\") {\n  if (hasExtension) {\n    return [\n      {\n        json: {\n          ok: false,\n          _gw_route: \"error\",\n          error: {\n            code: \"JOURNAL_MUTABILITY_UNDECIDED\",\n            message: \"Journal extension update policy is not locked. Only tag updates are allowed.\",\n            details: {\n              artifact_type: \"journal\",\n              artifact_id: existing.artifact_id,\n              operation_attempted: \"UPDATE\",\n              registry_rule: \"UNDECIDED_BLOCKED (extension), UPDATE_ALLOWED (tags)\",\n              source: \"Mutability Registry v2\",\n              doctrine: \"Journal INSERT-ONLY (Temporary)\",\n              hint: hasTags\n                ? \"Remove extension fields. Tags can be updated separately.\"\n                : \"Use artifact.create to append new journal entries.\",\n            },\n          },\n        },\n      },\n    ];\n  }\n  // tags_only on journal → ALLOW (fall through to success)\n}\n\n// RULE: For project artifacts, validate extension fields against allowlist\nif (artifact_type === \"project\" && hasExtension) {\n  const allowedFields = [\"operational_state\", \"state_reason\"];\n  const disallowedFields = extensionFields.filter((f) => !allowedFields.includes(f));\n\n  if (disallowedFields.length > 0) {\n    if (disallowedFields.includes(\"lifecycle_stage\")) {\n      return [\n        {\n          json: {\n            ok: false,\n            _gw_route: \"error\",\n            error: {\n              code: \"MUTABILITY_ERROR\",\n              message: \"Field 'lifecycle_stage' is PROMOTE_ONLY and cannot be updated via artifact.update.\",\n              details: {\n                field: \"extension.lifecycle_stage\",\n                artifact_type: \"project\",\n                artifact_id: existing.artifact_id,\n                registry_rule: \"PROMOTE_ONLY\",\n                source: \"Mutability Registry v2\",\n                hint: \"Use artifact.promote operation to change lifecycle_stage.\",\n              },\n            },\n          },\n        },\n      ];\n    }\n\n    return [\n      {\n        json: {\n          ok: false,\n          _gw_route: \"error\",\n          error: {\n            code: \"MUTABILITY_ERROR\",\n            message: `Disallowed fields in extension for project UPDATE: ${disallowedFields.join(\", \")}`,\n            details: {\n              disallowed_fields: disallowedFields,\n              allowed_fields: allowedFields,\n              artifact_type: \"project\",\n              artifact_id: existing.artifact_id,\n              source: \"Mutability Registry v2\",\n            },\n          },\n        },\n      },\n    ];\n  }\n}\n\n// Ensure at least something is being updated\nif (!hasTags && !hasExtension) {\n  return [\n    {\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"VALIDATION_ERROR\",\n          message: \"No updateable fields provided. Provide tags and/or extension fields.\",\n          details: {\n            artifact_type: artifact_type,\n            artifact_id: existing.artifact_id,\n          },\n        },\n      },\n    },\n  ];\n}\n\n// Mutability checks passed\nreturn [\n  {\n    json: {\n      ok: true,\n      _gw_route: \"ok\",\n      gw_action: normalizeNode.gw_action ?? \"artifact.update\",\n      gw_workspace_id: normalizeNode.gw_workspace_id ?? null,\n\n      artifact_id: existing.artifact_id,\n      workspace_id: existing.workspace_id,\n      artifact_type: existing.artifact_type,\n\n      _has_tags: hasTags,\n      _has_extension: hasExtension,\n      _tags_only: tagsOnly,\n\n      _normalized_request: normalizeNode,\n      _existing_artifact: existing,\n\n      _gw_debug: {\n        ...(normalizeNode._gw_debug ?? {}),\n        mutability: \"passed\",\n        operation: \"UPDATE\",\n        has_tags: hasTags,\n        has_extension: hasExtension,\n        tags_only: tagsOnly,\n        source: \"Mutability Registry v2\",\n      },\n    },\n  },\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2400,
+        700
+      ],
+      "id": "1209e19f-313a-4c15-8f8e-9be6e90ca0c0",
+      "name": "NQxb_Artifact_Update_v1__Check_Mutability_Rules"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.ok }}",
+                    "rightValue": false,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    },
+                    "id": "546af728-12a2-4c64-9707-208c51f7f9c3"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "864a4039-588b-44cf-baba-75ac303c78c8",
+                    "leftValue": "={{ $json.ok }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -2176,
+        700
+      ],
+      "id": "25564f77-c3f9-4a3d-b2f6-80a22f316d4d",
+      "name": "NQxb_Artifact_Update_v1__Switch_Mutability_Result"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Apply_Tag_Operations\n// Compute new tags array from existing tags + add/remove operations\n// v1: Idempotent add/remove semantics, de-duplicated\n//\n// Reads from: Check_Mutability_Rules (_existing_artifact.tags)\n// Reads from: Normalize_Request (requested tag operations)\n\nconst mutability = $node['NQxb_Artifact_Update_v1__Check_Mutability_Rules'].json;\nconst normalizeNode = $node['NQxb_Artifact_Update_v1__Normalize_Request'].json;\n\nconst hasTags = mutability._has_tags;\nconst hasExtension = mutability._has_extension;\n\nif (!hasTags) {\n  // No tag operations requested — pass through\n  return [{\n    json: {\n      _has_tags: false,\n      _has_extension: hasExtension,\n      _new_tags: null,\n      _tags_body: null,\n    }\n  }];\n}\n\n// Get existing tags from spine (may be null or array)\nconst existingTags = mutability._existing_artifact?.tags ?? [];\nconst currentTags = Array.isArray(existingTags) ? existingTags : [];\n\n// Get requested operations\nconst tagOps = normalizeNode.tags || {};\nconst toAdd = Array.isArray(tagOps.add)\n  ? tagOps.add.filter(t => typeof t === \"string\" && t.trim().length > 0).map(t => t.trim())\n  : [];\nconst toRemove = Array.isArray(tagOps.remove)\n  ? tagOps.remove.filter(t => typeof t === \"string\" && t.trim().length > 0).map(t => t.trim())\n  : [];\n\n// Apply: remove specified tags, then add new tags, de-duplicate\nconst removeSet = new Set(toRemove);\nlet newTags = currentTags.filter(t => !removeSet.has(t));\nconst existingSet = new Set(newTags);\nfor (const tag of toAdd) {\n  if (!existingSet.has(tag)) {\n    newTags.push(tag);\n    existingSet.add(tag);\n  }\n}\n\nreturn [{\n  json: {\n    _has_tags: true,\n    _has_extension: hasExtension,\n    _new_tags: newTags,\n    _tags_body: JSON.stringify({ tags: newTags }),\n    _tags_debug: {\n      existing: currentTags,\n      added: toAdd,\n      removed: toRemove,\n      result: newTags,\n    }\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1952,
+        700
+      ],
+      "id": "f1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c",
+      "name": "NQxb_Artifact_Update_v1__Apply_Tag_Operations"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "has-tags-check",
+              "leftValue": "={{ $json._has_tags }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1728,
+        700
+      ],
+      "id": "a1b2c3d4-e5f6-4789-abcd-ef0123456789",
+      "name": "NQxb_Artifact_Update_v1__IF_Has_Tags"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'https://npymhacpmxdnkqdzgxll.supabase.co/rest/v1/qxb_artifact?artifact_id=eq.' + $node['NQxb_Artifact_Update_v1__Check_Mutability_Rules'].json.artifact_id + '&workspace_id=eq.' + $node['NQxb_Artifact_Update_v1__Normalize_Request'].json.gw_workspace_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ tags: $node['NQxb_Artifact_Update_v1__Apply_Tag_Operations'].json._new_tags }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1504,
+        850
+      ],
+      "id": "b2c3d4e5-f6a7-4890-bcde-f01234567890",
+      "name": "NQxb_Artifact_Update_v1__DB_Update_Spine_Tags",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase \u2013 Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "has-extension-check",
+              "leftValue": "={{ $node['NQxb_Artifact_Update_v1__Apply_Tag_Operations'].json._has_extension }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1280,
+        850
+      ],
+      "id": "c3d4e5f6-a7b8-4901-cdef-012345678901",
+      "name": "NQxb_Artifact_Update_v1__IF_Has_Extension"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $node['NQxb_Artifact_Update_v1__Check_Mutability_Rules'].json.artifact_type }}",
+                    "rightValue": "project",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "update-project"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -1056,
+        700
+      ],
+      "id": "4866cabd-c593-4c73-aff3-c65e85c99d75",
+      "name": "NQxb_Artifact_Update_v1__Switch_Type_For_Update"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Prepare_Project_Extension_Update\n// v2: Use $node references instead of $json for stability\n// Extract allowed fields (operational_state, state_reason) for project UPDATE\n\nconst normalizeNode = $node['NQxb_Artifact_Update_v1__Normalize_Request'].json;\nconst mutabilityNode = $node['NQxb_Artifact_Update_v1__Check_Mutability_Rules'].json;\nconst extension = normalizeNode.extension || {};\n\n// Only update fields that are explicitly provided\nconst hasOperationalState = 'operational_state' in extension;\nconst hasStateReason = 'state_reason' in extension;\n\nconst updateFields = {\n  artifact_id: mutabilityNode.artifact_id,\n};\n\nif (hasOperationalState) {\n  updateFields.operational_state = extension.operational_state;\n}\n\nif (hasStateReason) {\n  updateFields.state_reason = extension.state_reason;\n}\n\nupdateFields._has_operational_state = hasOperationalState;\nupdateFields._has_state_reason = hasStateReason;\n\nreturn [{ json: updateFields }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -832,
+        700
+      ],
+      "id": "b716259d-8c6b-4a5d-a3a4-12363b687f7f",
+      "name": "NQxb_Artifact_Update_v1__Prepare_Project_Extension_Update"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "qxb_artifact_project",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.artifact_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "operational_state",
+              "fieldValue": "={{ $json.operational_state }}"
+            },
+            {
+              "fieldId": "state_reason",
+              "fieldValue": "={{ $json.state_reason }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -608,
+        700
+      ],
+      "id": "1f6376cc-aa5e-4de8-8296-e4cf4396a84e",
+      "name": "NQxb_Artifact_Update_v1__DB_Update_Project_Extension",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase \u2013 Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Prepare_Query_Call\n// Get artifact_id from the flow for final query\n\nconst normalizeNode = $node['NQxb_Artifact_Update_v1__Normalize_Request'].json;\nconst mutabilityNode = $node['NQxb_Artifact_Update_v1__Check_Mutability_Rules'].json;\n\nconst artifact_id = mutabilityNode.artifact_id || normalizeNode.artifact_id;\n\nreturn [\n  {\n    json: {\n      saved_artifact_id: artifact_id,\n      saved_workspace_id: normalizeNode.gw_workspace_id,\n      saved_artifact_type: mutabilityNode.artifact_type || normalizeNode.artifact_type,\n    },\n  },\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -384,
+        700
+      ],
+      "id": "edb10095-cd05-49d5-a986-de34409a4f13",
+      "name": "NQxb_Artifact_Update_v1__Prepare_Query_Call"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Build_Query_Request\n// Build a *correct* artifact.query request after UPDATE, even if the DB Update node outputs {}.\n//\n// Key idea: NEVER trust $json here because Supabase Update often returns an empty item.\n// Instead, pull canonical IDs from the Normalize node (or other stable upstream nodes).\n\nconst normalize = $node[\"NQxb_Artifact_Update_v1__Normalize_Request\"]?.json ?? {};\nconst validate   = $node[\"NQxb_Artifact_Update_v1__Validate_Request\"]?.json ?? {};\n\nconst gw_workspace_id = normalize.gw_workspace_id ?? validate.gw_workspace_id ?? null;\nconst artifact_type   = normalize.artifact_type   ?? validate.artifact_type   ?? null;\nconst artifact_id     = normalize.artifact_id     ?? validate.artifact_id     ?? null;\n\nreturn [\n  {\n    json: {\n      gw_action: \"artifact.query\",\n      gw_workspace_id,\n      artifact_type,\n      artifact_id,\n      selector: {\n        hydrate: true,\n      },\n      _gw_debug: {\n        routed_from: \"NQxb_Artifact_Update_v1\",\n        next: \"artifact.query (hydrate)\",\n        source_ids: {\n          gw_workspace_id,\n          artifact_type,\n          artifact_id,\n        },\n      },\n    },\n  },\n];\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        600
+      ],
+      "id": "2c7c95fd-a7df-4833-8c7b-1c93a61c4689",
+      "name": "Node name: NQxb_Artifact_Update_v1__Build_Query_Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Return_Update_Ack\n// v2: Include tags in response\n// KGB TERMINAL — UPDATE ONLY\n// Never trust Supabase UPDATE output.\n// Always return a stable acknowledgement.\n\nconst normalize = $node[\"NQxb_Artifact_Update_v1__Normalize_Request\"].json;\nconst tagOps = $node[\"NQxb_Artifact_Update_v1__Apply_Tag_Operations\"]?.json ?? {};\n\nconst updatedFields = Object.keys(normalize.extension || {}).filter(k => k.length > 0);\nif (tagOps._has_tags) {\n  updatedFields.push(\"tags\");\n}\n\nreturn [\n  {\n    json: {\n      ok: true,\n      gw_action: \"artifact.update\",\n      operation: \"UPDATE\",\n      artifact_id: normalize.artifact_id,\n      artifact_type: normalize.artifact_type,\n      gw_workspace_id: normalize.gw_workspace_id,\n      updated_fields: updatedFields,\n      tags_updated: tagOps._has_tags ?? false,\n      _kgb: {\n        status: \"UPDATE_CONFIRMED\",\n        note: \"Update completed.\",\n        version: \"STAGED-v11-tags-update-2026-02-08\",\n      },\n    },\n  },\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        64,
+        600
+      ],
+      "id": "a831d9c8-15b8-478b-93fb-97dbb88f9b1b",
+      "name": "NQxb_Artifact_Update_v1__Return_Update_Ack"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Return_Error_Passthrough\n// Terminal node: pass-through the incoming payload unchanged.\n// Use for any error path to guarantee the workflow returns a real JSON envelope\n// instead of dead-ending into \"\".\n\nreturn $input.all();\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        64,
+        144
+      ],
+      "id": "e1b26e3a-9859-4f11-bf87-d5eddfbc6e78",
+      "name": "NQxb_Artifact_Update_v1__Return_Error_Passthrough"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "NQxb_Artifact_Update_v1__In": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Normalize_Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Normalize_Request": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Validate_Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Validate_Request": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Guard_Error_ShortCircuit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Guard_Error_ShortCircuit": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Error_Passthrough",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Lookup_Type_Registry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Lookup_Type_Registry": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Type_Registry_Guard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Type_Registry_Guard": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Switch_Type_Registry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Switch_Type_Registry": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Error_Passthrough",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Fetch_Existing_Spine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Fetch_Existing_Spine": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Check_Mutability_Rules",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Check_Mutability_Rules": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Switch_Mutability_Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Switch_Mutability_Result": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Error_Passthrough",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Apply_Tag_Operations",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Error_Passthrough",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Apply_Tag_Operations": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__IF_Has_Tags",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__IF_Has_Tags": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__DB_Update_Spine_Tags",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Switch_Type_For_Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__DB_Update_Spine_Tags": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__IF_Has_Extension",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__IF_Has_Extension": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Switch_Type_For_Update",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Update_Ack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Switch_Type_For_Update": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Prepare_Project_Extension_Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Prepare_Project_Extension_Update": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__DB_Update_Project_Extension",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__DB_Update_Project_Extension": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Prepare_Query_Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Prepare_Query_Call": {
+      "main": [
+        [
+          {
+            "node": "Node name: NQxb_Artifact_Update_v1__Build_Query_Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Node name: NQxb_Artifact_Update_v1__Build_Query_Request": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Update_Ack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "STAGED-v11-tags-update-2026-02-08",
+  "meta": {
+    "instanceId": "154f6928422db881044f8d1647b40fc389c59337d14356c0ee681d50ffb55d7e"
+  },
+  "id": "ZMiwnwHm2AL96HhK",
+  "tags": []
+}

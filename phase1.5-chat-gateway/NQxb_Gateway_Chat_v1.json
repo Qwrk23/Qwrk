@@ -1,0 +1,256 @@
+{
+  "name": "NQxb_Gateway_Chat_v1",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "You are Qwrk, a personal knowledge and project management assistant. You help users manage their artifacts: projects, journals, snapshots, restarts, and instruction packs.\n\n## Your Capabilities\n\nYou can perform these Gateway actions by outputting structured JSON:\n- **artifact.query** - Retrieve a specific artifact by ID\n- **artifact.list** - List artifacts of a type (with optional filters)\n- **artifact.save** - Create new artifacts\n- **artifact.update** - Update existing artifacts\n- **artifact.promote** - Change project lifecycle stage\n\n## Fixed Context (Always Use These)\n\n- Workspace ID: be0d3a48-c764-44f9-90c8-e846d9dbbd0a\n- Owner User ID: 7097c16c-ed88-4e49-983f-1de80e5cfcea\n\n## How to Use Tools\n\nWhen the user wants to interact with artifacts, use the appropriate tool. The tool will handle calling the Gateway.\n\n## Artifact Types\n\n- project: Work containers with lifecycle (seed → sapling → tree → retired)\n- journal: Private reflective entries\n- snapshot: Immutable lifecycle transition records\n- restart: Manual freeze + resume context\n- instruction_pack: GPT front-end instruction extensions\n\n## Project Lifecycle Stages\n\n- seed: Initial idea\n- sapling: Structured idea, not yet ready to implement\n- tree: Active project with tasks\n- retired: Archived\n\n## Response Guidelines\n\n1. When listing artifacts, summarize the results in a readable format\n2. When showing a single artifact, highlight key fields (title, status, dates)\n3. Confirm before destructive actions\n4. If unsure what the user wants, ask for clarification"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        -200,
+        100
+      ],
+      "id": "ai-agent-main",
+      "name": "Qwrk_AI_Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -400,
+        100
+      ],
+      "id": "chat-trigger",
+      "name": "Chat_Trigger",
+      "webhookId": "qwrk-chat-gateway-v1"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list"
+        },
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -200,
+        320
+      ],
+      "id": "openai-chat-model",
+      "name": "OpenAI_Chat_Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "artifact_list",
+        "description": "List artifacts of a specific type. Use this when the user wants to see their journals, projects, etc.",
+        "workflowId": {
+          "__rl": true,
+          "value": "Wbg4ciSwUSSTrO3C",
+          "mode": "id"
+        },
+        "fields": {
+          "values": [
+            {
+              "name": "artifact_type",
+              "description": "Type of artifact: project, journal, snapshot, restart, instruction_pack",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "limit",
+              "description": "Maximum number of results to return (1-100)",
+              "type": "number",
+              "required": false
+            },
+            {
+              "name": "hydrate",
+              "description": "Whether to include full extension data",
+              "type": "boolean",
+              "required": false
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2,
+      "position": [
+        0,
+        320
+      ],
+      "id": "tool-list",
+      "name": "Tool_Artifact_List"
+    },
+    {
+      "parameters": {
+        "name": "artifact_query",
+        "description": "Get details of a specific artifact by its ID. Use this when the user asks about a specific item.",
+        "workflowId": {
+          "__rl": true,
+          "value": "IsLBYjXJ5R2Djfrv",
+          "mode": "id"
+        },
+        "fields": {
+          "values": [
+            {
+              "name": "artifact_type",
+              "description": "Type of artifact: project, journal, snapshot, restart, instruction_pack",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "artifact_id",
+              "description": "UUID of the artifact to retrieve",
+              "type": "string",
+              "required": true
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2,
+      "position": [
+        200,
+        320
+      ],
+      "id": "tool-query",
+      "name": "Tool_Artifact_Query"
+    },
+    {
+      "parameters": {
+        "name": "artifact_save",
+        "description": "Create a new artifact. Use this when the user wants to save a new journal entry, create a project, etc.",
+        "workflowId": {
+          "__rl": true,
+          "value": "SYr4bZheUdCg2w1p",
+          "mode": "id"
+        },
+        "fields": {
+          "values": [
+            {
+              "name": "artifact_type",
+              "description": "Type of artifact: project, journal",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "title",
+              "description": "Title of the artifact",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "summary",
+              "description": "Short description or summary",
+              "type": "string",
+              "required": false
+            },
+            {
+              "name": "entry_text",
+              "description": "For journals: the main journal entry text",
+              "type": "string",
+              "required": false
+            },
+            {
+              "name": "lifecycle_stage",
+              "description": "For projects: seed, sapling, or tree",
+              "type": "string",
+              "required": false
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2,
+      "position": [
+        400,
+        320
+      ],
+      "id": "tool-save",
+      "name": "Tool_Artifact_Save"
+    }
+  ],
+  "connections": {
+    "Chat_Trigger": {
+      "main": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI_Chat_Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool_Artifact_List": {
+      "ai_tool": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool_Artifact_Query": {
+      "ai_tool": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool_Artifact_Save": {
+      "ai_tool": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "chat-v1-initial",
+  "meta": {
+    "instanceId": "qwrk-chat-gateway-v1"
+  },
+  "id": "CHAT_GATEWAY_V1",
+  "tags": []
+}

@@ -1,0 +1,221 @@
+{
+  "name": "NQxb_Gateway_Chat_v1",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "You are Qwrk, a personal knowledge and project management assistant. You help users manage their artifacts: projects, journals, snapshots, restarts, and instruction packs.\n\n## Your Capabilities\n\nYou have tools to interact with the Qwrk Gateway:\n- **qwrk_list** - List artifacts of a type (journals, projects, etc.)\n- **qwrk_query** - Get details of a specific artifact by ID\n- **qwrk_save_journal** - Create a new journal entry\n- **qwrk_save_project** - Create a new project\n\n## Artifact Types\n\n- project: Work containers with lifecycle (seed → sapling → tree → retired)\n- journal: Private reflective entries\n- snapshot: Immutable lifecycle transition records\n- restart: Manual freeze + resume context\n- instruction_pack: GPT front-end instruction extensions\n\n## Project Lifecycle Stages\n\n- seed: Initial idea\n- sapling: Structured idea, not yet ready to implement  \n- tree: Active project with tasks\n- retired: Archived\n\n## Response Guidelines\n\n1. When listing artifacts, summarize the results clearly with titles and key info\n2. When showing a single artifact, highlight: title, type, status, created date\n3. For journals, show the entry_text content\n4. For projects, show lifecycle_stage and operational_state\n5. If a tool returns an error, explain it to the user helpfully\n6. If unsure what the user wants, ask for clarification\n\n## Examples\n\nUser: \"Show me my journals\"\n→ Use qwrk_list with artifact_type=\"journal\"\n\nUser: \"Save a journal about today's meeting\"\n→ Use qwrk_save_journal with appropriate title and content\n\nUser: \"What projects do I have?\"\n→ Use qwrk_list with artifact_type=\"project\"\n\nUser: \"Tell me about artifact [some-uuid]\"\n→ Use qwrk_query with the artifact_id"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        200,
+        300
+      ],
+      "id": "ai-agent-main",
+      "name": "Qwrk_AI_Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -20,
+        300
+      ],
+      "id": "chat-trigger",
+      "name": "Chat_Trigger",
+      "webhookId": "qwrk-chat-gateway-v1"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list"
+        },
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        80,
+        520
+      ],
+      "id": "openai-chat-model",
+      "name": "OpenAI_Chat_Model"
+    },
+    {
+      "parameters": {
+        "name": "qwrk_list",
+        "description": "List artifacts of a specific type from Qwrk. Returns titles, IDs, and key metadata. Use when user wants to see their journals, projects, etc.",
+        "code": "// Tool: qwrk_list\n// Lists artifacts by type\n\nconst GATEWAY_URL = \"https://n8n.halosparkai.com/webhook/nqxb/gateway/v1\";\nconst WORKSPACE_ID = \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\";\nconst AUTH = \"Basic \" + Buffer.from(\"qwrk-gateway:aslfja'wwe*(#fhwoII843ghlw_ek2l\").toString(\"base64\");\n\nconst artifact_type = $input.artifact_type || \"journal\";\nconst limit = $input.limit || 10;\nconst hydrate = $input.hydrate === true || $input.hydrate === \"true\";\n\nconst payload = {\n  gw_action: \"artifact.list\",\n  gw_workspace_id: WORKSPACE_ID,\n  artifact_type: artifact_type,\n  selector: {\n    limit: limit,\n    hydrate: hydrate\n  }\n};\n\ntry {\n  const response = await fetch(GATEWAY_URL, {\n    method: \"POST\",\n    headers: {\n      \"Content-Type\": \"application/json\",\n      \"Authorization\": AUTH\n    },\n    body: JSON.stringify(payload)\n  });\n  \n  const data = await response.json();\n  \n  if (data.ok === false) {\n    return { error: data.error?.message || \"List failed\", details: data.error };\n  }\n  \n  const artifacts = data.data?.artifacts || [];\n  \n  // Format for readability\n  const summary = artifacts.map((a, i) => ({\n    index: i + 1,\n    artifact_id: a.artifact_id,\n    title: a.title || \"(untitled)\",\n    artifact_type: a.artifact_type,\n    created_at: a.created_at,\n    lifecycle_status: a.lifecycle_status || null,\n    summary: a.summary || null\n  }));\n  \n  return {\n    ok: true,\n    count: artifacts.length,\n    artifact_type: artifact_type,\n    artifacts: summary\n  };\n  \n} catch (err) {\n  return { error: \"Failed to call Gateway\", message: err.message };\n}",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"artifact_type\": {\n      \"type\": \"string\",\n      \"description\": \"Type of artifact to list: project, journal, snapshot, restart, instruction_pack\",\n      \"enum\": [\"project\", \"journal\", \"snapshot\", \"restart\", \"instruction_pack\"]\n    },\n    \"limit\": {\n      \"type\": \"number\",\n      \"description\": \"Maximum number of results (1-100). Default is 10.\"\n    },\n    \"hydrate\": {\n      \"type\": \"boolean\",\n      \"description\": \"Include full extension data. Default is false.\"\n    }\n  },\n  \"required\": [\"artifact_type\"]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.1,
+      "position": [
+        280,
+        520
+      ],
+      "id": "tool-list",
+      "name": "Tool_List"
+    },
+    {
+      "parameters": {
+        "name": "qwrk_query",
+        "description": "Get full details of a specific artifact by its ID. Returns all fields including content and extension data.",
+        "code": "// Tool: qwrk_query\n// Get a specific artifact by ID\n\nconst GATEWAY_URL = \"https://n8n.halosparkai.com/webhook/nqxb/gateway/v1\";\nconst WORKSPACE_ID = \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\";\nconst AUTH = \"Basic \" + Buffer.from(\"qwrk-gateway:aslfja'wwe*(#fhwoII843ghlw_ek2l\").toString(\"base64\");\n\nconst artifact_type = $input.artifact_type;\nconst artifact_id = $input.artifact_id;\n\nif (!artifact_type || !artifact_id) {\n  return { error: \"Both artifact_type and artifact_id are required\" };\n}\n\nconst payload = {\n  gw_action: \"artifact.query\",\n  gw_workspace_id: WORKSPACE_ID,\n  artifact_type: artifact_type,\n  artifact_id: artifact_id\n};\n\ntry {\n  const response = await fetch(GATEWAY_URL, {\n    method: \"POST\",\n    headers: {\n      \"Content-Type\": \"application/json\",\n      \"Authorization\": AUTH\n    },\n    body: JSON.stringify(payload)\n  });\n  \n  const data = await response.json();\n  \n  if (data.ok === false) {\n    return { error: data.error?.message || \"Query failed\", details: data.error };\n  }\n  \n  const artifact = data.data?.artifact || data.artifact || data;\n  \n  return {\n    ok: true,\n    artifact: artifact\n  };\n  \n} catch (err) {\n  return { error: \"Failed to call Gateway\", message: err.message };\n}",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"artifact_type\": {\n      \"type\": \"string\",\n      \"description\": \"Type of artifact: project, journal, snapshot, restart, instruction_pack\",\n      \"enum\": [\"project\", \"journal\", \"snapshot\", \"restart\", \"instruction_pack\"]\n    },\n    \"artifact_id\": {\n      \"type\": \"string\",\n      \"description\": \"UUID of the artifact to retrieve\"\n    }\n  },\n  \"required\": [\"artifact_type\", \"artifact_id\"]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.1,
+      "position": [
+        480,
+        520
+      ],
+      "id": "tool-query",
+      "name": "Tool_Query"
+    },
+    {
+      "parameters": {
+        "name": "qwrk_save_journal",
+        "description": "Create a new journal entry. Journals are private reflective entries for capturing thoughts, decisions, and insights.",
+        "code": "// Tool: qwrk_save_journal\n// Create a new journal entry\n\nconst GATEWAY_URL = \"https://n8n.halosparkai.com/webhook/nqxb/gateway/v1\";\nconst WORKSPACE_ID = \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\";\nconst OWNER_USER_ID = \"7097c16c-ed88-4e49-983f-1de80e5cfcea\";\nconst AUTH = \"Basic \" + Buffer.from(\"qwrk-gateway:aslfja'wwe*(#fhwoII843ghlw_ek2l\").toString(\"base64\");\n\nconst title = $input.title;\nconst entry_text = $input.entry_text || $input.content || \"\";\nconst summary = $input.summary || null;\n\nif (!title) {\n  return { error: \"Title is required for journal entries\" };\n}\n\nif (!entry_text || entry_text.trim().length === 0) {\n  return { error: \"Journal content (entry_text) is required\" };\n}\n\nconst payload = {\n  gw_action: \"artifact.save\",\n  gw_workspace_id: WORKSPACE_ID,\n  owner_user_id: OWNER_USER_ID,\n  artifact_type: \"journal\",\n  title: title,\n  summary: summary,\n  content: {},\n  extension: {\n    entry_text: entry_text\n  }\n};\n\ntry {\n  const response = await fetch(GATEWAY_URL, {\n    method: \"POST\",\n    headers: {\n      \"Content-Type\": \"application/json\",\n      \"Authorization\": AUTH\n    },\n    body: JSON.stringify(payload)\n  });\n  \n  const data = await response.json();\n  \n  if (data.ok === false) {\n    return { error: data.error?.message || \"Save failed\", details: data.error };\n  }\n  \n  return {\n    ok: true,\n    message: \"Journal saved successfully\",\n    artifact_id: data.artifact_id,\n    title: title\n  };\n  \n} catch (err) {\n  return { error: \"Failed to call Gateway\", message: err.message };\n}",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"title\": {\n      \"type\": \"string\",\n      \"description\": \"Title for the journal entry\"\n    },\n    \"entry_text\": {\n      \"type\": \"string\",\n      \"description\": \"The main content/body of the journal entry. Can be long.\"\n    },\n    \"summary\": {\n      \"type\": \"string\",\n      \"description\": \"Optional short summary of the journal entry\"\n    }\n  },\n  \"required\": [\"title\", \"entry_text\"]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.1,
+      "position": [
+        680,
+        520
+      ],
+      "id": "tool-save-journal",
+      "name": "Tool_Save_Journal"
+    },
+    {
+      "parameters": {
+        "name": "qwrk_save_project",
+        "description": "Create a new project. Projects are work containers that track ideas and tasks through lifecycle stages (seed → sapling → tree → retired).",
+        "code": "// Tool: qwrk_save_project\n// Create a new project\n\nconst GATEWAY_URL = \"https://n8n.halosparkai.com/webhook/nqxb/gateway/v1\";\nconst WORKSPACE_ID = \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\";\nconst OWNER_USER_ID = \"7097c16c-ed88-4e49-983f-1de80e5cfcea\";\nconst AUTH = \"Basic \" + Buffer.from(\"qwrk-gateway:aslfja'wwe*(#fhwoII843ghlw_ek2l\").toString(\"base64\");\n\nconst title = $input.title;\nconst summary = $input.summary || null;\nconst lifecycle_stage = $input.lifecycle_stage || \"seed\";\n\nif (!title) {\n  return { error: \"Title is required for projects\" };\n}\n\n// Validate lifecycle_stage\nconst validStages = [\"seed\", \"sapling\", \"tree\"];\nif (!validStages.includes(lifecycle_stage)) {\n  return { error: `Invalid lifecycle_stage. Must be one of: ${validStages.join(\", \")}` };\n}\n\nconst payload = {\n  gw_action: \"artifact.save\",\n  gw_workspace_id: WORKSPACE_ID,\n  owner_user_id: OWNER_USER_ID,\n  artifact_type: \"project\",\n  title: title,\n  summary: summary,\n  content: {},\n  extension: {\n    lifecycle_stage: lifecycle_stage\n  }\n};\n\ntry {\n  const response = await fetch(GATEWAY_URL, {\n    method: \"POST\",\n    headers: {\n      \"Content-Type\": \"application/json\",\n      \"Authorization\": AUTH\n    },\n    body: JSON.stringify(payload)\n  });\n  \n  const data = await response.json();\n  \n  if (data.ok === false) {\n    return { error: data.error?.message || \"Save failed\", details: data.error };\n  }\n  \n  return {\n    ok: true,\n    message: \"Project saved successfully\",\n    artifact_id: data.artifact_id,\n    title: title,\n    lifecycle_stage: lifecycle_stage\n  };\n  \n} catch (err) {\n  return { error: \"Failed to call Gateway\", message: err.message };\n}",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"title\": {\n      \"type\": \"string\",\n      \"description\": \"Title for the project\"\n    },\n    \"summary\": {\n      \"type\": \"string\",\n      \"description\": \"Optional description of the project\"\n    },\n    \"lifecycle_stage\": {\n      \"type\": \"string\",\n      \"description\": \"Initial lifecycle stage: seed (default), sapling, or tree\",\n      \"enum\": [\"seed\", \"sapling\", \"tree\"]\n    }\n  },\n  \"required\": [\"title\"]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        520
+      ],
+      "id": "tool-save-project",
+      "name": "Tool_Save_Project"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "qwrk_chat_memory"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -100,
+        520
+      ],
+      "id": "memory-buffer",
+      "name": "Chat_Memory"
+    }
+  ],
+  "connections": {
+    "Chat_Trigger": {
+      "main": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI_Chat_Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool_List": {
+      "ai_tool": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool_Query": {
+      "ai_tool": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool_Save_Journal": {
+      "ai_tool": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool_Save_Project": {
+      "ai_tool": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat_Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Qwrk_AI_Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "chat-v1-complete",
+  "meta": {
+    "instanceId": "qwrk-chat-gateway-v1-complete"
+  },
+  "id": "CHAT_GATEWAY_V1_COMPLETE",
+  "tags": []
+}
