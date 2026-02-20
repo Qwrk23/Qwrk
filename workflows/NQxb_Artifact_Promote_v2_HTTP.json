@@ -241,32 +241,6 @@
     },
     {
       "parameters": {
-        "jsCode": "// NQxb_Artifact_Promote_v1__Build_Query_Request\n// Build artifact.query request from promote payload (NOT from event output)\n\nconst j = $json ?? {};\n\nconst out = {\n  gw_action: \"artifact.query\",\n  gw_workspace_id: j.gw_workspace_id ?? j.workspace_id ?? null,\n  artifact_type: j.artifact_type ?? null,\n  artifact_id: j.artifact_id ?? null,\n  selector: { hydrate: true },\n};\n\nif (!out.gw_workspace_id || !out.artifact_type || !out.artifact_id) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"VALIDATION_ERROR\",\n        message: \"Cannot call artifact.query: missing required fields from promote payload.\",\n        details: {\n          gw_workspace_id: out.gw_workspace_id,\n          artifact_type: out.artifact_type,\n          artifact_id: out.artifact_id,\n        }\n      }\n    }\n  }];\n}\n\nreturn [{ json: out }];\n"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1648,
-        0
-      ],
-      "id": "32d91f7c-5e1f-4a4f-92dd-4ce9bb92d27c",
-      "name": "NQxb_Artifact_Promote_v1__Build_Query_Request"
-    },
-    {
-      "parameters": {
-        "jsCode": "// NQxb_Artifact_Promote_v1__Merge_Verify\n// Purpose: Merge two incoming inputs safely (Resolve path + DB_Update path)\n//\n// n8n Code node receives all incoming items in `items`.\n// When there are two incoming connections, n8n concatenates them.\n// We'll merge the first two items (Run Once for All Items assumption).\n\nconst a = items?.[0]?.json ?? {};\nconst b = items?.[1]?.json ?? {};\n\nreturn [\n  {\n    json: {\n      ...a,\n      ...b,\n    },\n  },\n];\n\n"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1424,
-        0
-      ],
-      "id": "f0317319-2a5c-4539-9790-8f12bc86a5f5",
-      "name": "NQxb_Artifact_Promote_v1__Merge_Verify"
-    },
-    {
-      "parameters": {
         "jsCode": "// NQxb_Artifact_Promote_v1__Freeze_Event_Payload\nconst j = $json ?? {};\n\nreturn [{\n  json: {\n    ...j,\n    _event_payload: {\n      request_id: j.request_id ?? null,\n      transition: j.transition ?? null,\n      from_state: j.from_state ?? null,\n      to_state: j.to_state ?? null,\n      reason: j.reason ?? null,\n      artifact_type: j.artifact_type ?? null,\n      gw_action: j.gw_action ?? null,\n    }\n  }\n}];\n\n"
       },
       "type": "n8n-nodes-base.code",
@@ -475,36 +449,6 @@
       ],
       "id": "3d7cc24a-29a1-4884-bebe-cedb3115a0c1",
       "name": "NQxb_Artifact_Promote_v1__Shape_Response"
-    },
-    {
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "IsLBYjXJ5R2Djfrv",
-          "mode": "list",
-          "cachedResultUrl": "/workflow/IsLBYjXJ5R2Djfrv",
-          "cachedResultName": "NQxb_Artifact_Query_v1"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {},
-          "matchingColumns": [],
-          "schema": [],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {
-          "waitForSubWorkflow": true
-        }
-      },
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.3,
-      "position": [
-        1888,
-        0
-      ],
-      "id": "45a6ae41-fab1-4b71-9a74-687cc1408e9c",
-      "name": "Call 'NQxb_Artifact_Query_v1'"
     },
     {
       "parameters": {
@@ -796,33 +740,11 @@
         ]
       ]
     },
-    "NQxb_Artifact_Promote_v1__DB_Update_Lifecycle": {
-      "main": [
-        [
-          {
-            "node": "NQxb_Artifact_Promote_v1__Merge_Verify",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Pass_Actor": {
       "main": [
         [
           {
             "node": "Lookup_Type_Registry",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "NQxb_Artifact_Promote_v1__Merge_Verify": {
-      "main": [
-        [
-          {
-            "node": "NQxb_Artifact_Promote_v1__Build_Query_Request",
             "type": "main",
             "index": 0
           }
@@ -896,22 +818,6 @@
             "index": 0
           }
         ]
-      ]
-    },
-    "NQxb_Artifact_Promote_v1__Build_Query_Request": {
-      "main": [
-        [
-          {
-            "node": "Call 'NQxb_Artifact_Query_v1'",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Call 'NQxb_Artifact_Query_v1'": {
-      "main": [
-        []
       ]
     },
     "NQxb_Artifact_Promote_v1__DB_Insert_Event": {

@@ -547,32 +547,6 @@
     },
     {
       "parameters": {
-        "jsCode": "// NQxb_Artifact_Update_v1__Prepare_Query_Call\n// Get artifact_id from the flow for final query\n\nconst normalizeNode = $node['NQxb_Artifact_Update_v1__Normalize_Request'].json;\nconst mutabilityNode = $node['NQxb_Artifact_Update_v1__Check_Mutability_Rules'].json;\n\nconst artifact_id = mutabilityNode.artifact_id || normalizeNode.artifact_id;\n\nreturn [\n  {\n    json: {\n      saved_artifact_id: artifact_id,\n      saved_workspace_id: normalizeNode.gw_workspace_id,\n      saved_artifact_type: mutabilityNode.artifact_type || normalizeNode.artifact_type,\n    },\n  },\n];\n"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -608,
-        870
-      ],
-      "id": "edb10095-cd05-49d5-a986-de34409a4f13",
-      "name": "NQxb_Artifact_Update_v1__Prepare_Query_Call"
-    },
-    {
-      "parameters": {
-        "jsCode": "// NQxb_Artifact_Update_v1__Build_Query_Request\n// Build a *correct* artifact.query request after UPDATE, even if the DB Update node outputs {}.\n//\n// Key idea: NEVER trust $json here because Supabase Update often returns an empty item.\n// Instead, pull canonical IDs from the Normalize node (or other stable upstream nodes).\n\nconst normalize = $node[\"NQxb_Artifact_Update_v1__Normalize_Request\"]?.json ?? {};\nconst validate   = $node[\"NQxb_Artifact_Update_v1__Validate_Request\"]?.json ?? {};\n\nconst gw_workspace_id = normalize.gw_workspace_id ?? validate.gw_workspace_id ?? null;\nconst artifact_type   = normalize.artifact_type   ?? validate.artifact_type   ?? null;\nconst artifact_id     = normalize.artifact_id     ?? validate.artifact_id     ?? null;\n\nreturn [\n  {\n    json: {\n      gw_action: \"artifact.query\",\n      gw_workspace_id,\n      artifact_type,\n      artifact_id,\n      selector: {\n        hydrate: true,\n      },\n      _gw_debug: {\n        routed_from: \"NQxb_Artifact_Update_v1\",\n        next: \"artifact.query (hydrate)\",\n        source_ids: {\n          gw_workspace_id,\n          artifact_type,\n          artifact_id,\n        },\n      },\n    },\n  },\n];\n\n"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -384,
-        870
-      ],
-      "id": "2c7c95fd-a7df-4833-8c7b-1c93a61c4689",
-      "name": "Node name: NQxb_Artifact_Update_v1__Build_Query_Request"
-    },
-    {
-      "parameters": {
         "jsCode": "// KGB TERMINAL — UPDATE ONLY\n// Never trust Supabase UPDATE output.\n// Always return a stable acknowledgement.\n\nconst normalize = $node[\"NQxb_Artifact_Update_v1__Normalize_Request\"].json;\n\nreturn [\n  {\n    json: {\n      ok: true,\n      gw_action: \"artifact.update\",\n      operation: \"UPDATE\",\n      artifact_id: normalize.artifact_id,\n      artifact_type: normalize.artifact_type,\n      gw_workspace_id: normalize.gw_workspace_id,\n      updated_fields: Object.keys(normalize.extension || {}),\n      _kgb: {\n        status: \"UPDATE_CONFIRMED\",\n        note: \"Update completed. Query intentionally not invoked.\",\n      },\n    },\n  },\n];\n"
       },
       "type": "n8n-nodes-base.code",
@@ -822,28 +796,6 @@
       ]
     },
     "NQxb_Artifact_Update_v1__DB_Update_Project_Extension": {
-      "main": [
-        [
-          {
-            "node": "NQxb_Artifact_Update_v1__Prepare_Query_Call",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "NQxb_Artifact_Update_v1__Prepare_Query_Call": {
-      "main": [
-        [
-          {
-            "node": "Node name: NQxb_Artifact_Update_v1__Build_Query_Request",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Node name: NQxb_Artifact_Update_v1__Build_Query_Request": {
       "main": [
         [
           {

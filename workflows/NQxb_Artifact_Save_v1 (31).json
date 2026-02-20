@@ -1408,19 +1408,6 @@
     },
     {
       "parameters": {
-        "jsCode": "return [\n  {\n    json: {\n      artifact_id_seen: $json.artifact_id,\n      req_artifact_id_seen: $json.req_artifact_id,\n      raw_keys: Object.keys($json)\n    }\n  }\n];\n\n"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -3408,
-        896
-      ],
-      "id": "a5e2acc6-b9e4-4703-922f-0638ce79d9da",
-      "name": "testing"
-    },
-    {
-      "parameters": {
         "conditions": {
           "options": {
             "caseSensitive": true,
@@ -2074,11 +2061,6 @@
             "index": 0
           }
         ]
-      ]
-    },
-    "testing": {
-      "main": [
-        []
       ]
     },
     "NQxb_Artifact_Save_v1__Guard_Error_ShortCircuit": {

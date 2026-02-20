@@ -4,6 +4,14 @@
 -- Database: PostgreSQL 17.6
 --
 -- CHANGELOG:
+--   v2.4 (2026-02-20): Inline search_path hardening (C2).
+--     - Added SET search_path = public to all 3 DDL-defined functions:
+--       qxb_current_user_id(), qxb_block_update_delete(), qxb_set_updated_at()
+--     - Hardening now inline in CREATE FUNCTION definitions (self-contained)
+--     - Post-creation ALTER FUNCTION in migration 2026-02-11 is now redundant for these 3
+--     - No function logic, signatures, or RLS policies changed
+--     - Previous version: Archive/LIVE_DDL__Kernel_v1__2026-01-04__v2.3__2026-02-20.sql
+--
 --   v2.3 (2026-02-16): Phase 2 Completion — Structural Migration & Enforcement.
 --     - spine lifecycle_status CHECK: conditional (project-only), values {seed,sapling,tree,archive}
 --     - execution_status column added to spine (text, nullable, with CHECK)
@@ -55,6 +63,7 @@ CREATE OR REPLACE FUNCTION public.qxb_current_user_id()
 RETURNS uuid
 LANGUAGE sql
 STABLE
+SET search_path = public
 AS $$
   SELECT user_id FROM public.qxb_user WHERE auth_user_id = auth.uid()
 $$;
@@ -64,6 +73,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.qxb_block_update_delete()
 RETURNS trigger
 LANGUAGE plpgsql
+SET search_path = public
 AS $$
 BEGIN
   RAISE EXCEPTION 'UPDATE and DELETE are not allowed on this table';
@@ -75,6 +85,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.qxb_set_updated_at()
 RETURNS trigger
 LANGUAGE plpgsql
+SET search_path = public
 AS $$
 BEGIN
   NEW.updated_at = now();

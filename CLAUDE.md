@@ -11,7 +11,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-> **Last verified against live system:** 2026-02-18 · **Gateway:** v56 · **DDL:** v2.3 · **Last reconciliation:** 2026-02-18
+> **Last verified against live system:** 2026-02-20 · **Gateway:** v56 · **DDL:** v2.4 · **Last reconciliation:** 2026-02-20
 
 ## Instruction File Drift Rule
 

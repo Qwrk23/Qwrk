@@ -515,19 +515,6 @@
     },
     {
       "parameters": {
-        "jsCode": "const v = ($json.artifact_type ?? '') + '::' + ($node[\"NQxb_Artifact_Query_v1__Normalize_Request\"].json.artifact_type ?? '');\nreturn [{\n  json: {\n    ...$json,\n    debug_compare_raw: v,\n    debug_compare_json: JSON.stringify(v),\n    debug_compare_len: v.length,\n    debug_left: $json.artifact_type ?? null,\n    debug_right: $node[\"NQxb_Artifact_Query_v1__Normalize_Request\"].json.artifact_type ?? null,\n  }\n}];\n"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        2800,
-        -496
-      ],
-      "id": "667805b5-23e9-4a47-a786-465ed36af665",
-      "name": "Code in JavaScript"
-    },
-    {
-      "parameters": {
         "operation": "get",
         "tableId": "qxb_artifact_journal",
         "filters": {
@@ -1415,17 +1402,6 @@
         ]
       ]
     },
-    "Code in JavaScript": {
-      "main": [
-        [
-          {
-            "node": "NQxb_Gateway_v1__Switch_SpineType_Matches_RequestType",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "NQxb_Gateway_v1__DB_Get_Journal_Extension": {
       "main": [
         [
@@ -1452,7 +1428,7 @@
       "main": [
         [
           {
-            "node": "Code in JavaScript",
+            "node": "NQxb_Gateway_v1__Switch_SpineType_Matches_RequestType",
             "type": "main",
             "index": 0
           }
