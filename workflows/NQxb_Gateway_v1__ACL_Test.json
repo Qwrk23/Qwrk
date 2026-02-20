@@ -1,10 +1,10 @@
 {
-  "name": "NQxb_Gateway_v1",
+  "name": "NQxb_Gateway_v1__ACL_Test",
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "/nqxb/gateway/v1",
+        "path": "/nqxb/gateway/v1/acl-test",
         "authentication": "basicAuth",
         "responseMode": "responseNode",
         "options": {}
@@ -12,10 +12,10 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        -896,
-        112
+        -2208,
+        208
       ],
-      "id": "787f90d8-6cbc-4ecf-919a-8153e9b87228",
+      "id": "8fb153b3-faeb-4457-9ee3-5f51a9124d3a",
       "name": "NQxb_Gateway_v1__Webhook_In",
       "webhookId": "fe50d8cb-3789-49d9-9fad-436279cb8e54",
       "credentials": {
@@ -27,28 +27,28 @@
     },
     {
       "parameters": {
-        "jsCode": "// NQxb_Gateway_v1__Normalize_Request\n// Canonicalize inbound request so downstream nodes always use top-level fields.\n// Output contract (stable):\n//   $json.gw_action, $json.gw_workspace_id, $json.artifact_type, $json.artifact_id, $json.selector, $json.extension\n// Plus \"request echoes\" that survive later overwrites:\n//   $json.req_artifact_type, $json.req_artifact_id, $json.req_workspace_id, $json.req_extension\n// Non-contract debug:\n//   $json._gw_debug\n\nconst raw = $json ?? {};\n\n// n8n Webhook often provides parsed JSON under raw.body\nconst body =\n  raw.body && typeof raw.body === \"object\" && !Array.isArray(raw.body)\n    ? raw.body\n    : null;\n\n// Prefer parsed body when present; otherwise treat raw as already-flat\nconst req = body ?? raw;\n\n// normalize helper\nconst asObj = (v) =>\n  v && typeof v === \"object\" && !Array.isArray(v) ? v : {};\n\n// helper: pick extension object from extension (preferred) or patch (fallback)\nconst pickExtension = (r) => {\n  const ext = asObj(r?.extension);\n  if (ext && Object.keys(ext).length > 0) return ext;\n\n  const patch = asObj(r?.patch);\n  if (patch && Object.keys(patch).length > 0) return patch;\n\n  return {};\n};\n\n// --- AUTH PARSE (Basic) ---\n// We DO NOT store the full header; we only derive the username (non-secret).\nconst authHeader = raw.headers?.authorization || raw.headers?.Authorization || null;\n\nlet auth_username = null;\nlet auth_scheme = null;\n\nif (typeof authHeader === \"string\" && authHeader.length > 0) {\n  const parts = authHeader.split(\" \");\n  auth_scheme = (parts[0] || \"\").toLowerCase();\n\n  if (auth_scheme === \"basic\" && parts[1]) {\n    try {\n      const decoded = Buffer.from(parts[1], \"base64\").toString(\"utf8\"); // \"user:pass\"\n      const idx = decoded.indexOf(\":\");\n      auth_username = idx >= 0 ? decoded.slice(0, idx) : decoded;\n    } catch (e) {\n      auth_username = null;\n    }\n  }\n}\n\nconst resolved_extension = pickExtension(req);\n\n// Build canonical contract fields\nconst canonical = {\n  gw_action: req.gw_action ?? null,\n  gw_workspace_id: req.gw_workspace_id ?? null,\n  artifact_type: req.artifact_type ?? null,\n  artifact_id: req.artifact_id ?? null,\n  selector: asObj(req.selector),\n\n  // Canonical extension object (extension preferred; patch accepted as fallback)\n  extension: resolved_extension,\n\n  // IMPORTANT: freeze request intent so it survives later nodes that overwrite $json\n  req_artifact_type: req.artifact_type ?? null,\n  req_artifact_id: req.artifact_id ?? null,\n  req_workspace_id: req.gw_workspace_id ?? null,\n  req_extension: resolved_extension,\n};\n\n// Minimal debug context (non-contract)\ncanonical._gw_debug = {\n  received_shape: body ? \"n8n.body\" : \"flat\",\n  has_authorization: !!authHeader,\n  auth_scheme,\n  auth_username, // used for non-secret trace / derivations\n  request_method: raw.method ?? null,\n  request_url: raw.url ?? null,\n};\n\n// ✅ PASS-THROUGH: keep ALL original request fields, but enforce canonical keys\nconst out = {\n  ...req,\n  ...canonical, // canonical overwrites if any collision\n};\n\nreturn [{ json: out }];\n"
+        "jsCode": "// NQxb_Gateway_v1__Normalize_Request\n// Canonical normalization BEFORE Gatekeeper\n// FIX: explicitly forward title + owner identity for artifact.save\n\nfunction isNonEmptyObject(v) {\n  return v && typeof v === \"object\" && !Array.isArray(v) && Object.keys(v).length > 0;\n}\n\nfunction pickSource() {\n  if (isNonEmptyObject($json?.params)) return { src: \"params\", raw: $json.params };\n  if (isNonEmptyObject($json?.query)) return { src: \"query\", raw: $json.query };\n  if (isNonEmptyObject($json?.body?.body)) return { src: \"body.body\", raw: $json.body.body };\n  if (isNonEmptyObject($json?.body)) return { src: \"body\", raw: $json.body };\n  if (isNonEmptyObject($json)) return { src: \"json\", raw: $json };\n  return { src: \"empty\", raw: {} };\n}\n\nconst { src, raw } = pickSource();\n\nreturn [\n  {\n    json: {\n      // --- Canonical action ---\n      gw_action: raw.gw_action ?? raw.action ?? null,\n\n      // --- Workspace / identity ---\n      gw_workspace_id: raw.gw_workspace_id ?? raw.workspace_id ?? null,\n      workspace_id: raw.workspace_id ?? raw.gw_workspace_id ?? null,\n\n      // --- Artifact identity ---\n      artifact_type: raw.artifact_type ?? null,\n      artifact_id: raw.artifact_id ?? null,\n\n      // --- REQUIRED for INSERT ---\n      title: raw.title ?? null,\n\n      // --- Payload ---\n      extension: raw.extension ?? raw.patch ?? {},\n      tags: raw.tags ?? null,\n\n      // --- Spine fields for INSERT ---\n      parent_artifact_id: raw.parent_artifact_id ?? null,\n      summary: raw.summary ?? null,\n      priority: raw.priority ?? null,\n      content: raw.content ?? null,\n      lifecycle_status: raw.lifecycle_status ?? null,\n      execution_status: raw.execution_status ?? null,\n\n      // --- Owner / auth passthrough ---\n      auth_username:\n        raw.auth_username ??\n        raw.owner_username ??\n        raw.created_by ??\n        null,\n\n      // --- Freeze intent ---\n      req_gw_workspace_id: raw.gw_workspace_id ?? raw.workspace_id ?? null,\n      req_artifact_type: raw.artifact_type ?? null,\n      req_artifact_id: raw.artifact_id ?? null,\n      req_title: raw.title ?? null,\n\n      // --- Selector (artifact.list pagination) ---\n      selector: raw.selector ?? {},\n\n      // --- Promote fields ---\n      transition: raw.transition ?? null,\n      reason: raw.reason ?? null,\n\n      _gw_debug: {\n        normalized_by: \"NQxb_Gateway_v1__Normalize_Request\",\n        source: src,\n        received_keys: Object.keys(raw),\n        has_title: !!raw.title,\n        has_auth: !!(\n          raw.auth_username ||\n          raw.owner_username ||\n          raw.created_by\n        ),\n      },\n    },\n  },\n];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -672,
-        112
+        -1984,
+        208
       ],
-      "id": "2393416e-400b-4a4c-92ca-ebe90e35ead7",
+      "id": "92c4b3e5-147e-4a08-b302-c304812602a5",
       "name": "NQxb_Gateway_v1__Normalize_Request"
     },
     {
       "parameters": {
-        "jsCode": "// NQxb_Gateway_v1__Gatekeeper_MVP_OwnerOnly\n// Combined: envelope validation + allow-lists + MVP Mode owner-only enforcement (workspace lock)\n//\n// Output contract:\n// - If blocked: { ok:false, error:{code,message,details}, _gw_route:\"error\", ... }\n// - If allowed: passes through the *entire* canonical request + { ok:true, _gw_route:\"ok\" }\n\nconst OWNER_WORKSPACE_ID = \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\";\n\n// ✅ Allowlist includes promote + update\nconst ACTION_ALLOWLIST = new Set([\n  \"artifact.query\",\n  \"artifact.list\",\n  \"artifact.save\",\n  \"artifact.update\",\n  \"artifact.promote\",\n  \"artifact.delete\",\n  \"artifact.restore\",\n  \"artifact.list_deleted\",\n]);\n\n// ✅ UPDATED: include instruction_pack\nconst TYPE_ALLOWLIST = new Set([\n  \"project\",\n  \"journal\",\n  \"restart\",\n  \"snapshot\",\n  \"instruction_pack\",\n]);\n\nfunction asObj(v) {\n  return v && typeof v === \"object\" && !Array.isArray(v) ? v : {};\n}\n\nfunction fail(code, message, details = {}) {\n  return [\n    {\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: { code, message, details },\n\n        // Keep echoes for debugging\n        gw_action: $json?.gw_action ?? null,\n        gw_workspace_id: $json?.gw_workspace_id ?? null,\n        artifact_type: $json?.artifact_type ?? null,\n        artifact_id: $json?.artifact_id ?? null,\n        selector: asObj($json?.selector),\n        _gw_debug: $json?._gw_debug ?? undefined,\n\n        // OPTIONAL: preserve original input for inspection (internal MVP)\n        incoming: $json ?? {},\n      },\n    },\n  ];\n}\n\n// ----- Read canonical fields produced by Normalize_Request -----\nconst gw_action = $json?.gw_action;\nconst gw_workspace_id = $json?.gw_workspace_id;\nconst artifact_type = $json?.artifact_type;\nconst artifact_id = $json?.artifact_id;\nconst selector = asObj($json?.selector);\n\n// Extension: preferred `extension`, allow `patch` fallback (Normalize should already do this,\n// but we enforce again to be robust.)\nconst extension = (() => {\n  const ext = asObj($json?.extension);\n  if (ext && Object.keys(ext).length > 0) return ext;\n\n  const patch = asObj($json?.patch);\n  if (patch && Object.keys(patch).length > 0) return patch;\n\n  return {};\n})();\n\n// ----- Basic required checks -----\nif (!gw_action || typeof gw_action !== \"string\") {\n  return fail(\"VALIDATION_ERROR\", \"Missing or invalid gw_action\", {\n    expected: \"string\",\n    got: typeof gw_action,\n  });\n}\n\nif (!gw_workspace_id || typeof gw_workspace_id !== \"string\") {\n  return fail(\"VALIDATION_ERROR\", \"Missing or invalid gw_workspace_id\", {\n    expected: \"uuid string\",\n    got: typeof gw_workspace_id,\n  });\n}\n\n// ----- Allow-list checks -----\nif (!ACTION_ALLOWLIST.has(gw_action)) {\n  return fail(\"ACTION_NOT_ALLOWED\", \"gw_action not allowed\", {\n    gw_action,\n    allowed: Array.from(ACTION_ALLOWLIST),\n  });\n}\n\n// ----- MVP owner-only workspace lock -----\nif (gw_workspace_id !== OWNER_WORKSPACE_ID) {\n  return fail(\"WORKSPACE_FORBIDDEN\", \"Workspace not permitted in MVP owner-only mode\", {\n    gw_workspace_id,\n    allowed_workspace_id: OWNER_WORKSPACE_ID,\n  });\n}\n\n// ----- Action-specific validation -----\nif (gw_action === \"artifact.query\") {\n  if (!artifact_type || typeof artifact_type !== \"string\") {\n    return fail(\"VALIDATION_ERROR\", \"Missing or invalid artifact_type for artifact.query\", {\n      expected: \"string\",\n      got: typeof artifact_type,\n    });\n  }\n  if (!TYPE_ALLOWLIST.has(artifact_type)) {\n    return fail(\"ARTIFACT_TYPE_NOT_ALLOWED\", \"artifact_type not allowed\", {\n      artifact_type,\n      allowed: Array.from(TYPE_ALLOWLIST),\n    });\n  }\n  if (!artifact_id || typeof artifact_id !== \"string\") {\n    return fail(\"VALIDATION_ERROR\", \"Missing or invalid artifact_id for artifact.query\", {\n      expected: \"uuid string\",\n      got: typeof artifact_id,\n    });\n  }\n}\n\nif (gw_action === \"artifact.list\") {\n  if (!artifact_type || typeof artifact_type !== \"string\") {\n    return fail(\"VALIDATION_ERROR\", \"Missing or invalid artifact_type for artifact.list\", {\n      expected: \"string\",\n      got: typeof artifact_type,\n    });\n  }\n  if (!TYPE_ALLOWLIST.has(artifact_type)) {\n    return fail(\"ARTIFACT_TYPE_NOT_ALLOWED\", \"artifact_type not allowed\", {\n      artifact_type,\n      allowed: Array.from(TYPE_ALLOWLIST),\n    });\n  }\n  if (selector.limit !== undefined) {\n    const n = Number(selector.limit);\n    if (!Number.isFinite(n) || n < 1 || n > 100) {\n      return fail(\"VALIDATION_ERROR\", \"selector.limit out of range (1-100)\", {\n        limit: selector.limit,\n      });\n    }\n  }\n}\n\n// NOTE: For artifact.save we intentionally do NOT require artifact_type/artifact_id here.\n// Save_v1 handles INSERT vs UPDATE and type-specific rules.\n\nif (gw_action === \"artifact.update\") {\n  if (!artifact_type || typeof artifact_type !== \"string\") {\n    return fail(\"VALIDATION_ERROR\", \"Missing or invalid artifact_type for artifact.update\", {\n      expected: \"string\",\n      got: typeof artifact_type,\n    });\n  }\n  if (!TYPE_ALLOWLIST.has(artifact_type)) {\n    return fail(\"ARTIFACT_TYPE_NOT_ALLOWED\", \"artifact_type not allowed\", {\n      artifact_type,\n      allowed: Array.from(TYPE_ALLOWLIST),\n    });\n  }\n  if (!artifact_id || typeof artifact_id !== \"string\") {\n    return fail(\"VALIDATION_ERROR\", \"Missing or invalid artifact_id for artifact.update\", {\n      expected: \"uuid string\",\n      got: typeof artifact_id,\n    });\n  }\n\n  // Require extension (or patch fallback) to be a non-empty object\n  const extKeys = Object.keys(extension || {});\n  if (!extension || extKeys.length === 0) {\n    return fail(\"VALIDATION_ERROR\", \"Missing or invalid extension for artifact.update\", {\n      expected: \"object with at least 1 field (use 'extension' key; 'patch' accepted as fallback)\",\n      got: $json?.extension ?? $json?.patch ?? null,\n    });\n  }\n}\n\nif (gw_action === \"artifact.promote\") {\n  if (!artifact_type || typeof artifact_type !== \"string\") {\n    return fail(\"VALIDATION_ERROR\", \"Missing or invalid artifact_type for artifact.promote\", {\n      expected: \"string\",\n      got: typeof artifact_type,\n    });\n  }\n  if (!TYPE_ALLOWLIST.has(artifact_type)) {\n    return fail(\"ARTIFACT_TYPE_NOT_ALLOWED\", \"artifact_type not allowed\", {\n      artifact_type,\n      allowed: Array.from(TYPE_ALLOWLIST),\n    });\n  }\n  if (!artifact_id || typeof artifact_id !== \"string\") {\n    return fail(\"VALIDATION_ERROR\", \"Missing or invalid artifact_id for artifact.promote\", {\n      expected: \"uuid string\",\n      got: typeof artifact_id,\n    });\n  }\n\n  // ✅ FIX: transition may arrive inside artifact_payload due to contract boundary\n  const transition = $json?.transition ?? $json?.artifact_payload?.transition ?? null;\n\n  if (!transition || typeof transition !== \"string\" || transition.trim().length === 0) {\n    return fail(\"VALIDATION_ERROR\", \"Missing or invalid transition for artifact.promote\", {\n      expected: \"non-empty string\",\n      got: transition ?? null,\n    });\n  }\n\n  // reason is optional; allow null/empty; Promote workflow can store null.\n  // (We don’t validate it here.)\n}\n\n// ----- PASS THROUGH + ADD ROUTING CONTRACT -----\nreturn [\n  {\n    json: {\n      ...($json ?? {}),\n\n      ok: true,\n      _gw_route: \"ok\",\n\n      // enforce canonical fields (ensure they exist)\n      gw_action,\n      gw_workspace_id,\n      artifact_type: artifact_type ?? null,\n      artifact_id: artifact_id ?? null,\n      selector,\n\n      // For update, ensure downstream gets extension (even if caller used patch)\n      ...(gw_action === \"artifact.update\" ? { extension } : {}),\n\n      _gw_debug: $json?._gw_debug ?? undefined,\n    },\n  },\n];\n"
+        "jsCode": "// NQxb_Gateway_v1__Gatekeeper_MVP_OwnerOnly\n// Combined: envelope validation + allow-lists + MVP Mode owner-only enforcement (workspace lock)\n//\n// Output contract:\n// - If blocked: { ok:false, error:{code,message,details}, _gw_route:\"error\", ... }\n// - If allowed: passes through the *entire* canonical request + { ok:true, _gw_route:\"ok\" }\n\nconst OWNER_WORKSPACE_ID = \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\";\n\n// ✅ Allowlist includes promote + update\nconst ACTION_ALLOWLIST = new Set([\n  \"artifact.query\",\n  \"artifact.list\",\n  \"artifact.save\",\n  \"artifact.update\",\n  \"artifact.promote\",\n  \"artifact.delete\",\n  \"artifact.restore\",\n  \"artifact.list_deleted\",\n]);\n\n// ✅ UPDATED: Phase 2B Walk — branch/limb/leaf added per governance snapshot 2a8911ef\nconst TYPE_ALLOWLIST = new Set([\n  \"project\",\n  \"journal\",\n  \"restart\",\n  \"snapshot\",\n  \"instruction_pack\",\n  \"branch\",\n  \"limb\",\n  \"leaf\",\n]);\n\nfunction asObj(v) {\n  return v && typeof v === \"object\" && !Array.isArray(v) ? v : {};\n}\n\nfunction fail(code, message, details = {}) {\n  return [\n    {\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: { code, message, details },\n\n        // Keep echoes for debugging\n        gw_action: $json?.gw_action ?? null,\n        gw_workspace_id: $json?.gw_workspace_id ?? null,\n        artifact_type: $json?.artifact_type ?? null,\n        artifact_id: $json?.artifact_id ?? null,\n        selector: asObj($json?.selector),\n        _gw_debug: $json?._gw_debug ?? undefined,\n\n        // OPTIONAL: preserve original input for inspection (internal MVP)\n        incoming: $json ?? {},\n      },\n    },\n  ];\n}\n\n// ----- Read canonical fields produced by Normalize_Request -----\nconst gw_action = $json?.gw_action;\nconst gw_workspace_id = $json?.gw_workspace_id;\nconst artifact_type = $json?.artifact_type;\nconst artifact_id = $json?.artifact_id;\nconst selector = asObj($json?.selector);\n\n// Extension + tags (tags-only updates are valid)\nconst extension = asObj($json?.extension);\nconst tags = asObj($json?.tags);\n\n// ----- Basic required checks -----\nif (!gw_action || typeof gw_action !== \"string\") {\n  return fail(\"VALIDATION_ERROR\", \"Missing or invalid gw_action\", {\n    expected: \"string\",\n    got: typeof gw_action,\n  });\n}\n\n// ----- Allow-list checks -----\nif (!ACTION_ALLOWLIST.has(gw_action)) {\n  return fail(\"ACTION_NOT_ALLOWED\", \"gw_action not allowed\", {\n    gw_action,\n    allowed: Array.from(ACTION_ALLOWLIST),\n  });\n}\n\n/**\n * 🔑 CRITICAL FIX (BUG-017)\n *\n * We do NOT require gw_workspace_id at Gatekeeper time for artifact.update.\n * Update workflow performs authoritative workspace validation downstream.\n */\nconst requiresWorkspaceAtGate = gw_action !== \"artifact.update\";\n\nif (requiresWorkspaceAtGate) {\n  if (!gw_workspace_id || typeof gw_workspace_id !== \"string\") {\n    return fail(\"VALIDATION_ERROR\", \"Missing or invalid gw_workspace_id\", {\n      expected: \"uuid string\",\n      got: typeof gw_workspace_id,\n    });\n  }\n\n  // ----- MVP owner-only workspace lock -----\n  if (gw_workspace_id !== OWNER_WORKSPACE_ID) {\n    return fail(\"WORKSPACE_FORBIDDEN\", \"Workspace not permitted in MVP owner-only mode\", {\n      gw_workspace_id,\n      allowed_workspace_id: OWNER_WORKSPACE_ID,\n    });\n  }\n}\n\n// ----- Action-specific validation -----\nif (gw_action === \"artifact.query\") {\n  if (!artifact_type || typeof artifact_type !== \"string\") {\n    return fail(\"VALIDATION_ERROR\", \"Missing or invalid artifact_type for artifact.query\", {\n      expected: \"string\",\n      got: typeof artifact_type,\n    });\n  }\n  if (!TYPE_ALLOWLIST.has(artifact_type)) {\n    return fail(\"ARTIFACT_TYPE_NOT_ALLOWED\", \"artifact_type not allowed\", {\n      artifact_type,\n      allowed: Array.from(TYPE_ALLOWLIST),\n    });\n  }\n  if (!artifact_id || typeof artifact_id !== \"string\") {\n    return fail(\"VALIDATION_ERROR\", \"Missing or invalid artifact_id for artifact.query\", {\n      expected: \"uuid string\",\n      got: typeof artifact_id,\n    });\n  }\n}\n\nif (gw_action === \"artifact.list\") {\n  if (!artifact_type || typeof artifact_type !== \"string\") {\n    return fail(\"VALIDATION_ERROR\", \"Missing or invalid artifact_type for artifact.list\", {\n      expected: \"string\",\n      got: typeof artifact_type,\n    });\n  }\n  if (!TYPE_ALLOWLIST.has(artifact_type)) {\n    return fail(\"ARTIFACT_TYPE_NOT_ALLOWED\", \"artifact_type not allowed\", {\n      artifact_type,\n      allowed: Array.from(TYPE_ALLOWLIST),\n    });\n  }\n  if (selector.limit !== undefined) {\n    const n = Number(selector.limit);\n    if (!Number.isFinite(n) || n < 1 || n > 100) {\n      return fail(\"VALIDATION_ERROR\", \"selector.limit out of range (1-100)\", {\n        limit: selector.limit,\n      });\n    }\n  }\n}\n\n// NOTE: For artifact.save we intentionally do NOT require artifact_type/artifact_id here.\n\nif (gw_action === \"artifact.update\") {\n  if (!artifact_type || typeof artifact_type !== \"string\") {\n    return fail(\"VALIDATION_ERROR\", \"Missing or invalid artifact_type for artifact.update\", {\n      expected: \"string\",\n      got: typeof artifact_type,\n    });\n  }\n  if (!TYPE_ALLOWLIST.has(artifact_type)) {\n    return fail(\"ARTIFACT_TYPE_NOT_ALLOWED\", \"artifact_type not allowed\", {\n      artifact_type,\n      allowed: Array.from(TYPE_ALLOWLIST),\n    });\n  }\n  if (!artifact_id || typeof artifact_id !== \"string\") {\n    return fail(\"VALIDATION_ERROR\", \"Missing or invalid artifact_id for artifact.update\", {\n      expected: \"uuid string\",\n      got: typeof artifact_id,\n    });\n  }\n\n  /**\n   * 🔑 BUG-017 FIX:\n   * Allow EITHER extension updates OR tags-only updates.\n   */\n  const hasExtension = Object.keys(extension).length > 0;\n  const hasTags =\n    Array.isArray(tags?.add) && tags.add.length > 0 ||\n    Array.isArray(tags?.remove) && tags.remove.length > 0;\n\n  if (!hasExtension && !hasTags) {\n    return fail(\"VALIDATION_ERROR\", \"artifact.update requires extension or tags\", {\n      expected: \"non-empty extension OR tags.add/tags.remove\",\n      got: { extension, tags },\n    });\n  }\n}\n\nif (gw_action === \"artifact.promote\") {\n  if (!artifact_type || typeof artifact_type !== \"string\") {\n    return fail(\"VALIDATION_ERROR\", \"Missing or invalid artifact_type for artifact.promote\", {\n      expected: \"string\",\n      got: typeof artifact_type,\n    });\n  }\n  if (!TYPE_ALLOWLIST.has(artifact_type)) {\n    return fail(\"ARTIFACT_TYPE_NOT_ALLOWED\", \"artifact_type not allowed\", {\n      artifact_type,\n      allowed: Array.from(TYPE_ALLOWLIST),\n    });\n  }\n  if (!artifact_id || typeof artifact_id !== \"string\") {\n    return fail(\"VALIDATION_ERROR\", \"Missing or invalid artifact_id for artifact.promote\", {\n      expected: \"uuid string\",\n      got: typeof artifact_id,\n    });\n  }\n\n  const transition = $json?.transition ?? $json?.artifact_payload?.transition ?? null;\n\n  if (!transition || typeof transition !== \"string\" || transition.trim().length === 0) {\n    return fail(\"VALIDATION_ERROR\", \"Missing or invalid transition for artifact.promote\", {\n      expected: \"non-empty string\",\n      got: transition ?? null,\n    });\n  }\n}\n\n// ----- PASS THROUGH + ADD ROUTING CONTRACT -----\nreturn [\n  {\n    json: {\n      ...($json ?? {}),\n\n      ok: true,\n      _gw_route: \"ok\",\n\n      // enforce canonical fields\n      gw_action,\n      gw_workspace_id: gw_workspace_id ?? null,\n      artifact_type: artifact_type ?? null,\n      artifact_id: artifact_id ?? null,\n      selector,\n\n      ...(gw_action === \"artifact.update\" ? { extension, tags } : {}),\n\n      _gw_debug: $json?._gw_debug ?? undefined,\n    },\n  },\n];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -448,
-        112
+        -1088,
+        208
       ],
-      "id": "86c39444-bdc2-40dc-b660-285ba624aaa2",
+      "id": "e7974dd7-b865-4fbb-a2a3-30b3f20bc324",
       "name": "NQxb_Gateway_v1__Gatekeeper_MVP_OwnerOnly"
     },
     {
@@ -107,10 +107,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        -224,
-        112
+        -864,
+        208
       ],
-      "id": "09289648-fb43-4f11-907a-202acb63dfda",
+      "id": "3125639c-84b5-48b5-865a-18c2fcd8b174",
       "name": "NQxb_Gateway_v1__Switch_Route_OK_or_Error"
     },
     {
@@ -124,10 +124,10 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        0,
-        0
+        -640,
+        96
       ],
-      "id": "221bdb2e-a135-4d1d-bfca-c827da8797f2",
+      "id": "75d43835-1f00-4b74-aa70-856c671d919c",
       "name": "Error Response"
     },
     {
@@ -319,10 +319,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        0,
-        192
+        -640,
+        288
       ],
-      "id": "e76f0d49-80ed-46ec-ab15-97e64c2f0e0e",
+      "id": "9d0b94ce-0a98-47c9-89d6-53a46275d4b8",
       "name": "NQxb_Gateway_v1__Switch_Action"
     },
     {
@@ -334,19 +334,19 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1312,
-        -96
+        672,
+        0
       ],
-      "id": "9170b083-0eb3-4187-821f-73cf4ea1c81d",
+      "id": "c23c5241-d2a1-412f-9148-267d2bd171d1",
       "name": "NQxb_Gateway_v1__Respond_Query_Success"
     },
     {
       "parameters": {
         "workflowId": {
           "__rl": true,
-          "value": "IsLBYjXJ5R2Djfrv",
+          "value": "LGYSXI586inagTPk",
           "mode": "list",
-          "cachedResultUrl": "/workflow/IsLBYjXJ5R2Djfrv",
+          "cachedResultUrl": "/workflow/LGYSXI586inagTPk",
           "cachedResultName": "NQxb_Artifact_Query_v1"
         },
         "workflowInputs": {
@@ -364,10 +364,10 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
       "position": [
-        640,
-        -96
+        0,
+        0
       ],
-      "id": "036e7e71-391c-467b-89e5-b2adeace4c7b",
+      "id": "efea5185-27a6-4b28-ba04-307ed80a4352",
       "name": "Call 'NQxb_Artifact_Query_v1'",
       "alwaysOutputData": true
     },
@@ -378,19 +378,19 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        640,
-        304
+        0,
+        400
       ],
-      "id": "8ae7a0fd-7e78-41d6-9b02-2b4e30c57fa9",
+      "id": "b11e87b6-d22e-4907-bccb-4c5a6e927ea0",
       "name": "NQxb_Gateway__Freeze_Save_Context"
     },
     {
       "parameters": {
         "workflowId": {
           "__rl": true,
-          "value": "SYr4bZheUdCg2w1p",
+          "value": "mlUCDPRRdWp286ja",
           "mode": "list",
-          "cachedResultUrl": "/workflow/SYr4bZheUdCg2w1p",
+          "cachedResultUrl": "/workflow/mlUCDPRRdWp286ja",
           "cachedResultName": "NQxb_Artifact_Save_v1"
         },
         "workflowInputs": {
@@ -408,10 +408,10 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
       "position": [
-        864,
-        304
+        224,
+        400
       ],
-      "id": "be2a9e3e-281b-4e73-94b0-a180512d552f",
+      "id": "1284ecdd-4b6c-41fd-8bd1-5daf69411635",
       "name": "Call 'NQxb_Artifact_Save_v1'",
       "alwaysOutputData": true,
       "onError": "continueRegularOutput"
@@ -423,10 +423,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1088,
-        304
+        448,
+        400
       ],
-      "id": "85178ad1-34b4-4311-89a5-dbb530af350a",
+      "id": "8703e0ab-abaf-4bca-a037-c251f359a2d9",
       "name": "NQxb_Gateway__Tag_Save_Result"
     },
     {
@@ -436,10 +436,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1312,
-        304
+        672,
+        400
       ],
-      "id": "11a7a836-39e1-4723-9d85-bf94ac94d19b",
+      "id": "d863c405-2c0e-4926-94b5-f2745154a6b4",
       "name": "NQxb_Gateway__Shape_Save_Response"
     },
     {
@@ -451,19 +451,19 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1536,
-        304
+        896,
+        400
       ],
-      "id": "ac64661c-c625-4af3-b951-64fe2c72402c",
+      "id": "6473e29c-8cec-414b-8800-f2467608052e",
       "name": "NQxb_Gateway__Respond_Save_Success"
     },
     {
       "parameters": {
         "workflowId": {
           "__rl": true,
-          "value": "Wbg4ciSwUSSTrO3C",
+          "value": "RKDyfV4mdHCBDkmK",
           "mode": "list",
-          "cachedResultUrl": "/workflow/Wbg4ciSwUSSTrO3C",
+          "cachedResultUrl": "/workflow/RKDyfV4mdHCBDkmK",
           "cachedResultName": "NQxb_Artifact_List_v1"
         },
         "workflowInputs": {
@@ -482,10 +482,10 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
       "position": [
-        864,
-        96
+        224,
+        192
       ],
-      "id": "c423e495-91b2-48a4-99b8-fed75f956009",
+      "id": "c6bc5d0e-b02d-442c-9fcf-cde280e52e72",
       "name": "NQxb_Gateway_v1__Call_Artifact_List_v1"
     },
     {
@@ -495,45 +495,45 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1104,
-        96
+        464,
+        192
       ],
-      "id": "34bde414-2b7f-4d6a-98d1-7c0bb68d6fea",
+      "id": "da17798d-9aed-4629-a863-771529cfd572",
       "name": "NQxb_Gateway_v1__Shape_List_Response"
     },
     {
       "parameters": {
-        "jsCode": "// Normalize Gateway input for artifact.list before calling sub-workflow\n// Purpose:\n// - Ensure artifact_type is present at top level\n// - Preserve selector object\n// - Prevent null / empty artifact_type from leaking downstream\n\nconst gw_workspace_id =\n  $json.gw_workspace_id ??\n  $json.req_workspace_id ??\n  null;\n\nif (!gw_workspace_id) {\n  throw new Error(\"Gateway Build_List_Request: gw_workspace_id is required\");\n}\n\nconst artifact_type =\n  (typeof $json.artifact_type === \"string\" && $json.artifact_type.trim() !== \"\")\n    ? $json.artifact_type.trim()\n    : (typeof $json.req_artifact_type === \"string\" && $json.req_artifact_type.trim() !== \"\")\n      ? $json.req_artifact_type.trim()\n      : null;\n\nif (!artifact_type) {\n  throw new Error(\"Gateway Build_List_Request: artifact_type is required for artifact.list\");\n}\n\nconst selector =\n  (typeof $json.selector === \"object\" && $json.selector !== null)\n    ? $json.selector\n    : {};\n\nreturn [\n  {\n    json: {\n      gw_action: \"artifact.list\",\n      gw_workspace_id,\n      artifact_type,\n      selector,\n\n      // Debug breadcrumbs (temporary)\n      _gw_debug: {\n        normalized: true,\n        resolved_artifact_type: artifact_type,\n      },\n    },\n  },\n];\n"
+        "jsCode": "// Normalize Gateway input for artifact.list before calling sub-workflow\n// Purpose:\n// - Ensure artifact_type is present at top level\n// - Preserve selector object\n// - Merge top-level limit/offset/hydrate/filters into selector (T19+T20 fix)\n// - Prevent null / empty artifact_type from leaking downstream\n\nconst gw_workspace_id =\n  $json.gw_workspace_id ??\n  $json.req_workspace_id ??\n  null;\n\nif (!gw_workspace_id) {\n  throw new Error(\"Gateway Build_List_Request: gw_workspace_id is required\");\n}\n\nconst artifact_type =\n  (typeof $json.artifact_type === \"string\" && $json.artifact_type.trim() !== \"\")\n    ? $json.artifact_type.trim()\n    : (typeof $json.req_artifact_type === \"string\" && $json.req_artifact_type.trim() !== \"\")\n      ? $json.req_artifact_type.trim()\n      : null;\n\nif (!artifact_type) {\n  throw new Error(\"Gateway Build_List_Request: artifact_type is required for artifact.list\");\n}\n\n// Build selector: prefer explicit selector object, then merge top-level fields\nconst selectorIn =\n  (typeof $json.selector === \"object\" && $json.selector !== null)\n    ? { ...$json.selector }\n    : {};\n\n// T20 FIX: Merge top-level limit/offset/hydrate into selector if not already present\nif ($json.limit !== undefined && selectorIn.limit === undefined) {\n  selectorIn.limit = $json.limit;\n}\nif ($json.offset !== undefined && selectorIn.offset === undefined) {\n  selectorIn.offset = $json.offset;\n}\nif ($json.hydrate !== undefined && selectorIn.hydrate === undefined) {\n  selectorIn.hydrate = $json.hydrate;\n}\n\n// T19 FIX: Merge top-level filters into selector.filters if not already present\nif ($json.filters && typeof $json.filters === \"object\" && !selectorIn.filters) {\n  selectorIn.filters = $json.filters;\n}\n\nreturn [\n  {\n    json: {\n      gw_action: \"artifact.list\",\n      gw_workspace_id,\n      artifact_type,\n      selector: selectorIn,\n\n      // Debug breadcrumbs\n      _gw_debug: {\n        normalized: true,\n        resolved_artifact_type: artifact_type,\n        selector_had_limit: $json.selector?.limit !== undefined,\n        top_level_limit: $json.limit,\n        top_level_offset: $json.offset,\n        top_level_filters: $json.filters ? true : false,\n      },\n    },\n  },\n];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        640,
-        96
+        0,
+        192
       ],
-      "id": "cb7a7030-c6b1-43a9-b2cf-7a3bd1ba2c2b",
+      "id": "ee685550-ef5a-4d1e-a2e2-709f52c4e62f",
       "name": "NQxb_Gateway_v1__Build_List_Request"
     },
     {
       "parameters": {
-        "jsCode": "// NQxb_Gateway_v1_Normalize_Update_Request\n// Purpose: normalize update requests into a single canonical json payload (never raw fields)\n\nconst input = $json ?? {};\nconst extension = input.extension ?? input.req_extension ?? {};\n\nreturn [\n  {\n    json: {\n      gw_action: \"artifact.update\",\n      gw_workspace_id: input.gw_workspace_id ?? input.workspace_id ?? null,\n      artifact_type: input.artifact_type ?? input.req_artifact_type ?? null,\n      artifact_id: input.artifact_id ?? input.req_artifact_id ?? null,\n      extension,\n      // Freeze the request intent to survive downstream clobbering\n      req_gw_workspace_id: input.gw_workspace_id ?? input.workspace_id ?? null,\n      req_artifact_type: input.artifact_type ?? input.req_artifact_type ?? null,\n      req_artifact_id: input.artifact_id ?? input.req_artifact_id ?? null,\n      req_extension: extension,\n      _gw_debug: {\n        normalized_by: \"NQxb_Gateway_v1_Normalize_Update_Request\",\n        received_keys: Object.keys(input),\n      },\n    },\n  },\n];\n\n\n"
+        "jsCode": "// NQxb_Gateway_v1_Normalize_Update_Request\n// Purpose: normalize artifact.update requests into a canonical update payload\n// Runs AFTER Gateway action routing (artifact.update only)\n\nconst input = $json ?? {};\n\n// Canonical identifiers (already scalarized upstream)\nconst gw_workspace_id = input.gw_workspace_id ?? null;\nconst artifact_type = input.artifact_type ?? null;\nconst artifact_id = input.artifact_id ?? null;\n\n// Payloads\nconst extension = input.extension ?? {};\nconst tags = input.tags ?? null;\n\n// Detect source for debug only (no control flow dependency)\nlet source_detected = \"unknown\";\nif ($json?.params) source_detected = \"params\";\nelse if ($json?.query) source_detected = \"query\";\nelse if ($json?.body?.body) source_detected = \"body.body\";\nelse if ($json?.body) source_detected = \"body\";\nelse source_detected = \"json\";\n\nreturn [\n  {\n    json: {\n      gw_action: \"artifact.update\",\n\n      gw_workspace_id,\n      artifact_type,\n      artifact_id,\n\n      extension,\n      tags,\n\n      // Freeze intent for downstream workflows\n      req_gw_workspace_id: gw_workspace_id,\n      req_artifact_type: artifact_type,\n      req_artifact_id: artifact_id,\n      req_extension: extension,\n      req_tags: tags,\n\n      _gw_debug: {\n        normalized_by: \"NQxb_Gateway_v1_Normalize_Update_Request\",\n        source_detected,\n        received_keys: Object.keys(input),\n        has_extension: Object.keys(extension).length > 0,\n        has_tags:\n          tags &&\n          ((Array.isArray(tags.add) && tags.add.length > 0) ||\n            (Array.isArray(tags.remove) && tags.remove.length > 0)),\n      },\n    },\n  },\n];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        640,
-        528
+        0,
+        624
       ],
-      "id": "28087b63-6423-400f-ab9d-aa012f177b85",
+      "id": "93071f4b-943a-46e0-bb17-b4130f7a9b69",
       "name": "NQxb_Gateway_v1_Normalize_Update_Request"
     },
     {
       "parameters": {
         "workflowId": {
           "__rl": true,
-          "value": "OXxickY3S5Fxtv5F",
+          "value": "SaKD4o4FKrXfSYt6",
           "mode": "list",
-          "cachedResultUrl": "/workflow/OXxickY3S5Fxtv5F",
+          "cachedResultUrl": "/workflow/SaKD4o4FKrXfSYt6",
           "cachedResultName": "NQxb_Artifact_Promote_v1"
         },
         "workflowInputs": {
@@ -615,10 +615,10 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
       "position": [
-        864,
-        768
+        224,
+        864
       ],
-      "id": "7fde6c14-b64f-47ea-b04f-e6ba33865cd5",
+      "id": "15b02177-205f-466d-bc2e-8c8bcdb7f530",
       "name": "Call 'NQxb_Artifact_Promote_v1'"
     },
     {
@@ -628,10 +628,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        640,
-        768
+        0,
+        864
       ],
-      "id": "57098126-d4f2-4331-bc17-1593a44a2c71",
+      "id": "5e994224-1e8a-4ecc-9872-640682cb4cb7",
       "name": "Normalize_Promote_Request"
     },
     {
@@ -641,46 +641,16 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        864,
-        -96
+        224,
+        0
       ],
-      "id": "482ff0ef-e6bc-431a-8886-2ef7c9890dfe",
+      "id": "7c9236cf-ace1-4efd-a1c0-83eda72033aa",
       "name": "NQxb_Gateway_v1__Shape_Query_Response"
     },
     {
       "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "ZMiwnwHm2AL96HhK",
-          "mode": "list",
-          "cachedResultUrl": "/workflow/ZMiwnwHm2AL96HhK",
-          "cachedResultName": "NQxb_Artifact_Update_v1"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {},
-          "matchingColumns": [],
-          "schema": [],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {
-          "waitForSubWorkflow": true
-        }
-      },
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.3,
-      "position": [
-        864,
-        528
-      ],
-      "id": "846f9003-2e7d-4125-8a10-c01b65f708e5",
-      "name": "Call 'NQxb_Artifact_Promote_v1'1"
-    },
-    {
-      "parameters": {
         "method": "PATCH",
-        "url": "={{ 'https://jqxpjauqxmdfrcwgxcpd.supabase.co/rest/v1/qxb_artifact?artifact_id=eq.' + $json.artifact_id }}",
+        "url": "={{ 'https://npymhacpmxdnkqdzgxll.supabase.co/rest/v1/qxb_artifact?artifact_id=eq.' + $json.artifact_id }}",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "supabaseApi",
         "sendHeaders": true,
@@ -700,15 +670,15 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        640,
-        960
+        0,
+        1056
       ],
-      "id": "handle-delete",
+      "id": "eb51d752-43da-4ee5-943f-e3fdb3cb2493",
       "name": "Handle_Delete",
       "credentials": {
         "supabaseApi": {
-          "id": "HCyoMvKZ8nXfSJKo",
-          "name": "Supabase account"
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
         }
       }
     },
@@ -719,16 +689,16 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        864,
-        960
+        224,
+        1056
       ],
-      "id": "shape-delete-response",
+      "id": "92982f9c-cc70-4c27-8234-f333c62fc52a",
       "name": "Shape_Delete_Response"
     },
     {
       "parameters": {
         "method": "PATCH",
-        "url": "={{ 'https://jqxpjauqxmdfrcwgxcpd.supabase.co/rest/v1/qxb_artifact?artifact_id=eq.' + $json.artifact_id }}",
+        "url": "={{ 'https://npymhacpmxdnkqdzgxll.supabase.co/rest/v1/qxb_artifact?artifact_id=eq.' + $json.artifact_id }}",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "supabaseApi",
         "sendHeaders": true,
@@ -748,15 +718,15 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        640,
-        1152
+        0,
+        1248
       ],
-      "id": "handle-restore",
+      "id": "7e80c6c9-a713-4874-b1ec-0f932d88f175",
       "name": "Handle_Restore",
       "credentials": {
         "supabaseApi": {
-          "id": "HCyoMvKZ8nXfSJKo",
-          "name": "Supabase account"
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
         }
       }
     },
@@ -767,16 +737,15 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        864,
-        1152
+        224,
+        1248
       ],
-      "id": "shape-restore-response",
+      "id": "e41b1977-4444-42ef-b221-ad27ef9344a7",
       "name": "Shape_Restore_Response"
     },
     {
       "parameters": {
-        "method": "GET",
-        "url": "={{ 'https://jqxpjauqxmdfrcwgxcpd.supabase.co/rest/v1/qxb_artifact?deleted_at=not.is.null&artifact_type=eq.' + $json.artifact_type + '&workspace_id=eq.' + $json.gw_workspace_id + '&select=artifact_id,title,artifact_type,deleted_at,created_at&order=deleted_at.desc&limit=' + ($json.selector?.limit || 10) }}",
+        "url": "={{ 'https://npymhacpmxdnkqdzgxll.supabase.co/rest/v1/qxb_artifact?deleted_at=not.is.null&artifact_type=eq.' +\n  $json.artifact_type + '&workspace_id=eq.' + $json.gw_workspace_id +\n  '&select=artifact_id,title,artifact_type,deleted_at,created_at&order=deleted_at.desc&limit=' +\n  ($json.selector?.limit || 10) + '&offset=' + ($json.selector?.offset || 0) }}",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "supabaseApi",
         "options": {}
@@ -784,30 +753,147 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        640,
-        1344
+        0,
+        1440
       ],
-      "id": "handle-list-deleted",
+      "id": "0ba9c0fe-c5e3-4853-b367-5789e3609f85",
       "name": "Handle_List_Deleted",
       "credentials": {
         "supabaseApi": {
-          "id": "HCyoMvKZ8nXfSJKo",
-          "name": "Supabase account"
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "// Shape list_deleted response\nconst artifacts = Array.isArray($json) ? $json : [];\n\nreturn [{\n  json: {\n    ok: true,\n    gw_action: \"artifact.list_deleted\",\n    data: {\n      artifacts\n    },\n    meta: {\n      count: artifacts.length\n    }\n  }\n}];\n"
+        "jsCode": "// Shape list_deleted response\n  const items = $items();\n  const artifacts = items.map(item => item.json);\n\n  return [{\n    json: {\n      ok: true,\n      gw_action: \"artifact.list_deleted\",\n      data: {\n        artifacts\n      },\n      meta: {\n        count: artifacts.length\n      }\n    }\n  }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        864,
-        1344
+        224,
+        1440
       ],
-      "id": "shape-list-deleted-response",
+      "id": "f87b19f6-7254-4e65-ab29-f6178dcb5c04",
       "name": "Shape_List_Deleted_Response"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "1L2HKncP2Dh0K3DI",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/1L2HKncP2Dh0K3DI",
+          "cachedResultName": "NQxb_Artifact_Update_v1"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        224,
+        624
+      ],
+      "id": "a79108f7-4e5f-4622-83c4-f2ae6bfcf74a",
+      "name": "Call 'NQxb_Artifact_Update_v1'"
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://npymhacpmxdnkqdzgxll.supabase.co/rest/v1/qxb_gateway_acl?principal_name=eq.qwrk-gateway&workspace_id=eq.' + $json.gw_workspace_id + '&select=role' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1760,
+        208
+      ],
+      "id": "9431b6be-913c-47cc-8e57-bbbfe259d345",
+      "name": "NQxb_Gateway_v1__ACL_Lookup",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Gateway_v1__ACL_Guard__HasRow\n// Fail-closed ACL evaluation + context restoration\n//\n// Input: ACL_Lookup HTTP response ($json)\n// Context: Normalized request via $node ref\n//\n// FAIL-CLOSED: Only explicit ACL match with valid role passes.\n// All other conditions (empty, null, undefined, error, malformed) -> DENIED.\n\nconst aclResponse = $json ?? {};\nconst normalizedRequest = $node[\"NQxb_Gateway_v1__Normalize_Request\"].json;\n\n// Fail-closed evaluation: ALL conditions must be true\nconst isAllowed =\n  aclResponse !== null &&\n  aclResponse !== undefined &&\n  typeof aclResponse === \"object\" &&\n  !Array.isArray(aclResponse) &&\n  typeof aclResponse.role === \"string\" &&\n  aclResponse.role.trim().length > 0;\n\nif (isAllowed) {\n  // ACL PASSED: Forward normalized request to Gatekeeper\n  return [{\n    json: {\n      ...normalizedRequest,\n      _acl_status: \"allowed\",\n      _acl_role: aclResponse.role,\n      _acl_debug: {\n        evaluated_by: \"ACL_Guard__HasRow\",\n        acl_response_shape: typeof aclResponse,\n        has_role: true\n      }\n    }\n  }];\n}\n\n// ACL DENIED: Return 403 envelope\nreturn [{\n  json: {\n    ok: false,\n    _gw_route: \"error\",\n    _acl_status: \"denied\",\n    error: {\n      code: \"ACL_FORBIDDEN\",\n      message: \"Principal not authorized for requested workspace\"\n    },\n    gw_workspace_id: normalizedRequest?.gw_workspace_id ?? null,\n    artifact_type: normalizedRequest?.artifact_type ?? null,\n    _kgb: {\n      status: \"ACL_DENIED\"\n    },\n    _acl_debug: {\n      evaluated_by: \"ACL_Guard__HasRow\",\n      acl_response_shape: typeof aclResponse,\n      acl_response_keys: Object.keys(aclResponse),\n      has_role: false\n    }\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1536,
+        208
+      ],
+      "id": "59d131b2-ce62-4af8-850b-9a2d61792935",
+      "name": "NQxb_Gateway_v1__ACL_Guard__HasRow"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "acl-guard-condition",
+              "leftValue": "={{ $json._acl_status }}",
+              "rightValue": "allowed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1312,
+        208
+      ],
+      "id": "778181c4-9612-4556-a141-d7790b81f212",
+      "name": "NQxb_Gateway_v1__ACL_Guard__Route"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 403
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -1312,
+        512
+      ],
+      "id": "e8856992-32a0-424b-8ce4-b5bf69084a0c",
+      "name": "NQxb_Gateway_v1__ACL_Forbidden_Response"
     }
   ],
   "pinData": {
@@ -851,7 +937,7 @@
       "main": [
         [
           {
-            "node": "NQxb_Gateway_v1__Gatekeeper_MVP_OwnerOnly",
+            "node": "NQxb_Gateway_v1__ACL_Lookup",
             "type": "main",
             "index": 0
           }
@@ -1039,7 +1125,7 @@
       "main": [
         [
           {
-            "node": "Call 'NQxb_Artifact_Promote_v1'1",
+            "node": "Call 'NQxb_Artifact_Update_v1'",
             "type": "main",
             "index": 0
           }
@@ -1073,17 +1159,6 @@
         [
           {
             "node": "NQxb_Gateway_v1__Respond_Query_Success",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Call 'NQxb_Artifact_Promote_v1'1": {
-      "main": [
-        [
-          {
-            "node": "NQxb_Gateway__Respond_Save_Success",
             "type": "main",
             "index": 0
           }
@@ -1155,16 +1230,67 @@
           }
         ]
       ]
+    },
+    "Call 'NQxb_Artifact_Update_v1'": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Gateway__Respond_Save_Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Gateway_v1__ACL_Lookup": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Gateway_v1__ACL_Guard__HasRow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Gateway_v1__ACL_Guard__HasRow": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Gateway_v1__ACL_Guard__Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Gateway_v1__ACL_Guard__Route": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Gateway_v1__Gatekeeper_MVP_OwnerOnly",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Gateway_v1__ACL_Forbidden_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "e8887ff0-58af-45a9-a32d-856b66aec6e9",
+  "versionId": "d04979eb-bb69-4b4e-b78b-8526f4df1151",
   "meta": {
     "instanceId": "154f6928422db881044f8d1647b40fc389c59337d14356c0ee681d50ffb55d7e"
   },
-  "id": "D1NWfUWZ9IFDVqNB",
+  "id": "4rdOOShdpe0UAeHM",
   "tags": []
 }

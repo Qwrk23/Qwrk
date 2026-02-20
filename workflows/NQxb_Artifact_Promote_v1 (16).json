@@ -1,0 +1,747 @@
+{
+  "name": "NQxb_Artifact_Promote_v1",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Promote_v1__Normalize_request\n// Purpose: Validate promote request shape, enforce required fields,\n//          normalize selector, generate request_id.\n//\n// CRITICAL:\n// - transition/reason arrive via artifact_payload due to ExecuteWorkflowTrigger contract\n// - NEVER expect them top-level here\n// - Output must surface transition/reason top-level for downstream nodes\n\nfunction uuidv4() {\n  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {\n    const r = (Math.random() * 16) | 0;\n    const v = (c === 'x') ? r : ((r & 0x3) | 0x8);\n    return v.toString(16);\n  });\n}\n\nconst j = $json ?? {};\n\nconst gw_action = j.gw_action ?? \"artifact.promote\";\nconst gw_workspace_id = j.gw_workspace_id ?? j.workspace_id ?? null;\nconst artifact_type = j.artifact_type ?? null;\nconst artifact_id = j.artifact_id ?? null;\n\n// ✅ FIX: read from artifact_payload\nconst transition_raw = j.artifact_payload?.transition ?? null;\nconst reason_raw = j.artifact_payload?.reason ?? null;\n\n// Optional passthrough\nconst actor_user_id_raw = j.actor_user_id ?? null;\n\nconst selector_in = (j.selector && typeof j.selector === \"object\") ? j.selector : {};\nconst hydrate = selector_in.hydrate === true;\n\nconst transition =\n  (typeof transition_raw === \"string\") ? transition_raw.trim() : \"\";\n\nconst reason =\n  (typeof reason_raw === \"string\") ? reason_raw.trim() : \"\";\n\n// Normalize actor_user_id\nconst actor_user_id =\n  (typeof actor_user_id_raw === \"string\" && actor_user_id_raw.trim().length > 0)\n    ? actor_user_id_raw.trim()\n    : null;\n\nconst UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\n\nconst fail = (code, message, details = {}) => [{\n  json: {\n    ok: false,\n    _gw_route: \"error\",\n    gw_action: \"artifact.promote\",\n    gw_workspace_id,\n    artifact_type,\n    artifact_id,\n    error: { code, message, details },\n    timestamp: new Date().toISOString(),\n  },\n}];\n\n// ---- Validation ----\nif (!gw_workspace_id) {\n  return fail(\"VALIDATION_ERROR\", \"gw_workspace_id is required\");\n}\nif (!artifact_type) {\n  return fail(\"VALIDATION_ERROR\", \"artifact_type is required\");\n}\nif (!artifact_id) {\n  return fail(\"VALIDATION_ERROR\", \"artifact_id is required\");\n}\nif (!transition) {\n  return fail(\"VALIDATION_ERROR\", \"transition is required\", {\n    source: \"artifact_payload.transition\",\n  });\n}\nif (!reason || reason.length < 1 || reason.length > 280) {\n  return fail(\"VALIDATION_ERROR\", \"reason is required (1..280 chars)\", {\n    received_length: reason.length,\n  });\n}\nif (actor_user_id && !UUID_RE.test(actor_user_id)) {\n  return fail(\"VALIDATION_ERROR\", \"actor_user_id must be a valid UUID when provided\", {\n    actor_user_id,\n  });\n}\n\nconst request_id = uuidv4();\n\n// ---- Canonical output ----\nreturn [{\n  json: {\n    ok: true,\n    gw_action: \"artifact.promote\",\n    gw_workspace_id,\n    artifact_type: String(artifact_type),\n    artifact_id: String(artifact_id),\n\n    // ✅ surface for downstream\n    transition,\n    reason,\n\n    selector: { hydrate },\n    request_id,\n    actor_user_id,\n  },\n}];\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1792,
+        192
+      ],
+      "id": "82b3c46c-dd16-47ce-a1dd-a261eaeb3d68",
+      "name": "Normalize_request"
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "gw_action"
+            },
+            {
+              "name": "gw_workspace_id"
+            },
+            {
+              "name": "artifact_type"
+            },
+            {
+              "name": "artifact_id"
+            },
+            {
+              "name": "actor_user_id"
+            },
+            {
+              "name": "artifact_payload",
+              "type": "object"
+            },
+            {
+              "name": "selector",
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -2016,
+        192
+      ],
+      "id": "806339b4-7140-4cc2-b019-57dc3b1f2b16",
+      "name": "NQxb_Artifact_Promote_v1__In"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Promote_v1__Resolve_Transition\n// Purpose: Map a locked transition allow-list -> from_state/to_state, or reject.\n//\n// IMPORTANT (n8n): Do NOT emit top-level reserved keys like `error`.\n// Always wrap output under `{ json: ... }`.\n\nconst input = $json;\n\n// FIX: Contract-safe fallback — transition may arrive inside artifact_payload\nconst transition = (\n  input.transition ??\n  input.artifact_payload?.transition ??\n  \"\"\n).toString().trim();\n\nconst map = {\n  seed_to_sapling: { from_state: \"seed\", to_state: \"sapling\" },\n  sapling_to_tree: { from_state: \"sapling\", to_state: \"tree\" },\n  tree_to_retired: { from_state: \"tree\", to_state: \"retired\" },\n  retired_to_tree: { from_state: \"retired\", to_state: \"tree\" }, // admin-only enforced later\n};\n\nconst resolved = map[transition];\n\nif (!resolved) {\n  return [\n    {\n      json: {\n        ...input,\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"LIFECYCLE_TRANSITION_NOT_ALLOWED\",\n          message: `Transition not allowed: '${transition || \"(empty)\"}'`,\n          details: {\n            transition: transition || null,\n            allowed: Object.keys(map),\n          },\n        },\n      },\n    },\n  ];\n}\n\nreturn [\n  {\n    json: {\n      ...input,\n      ok: true,\n      _gw_route: input._gw_route ?? \"ok\",\n      from_state: resolved.from_state,\n      to_state: resolved.to_state,\n    },\n  },\n];\n\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -464,
+        192
+      ],
+      "id": "5a0bfd2d-28f1-4ac6-81bc-1b5acaec4fa3",
+      "name": "NQxb_Artifact_Promote_v1__Resolve_Transition"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "qxb_artifact",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_id",
+              "keyValue": "={{ $json.artifact_id }}"
+            },
+            {
+              "keyName": "workspace_id",
+              "keyValue": "={{ $json.gw_workspace_id }}"
+            },
+            {}
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -240,
+        272
+      ],
+      "id": "a92595f8-3efc-4083-999b-7efd8a131163",
+      "name": "NQxb_Artifact_Promote_v1__Verify_Current_State",
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Promote_v1__Enforce_Verified_State\n// Purpose: Ensure artifact exists and lifecycle_status matches from_state.\n// IMPORTANT: lifecycle_status MUST come from Verify_Current_State (pre-update),\n// not from merged $json (which may already be post-update).\n\nconst input = $json;\n\n// --- Required fields from merged input ---\nconst artifactId = input.artifact_id ?? null;\nconst fromState = (input.from_state ?? \"\").toString().trim();\n\n// --- Pull VERIFIED state directly from Verify_Current_State ---\nconst verifiedNode = $node[\"NQxb_Artifact_Promote_v1__Verify_Current_State\"];\nconst verifiedRaw = verifiedNode?.json ?? null;\n\n// Supabase \"get\" may return object OR array\nconst verified = Array.isArray(verifiedRaw)\n  ? verifiedRaw[0] ?? null\n  : verifiedRaw;\n\nconst actual = verified?.lifecycle_status ?? null;\n\n// --- Guards ---\n\nif (!artifactId) {\n  return [{\n    json: {\n      ...input,\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"ARTIFACT_NOT_FOUND\",\n        message: \"artifact_id missing after DB verify.\",\n        details: { artifact_id: null }\n      }\n    }\n  }];\n}\n\nif (!fromState) {\n  return [{\n    json: {\n      ...input,\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"FROM_STATE_MISSING\",\n        message: \"from_state missing after Resolve_Transition.\",\n        details: { from_state: input.from_state ?? null }\n      }\n    }\n  }];\n}\n\nif (!actual) {\n  return [{\n    json: {\n      ...input,\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"LIFECYCLE_STATE_UNKNOWN\",\n        message: \"Could not determine current lifecycle state from DB verify.\",\n        details: {\n          artifact_id: artifactId,\n          verified_row: verified ?? null\n        }\n      }\n    }\n  }];\n}\n\n// --- Enforce pre-update lifecycle correctness ---\n\nif (actual !== fromState) {\n  return [{\n    json: {\n      ...input,\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"LIFECYCLE_STATE_MISMATCH\",\n        message: `Expected lifecycle '${fromState}', got '${actual}'.`,\n        details: {\n          artifact_id: artifactId,\n          expected_from_state: fromState,\n          actual_lifecycle_status: actual\n        }\n      }\n    }\n  }];\n}\n\n// --- Success: verified correctly ---\n\nreturn [{\n  json: {\n    ...input,\n    ok: true,\n    _gw_route: input._gw_route ?? \"ok\",\n    _lifecycle_verify: {\n      artifact_id: artifactId,\n      verified_from_state: fromState,\n      current_lifecycle_status: actual\n    }\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        192
+      ],
+      "id": "fb7b811a-3eb2-4d39-9d05-562216b8638b",
+      "name": "NQxb_Artifact_Promote_v1__Enforce_Verified_State"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -16,
+        192
+      ],
+      "id": "82d9740e-d8bc-456b-83a2-130404cf1624",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "qxb_artifact",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.artifact_id }}"
+            },
+            {
+              "keyName": "workspace_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.gw_workspace_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "lifecycle_status",
+              "fieldValue": "={{ $json.to_state }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "now()"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        656,
+        0
+      ],
+      "id": "34c1ba5b-38c2-459e-aea7-39ae499cdc7b",
+      "name": "NQxb_Artifact_Promote_v1__DB_Update_Lifecycle",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "qxb_artifact_event",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "workspace_id",
+              "fieldValue": "={{ $json.gw_workspace_id ?? $json.workspace_id }}"
+            },
+            {
+              "fieldId": "artifact_id",
+              "fieldValue": "={{ $json.artifact_id }}"
+            },
+            {
+              "fieldId": "event_type",
+              "fieldValue": "lifecycle_promote"
+            },
+            {
+              "fieldId": "actor_user_id",
+              "fieldValue": "={{ $json.actor_user_id ? $json.actor_user_id : null }}"
+            },
+            {
+              "fieldId": "payload",
+              "fieldValue": "={{ $json._event_payload ?? {\n  transition: $json.transition,\n  from_state: $json.from_state,\n  to_state: $json.to_state,\n  reason: $json.reason,\n  artifact_type: $json.artifact_type,\n  gw_action: $json.gw_action\n} }}"
+            },
+            {
+              "fieldId": "event_type",
+              "fieldValue": "lifecycle_promote"
+            },
+            {
+              "fieldId": "event_ts",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        880,
+        384
+      ],
+      "id": "ca888f50-6732-4b59-b14f-59beceb4fec1",
+      "name": "NQxb_Artifact_Promote_v1__DB_Insert_Event",
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Promote_v1__Pass_Actor\nconst input = $json;\n\nreturn [{\n  json: {\n    ...input,\n    actor_user_id: input.actor_user_id ?? null\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1568,
+        192
+      ],
+      "id": "7593b557-c4a0-473b-ab3d-ab273017fac9",
+      "name": "Pass_Actor"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Promote_v1__Build_Query_Request\n// Build artifact.query request from promote payload (NOT from event output)\n\nconst j = $json ?? {};\n\nconst out = {\n  gw_action: \"artifact.query\",\n  gw_workspace_id: j.gw_workspace_id ?? j.workspace_id ?? null,\n  artifact_type: j.artifact_type ?? null,\n  artifact_id: j.artifact_id ?? null,\n  selector: { hydrate: true },\n};\n\nif (!out.gw_workspace_id || !out.artifact_type || !out.artifact_id) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"VALIDATION_ERROR\",\n        message: \"Cannot call artifact.query: missing required fields from promote payload.\",\n        details: {\n          gw_workspace_id: out.gw_workspace_id,\n          artifact_type: out.artifact_type,\n          artifact_id: out.artifact_id,\n        }\n      }\n    }\n  }];\n}\n\nreturn [{ json: out }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        0
+      ],
+      "id": "32d91f7c-5e1f-4a4f-92dd-4ce9bb92d27c",
+      "name": "NQxb_Artifact_Promote_v1__Build_Query_Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Promote_v1__Merge_Verify\n// Purpose: Merge two incoming inputs safely (Resolve path + DB_Update path)\n//\n// n8n Code node receives all incoming items in `items`.\n// When there are two incoming connections, n8n concatenates them.\n// We'll merge the first two items (Run Once for All Items assumption).\n\nconst a = items?.[0]?.json ?? {};\nconst b = items?.[1]?.json ?? {};\n\nreturn [\n  {\n    json: {\n      ...a,\n      ...b,\n    },\n  },\n];\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        0
+      ],
+      "id": "f0317319-2a5c-4539-9790-8f12bc86a5f5",
+      "name": "NQxb_Artifact_Promote_v1__Merge_Verify"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Promote_v1__Freeze_Event_Payload\nconst j = $json ?? {};\n\nreturn [{\n  json: {\n    ...j,\n    _event_payload: {\n      request_id: j.request_id ?? null,\n      transition: j.transition ?? null,\n      from_state: j.from_state ?? null,\n      to_state: j.to_state ?? null,\n      reason: j.reason ?? null,\n      artifact_type: j.artifact_type ?? null,\n      gw_action: j.gw_action ?? null,\n    }\n  }\n}];\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        656,
+        384
+      ],
+      "id": "35a8b5ae-05f8-411e-bffe-429a8d697011",
+      "name": "NQxb_Artifact_Promote_v1__Freeze_Event_Payload"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.ok }}",
+                    "rightValue": "true",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "e8c0053d-ee43-4b66-8286-f2e1d6db7e41"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "1c5dfbc2-4c72-4cb3-ade4-d55d2ef65fb3",
+                    "leftValue": "={{ $json.ok }}",
+                    "rightValue": "false",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        432,
+        192
+      ],
+      "id": "7d982de4-63e5-4081-aae1-14b7bb6d6ded",
+      "name": "NQxb_Artifact_Promote_v1__Switch_OK"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pass through the current error item unchanged\nreturn items;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        656,
+        192
+      ],
+      "id": "e254e714-790c-4c0a-b422-fd7a3574eb75",
+      "name": "NQxb_Artifact_Promote_v1__Return_Error_Item"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "qxb_artifact_type_registry",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_type",
+              "keyValue": "={{ $json.artifact_type }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1344,
+        192
+      ],
+      "id": "5553d6a9-5968-4f76-95e5-3f4670a5bd21",
+      "name": "Lookup_Type_Registry",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Type_Registry_Guard — Check artifact type against qxb_artifact_type_registry\n// FAIL-CLOSED: No row found = not_registered; enabled=false = disabled\n// Error code: ARTIFACT_TYPE_NOT_ALLOWED (HTTP 403)\n\nconst originalRequest = $node['Pass_Actor'].json;\nconst registryRow = $json;\nconst artifact_type = originalRequest.artifact_type;\n\n// FAIL-CLOSED: No row found = type not registered\nif (!registryRow || !registryRow.artifact_type) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: 'error',\n      gw_action: originalRequest.gw_action,\n      gw_workspace_id: originalRequest.gw_workspace_id,\n      artifact_type: artifact_type,\n      error: {\n        code: 'ARTIFACT_TYPE_NOT_ALLOWED',\n        message: `Artifact type '${artifact_type}' is not allowed`,\n        details: {\n          artifact_type: artifact_type,\n          reason: 'not_registered'\n        }\n      }\n    }\n  }];\n}\n\n// Type found but disabled\nif (registryRow.enabled === false) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: 'error',\n      gw_action: originalRequest.gw_action,\n      gw_workspace_id: originalRequest.gw_workspace_id,\n      artifact_type: artifact_type,\n      error: {\n        code: 'ARTIFACT_TYPE_NOT_ALLOWED',\n        message: `Artifact type '${artifact_type}' is not allowed`,\n        details: {\n          artifact_type: artifact_type,\n          reason: 'disabled',\n          registry_enabled: false\n        }\n      }\n    }\n  }];\n}\n\n// Type is registered and enabled — pass through original request\nreturn [{ json: originalRequest }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1120,
+        192
+      ],
+      "id": "6b8e4e5f-ecf2-4940-929b-3532c6c59325",
+      "name": "Type_Registry_Guard"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.ok }}",
+                    "rightValue": "false",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notEquals"
+                    },
+                    "id": "type-reg-guard-ok"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ok"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "type-reg-guard-error",
+                    "leftValue": "={{ $json.ok }}",
+                    "rightValue": "false",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "error"
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -896,
+        192
+      ],
+      "id": "8d0f0a41-fdb1-49e7-b579-9b79fa740510",
+      "name": "Switch_Type_Registry"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Promote_v1__Shape_Response\n// Canonical success envelope wrapper for artifact.promote\n//\n// HARD RULES:\n// - Do NOT change promote business logic or DB writes.\n// - Do NOT assume any optional node executed unless guarded.\n// - Must be safe even if invoked on error paths.\n//\n// Expected final envelope:\n//\n// {\n//   \"ok\": true,\n//   \"gw_action\": \"artifact.promote\",\n//   \"workspace_id\": \"...\",\n//   \"artifact_type\": \"project\",\n//   \"artifact_id\": \"...\",\n//   \"event_id\": \"...\",\n//   \"operation\": \"PROMOTE\",\n//   \"from_state\": \"...\",\n//   \"to_state\": \"...\",\n//   \"transition\": \"...\",\n//   \"timestamp\": \"...\",\n//   \"data\": { \"event\": { ... } }\n// }\n\nconst input = $json ?? {};\n\n// 1) Pass through error envelopes unchanged\nif (input.ok === false || input._gw_route === \"error\") {\n  return [{ json: input }];\n}\n\n// 2) Identify the \"event\" object to wrap.\n// In the fixed wiring, this node should receive the inserted event row from DB_Insert_Event.\n// Still, we handle alternate shapes defensively.\nlet event = null;\n\n// If input already looks like the event row\nif (input.event_id && input.workspace_id && input.artifact_id) {\n  event = input;\n} else {\n  // Try to read from DB_Insert_Event directly (best-effort)\n  try {\n    const evNode = $node[\"NQxb_Artifact_Promote_v1__DB_Insert_Event\"];\n    const evJson = evNode?.json ?? null;\n    if (evJson && evJson.event_id) event = evJson;\n  } catch (e) {\n    event = null;\n  }\n}\n\n// If we still don't have an event, fail closed with a stable INTERNAL_ERROR envelope\nif (!event) {\n  return [\n    {\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"INTERNAL_ERROR\",\n          message: \"Promote succeeded but event payload was unavailable for response shaping.\",\n          details: { reason: \"missing_event_row\" },\n        },\n      },\n    },\n  ];\n}\n\n// 3) Pull promote context from the event payload (authoritative for from/to/transition)\nconst payload = event.payload ?? {};\nconst from_state = payload.from_state ?? null;\nconst to_state = payload.to_state ?? null;\nconst transition = payload.transition ?? null;\n\n// 4) Canonical timestamp: prefer event.event_ts; fallback to created_at; then now()\nconst timestamp =\n  event.event_ts ??\n  event.created_at ??\n  new Date().toISOString();\n\n// 5) Artifact identity: prefer event row, fallback to payload (belt + suspenders)\nconst workspace_id = event.workspace_id ?? payload.workspace_id ?? null;\nconst artifact_id = event.artifact_id ?? payload.artifact_id ?? null;\nconst artifact_type = payload.artifact_type ?? \"project\";\n\n// 6) Return the required envelope\nreturn [\n  {\n    json: {\n      ok: true,\n      gw_action: \"artifact.promote\",\n      workspace_id,\n      artifact_type,\n      artifact_id,\n\n      event_id: event.event_id ?? null,\n      operation: \"PROMOTE\",\n      from_state,\n      to_state,\n      transition,\n      timestamp,\n\n      data: { event },\n    },\n  },\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1136,
+        384
+      ],
+      "id": "3d7cc24a-29a1-4884-bebe-cedb3115a0c1",
+      "name": "NQxb_Artifact_Promote_v1__Shape_Response"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "IsLBYjXJ5R2Djfrv",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/IsLBYjXJ5R2Djfrv",
+          "cachedResultName": "NQxb_Artifact_Query_v1"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1344,
+        0
+      ],
+      "id": "45a6ae41-fab1-4b71-9a74-687cc1408e9c",
+      "name": "Call 'NQxb_Artifact_Query_v1'"
+    }
+  ],
+  "pinData": {
+    "NQxb_Artifact_Promote_v1__In": [
+      {
+        "json": {
+          "gw_action": "artifact.promote",
+          "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+          "artifact_type": "project",
+          "artifact_id": "fe176f19-cfd2-4843-89c1-0853f04781c8",
+          "actor_user_id": "7097c16c-ed88-4e49-983f-1de80e5cfcea",
+          "artifact_payload": {
+            "transition": "seed_to_sapling",
+            "reason": "Test promote with Type Registry Guard"
+          },
+          "selector": {
+            "hydrate": true
+          }
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Normalize_request": {
+      "main": [
+        [
+          {
+            "node": "Pass_Actor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Promote_v1__In": {
+      "main": [
+        [
+          {
+            "node": "Normalize_request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Promote_v1__Resolve_Transition": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Promote_v1__Verify_Current_State",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Promote_v1__Verify_Current_State": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Promote_v1__Enforce_Verified_State": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Promote_v1__Switch_OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Promote_v1__Enforce_Verified_State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Promote_v1__DB_Update_Lifecycle": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Promote_v1__Merge_Verify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pass_Actor": {
+      "main": [
+        [
+          {
+            "node": "Lookup_Type_Registry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Promote_v1__Merge_Verify": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Promote_v1__Build_Query_Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Promote_v1__Freeze_Event_Payload": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Promote_v1__DB_Insert_Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Promote_v1__Switch_OK": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Promote_v1__DB_Update_Lifecycle",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "NQxb_Artifact_Promote_v1__Freeze_Event_Payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Promote_v1__Return_Error_Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup_Type_Registry": {
+      "main": [
+        [
+          {
+            "node": "Type_Registry_Guard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Type_Registry_Guard": {
+      "main": [
+        [
+          {
+            "node": "Switch_Type_Registry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch_Type_Registry": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Promote_v1__Resolve_Transition",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Promote_v1__Return_Error_Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Promote_v1__Build_Query_Request": {
+      "main": [
+        [
+          {
+            "node": "Call 'NQxb_Artifact_Query_v1'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call 'NQxb_Artifact_Query_v1'": {
+      "main": [
+        []
+      ]
+    },
+    "NQxb_Artifact_Promote_v1__DB_Insert_Event": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Promote_v1__Shape_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "4b60e8d8-1f01-414f-9ae0-9d01ead49e8b",
+  "meta": {
+    "instanceId": "154f6928422db881044f8d1647b40fc389c59337d14356c0ee681d50ffb55d7e"
+  },
+  "id": "OXxickY3S5Fxtv5F",
+  "tags": []
+}

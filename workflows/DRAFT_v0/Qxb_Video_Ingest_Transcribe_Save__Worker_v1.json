@@ -1,0 +1,1026 @@
+{
+  "name": "Qxb_Video_Ingest_Transcribe_Save__Worker_v1",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "workflow-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate required fields\nif (!$input.item.json.source_url || !$input.item.json.workspace_id || !$input.item.json.owner_user_id) {\n  return {\n    ok: false,\n    error: {\n      stage: 'normalize',\n      message: 'Missing required fields: source_url, workspace_id, owner_user_id'\n    }\n  };\n}\n\n// Normalize tags to array\nlet tags = ['video', 'youtube'];\nif ($input.item.json.tags) {\n  if (Array.isArray($input.item.json.tags)) {\n    tags = tags.concat($input.item.json.tags);\n  } else if (typeof $input.item.json.tags === 'string') {\n    tags = tags.concat($input.item.json.tags.split(',').map(t => t.trim()));\n  }\n}\n\n// Extract YouTube video_id (best effort)\nconst urlMatch = $input.item.json.source_url.match(/(?:youtube\\.com\\/watch\\?v=|youtu\\.be\\/)([^&?\\/]+)/);\nconst video_id = urlMatch ? urlMatch[1] : null;\n\n// Compute idempotency_key\nconst crypto = require('crypto');\nconst idempotency_key = video_id\n  ? `youtube:${video_id}`\n  : `youtube_url_hash:${crypto.createHash('sha256').update($input.item.json.source_url).digest('hex')}`;\n\n// Generate title if not provided\nconst title = $input.item.json.title_override || (video_id ? `Video: ${video_id}` : `Video: ${idempotency_key.slice(0, 16)}...`);\n\nreturn {\n  ok: true,\n  source_url: $input.item.json.source_url,\n  source_platform: 'youtube',\n  source_video_id: video_id,\n  workspace_id: $input.item.json.workspace_id,\n  owner_user_id: $input.item.json.owner_user_id,\n  title: title,\n  summary: $input.item.json.notes || 'Video transcript (ingested)',\n  tags: tags,\n  idempotency_key: idempotency_key\n};"
+      },
+      "id": "normalize-input",
+      "name": "Normalize_Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "validation-error-check",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "guard-validation-error",
+      "name": "Guard_Validation_Error",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "qxb_artifact_video",
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "idempotency_key",
+              "keyValue": "={{ $json.idempotency_key }}",
+              "condition": "equals"
+            }
+          ]
+        },
+        "options": {
+          "queryName": "rows",
+          "returnFields": "artifact_id,status"
+        }
+      },
+      "id": "check-dedup",
+      "name": "Check_Dedup",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [900, 200],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-kernel-v1",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "dedup-found-check",
+              "leftValue": "={{ $json.artifact_id !== undefined && $json.artifact_id !== null }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "guard-dedup-found",
+      "name": "Guard_Dedup_Found",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  ok: true,\n  deduped: true,\n  artifact_id: $input.item.json.artifact_id,\n  status: $input.item.json.status,\n  idempotency_key: $('Normalize_Input').item.json.idempotency_key\n};"
+      },
+      "id": "return-deduped",
+      "name": "Return_Deduped",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 100]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "qxb_artifact",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "workspace_id",
+              "fieldValue": "={{ $('Normalize_Input').item.json.workspace_id }}"
+            },
+            {
+              "fieldId": "owner_user_id",
+              "fieldValue": "={{ $('Normalize_Input').item.json.owner_user_id }}"
+            },
+            {
+              "fieldId": "artifact_type",
+              "fieldValue": "video"
+            },
+            {
+              "fieldId": "title",
+              "fieldValue": "={{ $('Normalize_Input').item.json.title }}"
+            },
+            {
+              "fieldId": "summary",
+              "fieldValue": "={{ $('Normalize_Input').item.json.summary }}"
+            },
+            {
+              "fieldId": "priority",
+              "fieldValue": 3
+            },
+            {
+              "fieldId": "tags",
+              "fieldValue": "={{ JSON.stringify($('Normalize_Input').item.json.tags) }}"
+            },
+            {
+              "fieldId": "content",
+              "fieldValue": "{\"kind\":\"video\",\"source_platform\":\"youtube\"}"
+            }
+          ]
+        },
+        "options": {
+          "returnFields": "*"
+        }
+      },
+      "id": "insert-spine",
+      "name": "Insert_Spine",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1340, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-kernel-v1",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fallback chain for Supabase response shape variations\nconst artifact_id = $input.item.json.artifact_id\n  || $input.item.json.id\n  || ($input.item.json.data && $input.item.json.data[0] && $input.item.json.data[0].artifact_id)\n  || ($input.item.json.data && $input.item.json.data[0] && $input.item.json.data[0].id);\n\nif (!artifact_id) {\n  return {\n    ok: false,\n    error: {\n      stage: 'create_spine',\n      message: 'Failed to extract artifact_id from spine INSERT response'\n    }\n  };\n}\n\nreturn {\n  ok: true,\n  artifact_id: artifact_id\n};"
+      },
+      "id": "normalize-spine-id",
+      "name": "Normalize_Spine_ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "spine-id-error-check",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "guard-spine-id-error",
+      "name": "Guard_Spine_ID_Error",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1780, 300]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "qxb_artifact_video",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "artifact_id",
+              "fieldValue": "={{ $('Normalize_Spine_ID').item.json.artifact_id }}"
+            },
+            {
+              "fieldId": "source_url",
+              "fieldValue": "={{ $('Normalize_Input').item.json.source_url }}"
+            },
+            {
+              "fieldId": "source_platform",
+              "fieldValue": "={{ $('Normalize_Input').item.json.source_platform }}"
+            },
+            {
+              "fieldId": "source_video_id",
+              "fieldValue": "={{ $('Normalize_Input').item.json.source_video_id }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "queued"
+            },
+            {
+              "fieldId": "idempotency_key",
+              "fieldValue": "={{ $('Normalize_Input').item.json.idempotency_key }}"
+            },
+            {
+              "fieldId": "content",
+              "fieldValue": "{}"
+            }
+          ]
+        },
+        "options": {
+          "returnFields": "*"
+        }
+      },
+      "id": "insert-extension",
+      "name": "Insert_Extension",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2000, 200],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-kernel-v1",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "qxb_artifact_video",
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_id",
+              "keyValue": "={{ $('Normalize_Spine_ID').item.json.artifact_id }}",
+              "condition": "equals"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "downloading"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now }}"
+            }
+          ]
+        }
+      },
+      "id": "update-status-downloading",
+      "name": "Update_Status_Downloading",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2220, 200],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-kernel-v1",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "mkdir -p /tmp/qwrk-video && yt-dlp -f 'bestaudio[ext=m4a]' --output '/tmp/qwrk-video/{{ $('Normalize_Input').item.json.idempotency_key }}.%(ext)s' --no-playlist --quiet '{{ $('Normalize_Input').item.json.source_url }}'"
+      },
+      "id": "download-audio",
+      "name": "Download_Audio",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [2440, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const idempotency_key = $('Normalize_Input').item.json.idempotency_key;\nconst basePath = `/tmp/qwrk-video/${idempotency_key}`;\n// Assume m4a for now (yt-dlp typically downloads as m4a for YouTube)\nconst audioFilePath = `${basePath}.m4a`;\n\nreturn {\n  audio_file_path: audioFilePath,\n  idempotency_key: idempotency_key\n};"
+      },
+      "id": "get-audio-file-path",
+      "name": "Get_Audio_File_Path",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2660, 200]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "qxb_artifact_video",
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_id",
+              "keyValue": "={{ $('Normalize_Spine_ID').item.json.artifact_id }}",
+              "condition": "equals"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "chunking"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now }}"
+            }
+          ]
+        }
+      },
+      "id": "update-status-chunking",
+      "name": "Update_Status_Chunking",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2880, 200],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-kernel-v1",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "ffmpeg -i '{{ $json.audio_file_path }}' -f segment -segment_time 600 -c copy -reset_timestamps 1 '/tmp/qwrk-video/{{ $json.idempotency_key }}_chunk_%03d.m4a'"
+      },
+      "id": "chunk-audio",
+      "name": "Chunk_Audio",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [3100, 200]
+    },
+    {
+      "parameters": {
+        "command": "ls /tmp/qwrk-video/{{ $('Get_Audio_File_Path').item.json.idempotency_key }}_chunk_*.m4a | sort"
+      },
+      "id": "list-chunk-files",
+      "name": "List_Chunk_Files",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [3320, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const chunkList = $input.item.json.stdout.trim().split('\\n').filter(f => f.length > 0);\nreturn chunkList.map((filePath, index) => ({\n  chunk_index: index,\n  file_path: filePath\n}));"
+      },
+      "id": "parse-chunk-list",
+      "name": "Parse_Chunk_List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3540, 200]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "qxb_artifact_video",
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_id",
+              "keyValue": "={{ $('Normalize_Spine_ID').item.json.artifact_id }}",
+              "condition": "equals"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "transcribing"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now }}"
+            }
+          ]
+        }
+      },
+      "id": "update-status-transcribing",
+      "name": "Update_Status_Transcribing",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [3760, 200],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-kernel-v1",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "loop-chunks",
+      "name": "Loop_Chunks",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [3980, 200]
+    },
+    {
+      "parameters": {
+        "operation": "transcribe",
+        "options": {
+          "response_format": "verbose_json"
+        },
+        "binaryPropertyName": "data",
+        "audioFileUrl": "={{ $json.file_path }}"
+      },
+      "id": "transcribe-chunk",
+      "name": "Transcribe_Chunk",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [4200, 200],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-account",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  chunk_index: $input.item.json.chunk_index,\n  text: $input.item.json.text,\n  segments: $input.item.json.segments || [],\n  duration: $input.item.json.duration\n};"
+      },
+      "id": "normalize-chunk-transcript",
+      "name": "Normalize_Chunk_Transcript",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4420, 200]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "qxb_artifact_video",
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_id",
+              "keyValue": "={{ $('Normalize_Spine_ID').item.json.artifact_id }}",
+              "condition": "equals"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "stitching"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now }}"
+            }
+          ]
+        }
+      },
+      "id": "update-status-stitching",
+      "name": "Update_Status_Stitching",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [4640, 200],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-kernel-v1",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const chunks = $('Normalize_Chunk_Transcript').all();\n\n// Sort by chunk_index to ensure order\nchunks.sort((a, b) => a.json.chunk_index - b.json.chunk_index);\n\n// Concatenate full text\nconst full_text = chunks.map(c => c.json.text).join(' ');\n\n// Merge all segments with adjusted timestamps\nconst all_segments = [];\nlet cumulative_offset = 0;\n\nchunks.forEach(chunk => {\n  const segments = chunk.json.segments || [];\n  segments.forEach(seg => {\n    all_segments.push({\n      chunk_index: chunk.json.chunk_index,\n      start: seg.start + cumulative_offset,\n      end: seg.end + cumulative_offset,\n      text: seg.text\n    });\n  });\n  cumulative_offset += chunk.json.duration || 0;\n});\n\n// Normalize whitespace\nconst normalized_text = full_text.replace(/\\s+/g, ' ').trim();\n\nreturn {\n  transcription: {\n    engine: 'openai',\n    model: 'whisper-1',\n    response_format: 'verbose_json',\n    segments: all_segments,\n    full_text: normalized_text\n  },\n  ingest: {\n    idempotency_key: $('Normalize_Input').item.json.idempotency_key,\n    source_platform: $('Normalize_Input').item.json.source_platform,\n    source_url: $('Normalize_Input').item.json.source_url,\n    source_video_id: $('Normalize_Input').item.json.source_video_id\n  }\n};"
+      },
+      "id": "stitch-transcripts",
+      "name": "Stitch_Transcripts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4860, 200]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "qxb_artifact_video",
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_id",
+              "keyValue": "={{ $('Normalize_Spine_ID').item.json.artifact_id }}",
+              "condition": "equals"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "saving"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now }}"
+            }
+          ]
+        }
+      },
+      "id": "update-status-saving",
+      "name": "Update_Status_Saving",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [5080, 200],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-kernel-v1",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "qxb_artifact_video",
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_id",
+              "keyValue": "={{ $('Normalize_Spine_ID').item.json.artifact_id }}",
+              "condition": "equals"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "complete"
+            },
+            {
+              "fieldId": "content",
+              "fieldValue": "={{ JSON.stringify($('Stitch_Transcripts').item.json) }}"
+            },
+            {
+              "fieldId": "error",
+              "fieldValue": "null"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now }}"
+            }
+          ]
+        }
+      },
+      "id": "save-final-transcript",
+      "name": "Save_Final_Transcript",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [5300, 200],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-kernel-v1",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "rm -f /tmp/qwrk-video/{{ $('Get_Audio_File_Path').item.json.idempotency_key }}* || true"
+      },
+      "id": "cleanup-temp-files",
+      "name": "Cleanup_Temp_Files",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [5520, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  ok: true,\n  deduped: false,\n  artifact_id: $('Normalize_Spine_ID').item.json.artifact_id,\n  status: 'complete',\n  idempotency_key: $('Normalize_Input').item.json.idempotency_key\n};"
+      },
+      "id": "return-success",
+      "name": "Return_Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [5740, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  ok: false,\n  artifact_id: null,\n  status: 'failed',\n  error: $input.item.json.error || { stage: 'unknown', message: 'Validation failed' }\n};"
+      },
+      "id": "return-validation-failure",
+      "name": "Return_Validation_Failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "qxb_artifact_video",
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_id",
+              "keyValue": "={{ $('Normalize_Spine_ID').item.json.artifact_id }}",
+              "condition": "equals"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "failed"
+            },
+            {
+              "fieldId": "error",
+              "fieldValue": "={{ JSON.stringify({ stage: $json.stage || 'unknown', message: $json.error?.message || $json.message || 'Unknown error', timestamp: $now }) }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now }}"
+            }
+          ]
+        }
+      },
+      "id": "update-status-failed",
+      "name": "Update_Status_Failed",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2000, 500],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-kernel-v1",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "rm -f /tmp/qwrk-video/{{ $('Get_Audio_File_Path').item.json.idempotency_key || '' }}* 2>/dev/null || true"
+      },
+      "id": "cleanup-on-error",
+      "name": "Cleanup_On_Error",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [2220, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  ok: false,\n  artifact_id: $('Normalize_Spine_ID').item.json.artifact_id || null,\n  status: 'failed',\n  error: {\n    stage: $input.item.json.stage || 'unknown',\n    message: $input.item.json.error?.message || $input.item.json.message || 'Workflow failed',\n    details: $input.item.json.error?.details || null\n  }\n};"
+      },
+      "id": "return-failure",
+      "name": "Return_Failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2440, 500]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize_Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize_Input": {
+      "main": [
+        [
+          {
+            "node": "Guard_Validation_Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guard_Validation_Error": {
+      "main": [
+        [
+          {
+            "node": "Return_Validation_Failure",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Check_Dedup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check_Dedup": {
+      "main": [
+        [
+          {
+            "node": "Guard_Dedup_Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guard_Dedup_Found": {
+      "main": [
+        [
+          {
+            "node": "Return_Deduped",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Insert_Spine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert_Spine": {
+      "main": [
+        [
+          {
+            "node": "Normalize_Spine_ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize_Spine_ID": {
+      "main": [
+        [
+          {
+            "node": "Guard_Spine_ID_Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guard_Spine_ID_Error": {
+      "main": [
+        [
+          {
+            "node": "Return_Failure",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Insert_Extension",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert_Extension": {
+      "main": [
+        [
+          {
+            "node": "Update_Status_Downloading",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update_Status_Downloading": {
+      "main": [
+        [
+          {
+            "node": "Download_Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download_Audio": {
+      "main": [
+        [
+          {
+            "node": "Get_Audio_File_Path",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get_Audio_File_Path": {
+      "main": [
+        [
+          {
+            "node": "Update_Status_Chunking",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update_Status_Chunking": {
+      "main": [
+        [
+          {
+            "node": "Chunk_Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chunk_Audio": {
+      "main": [
+        [
+          {
+            "node": "List_Chunk_Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List_Chunk_Files": {
+      "main": [
+        [
+          {
+            "node": "Parse_Chunk_List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse_Chunk_List": {
+      "main": [
+        [
+          {
+            "node": "Update_Status_Transcribing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update_Status_Transcribing": {
+      "main": [
+        [
+          {
+            "node": "Loop_Chunks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop_Chunks": {
+      "main": [
+        [
+          {
+            "node": "Transcribe_Chunk",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update_Status_Stitching",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe_Chunk": {
+      "main": [
+        [
+          {
+            "node": "Normalize_Chunk_Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize_Chunk_Transcript": {
+      "main": [
+        [
+          {
+            "node": "Loop_Chunks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update_Status_Stitching": {
+      "main": [
+        [
+          {
+            "node": "Stitch_Transcripts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stitch_Transcripts": {
+      "main": [
+        [
+          {
+            "node": "Update_Status_Saving",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update_Status_Saving": {
+      "main": [
+        [
+          {
+            "node": "Save_Final_Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save_Final_Transcript": {
+      "main": [
+        [
+          {
+            "node": "Cleanup_Temp_Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cleanup_Temp_Files": {
+      "main": [
+        [
+          {
+            "node": "Return_Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2026-01-04T00:00:00.000Z",
+  "versionId": "draft-v0"
+}

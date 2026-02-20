@@ -1,0 +1,243 @@
+{
+  "name": "NQxb_Telegram_Gateway_Pipe_v1",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["message"]
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [0, 0],
+      "id": "telegram-trigger-001",
+      "name": "Telegram Trigger",
+      "webhookId": "qwrk-telegram-gateway-pipe",
+      "credentials": {
+        "telegramApi": {
+          "id": "VTIn4SmsgbApQNj2",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse incoming Telegram message as JSON\n// Pass through chat_id for response routing\n\nconst text = $json.message?.text ?? \"\";\nconst chat_id = $json.message?.chat?.id ?? null;\nconst message_id = $json.message?.message_id ?? null;\n\nif (!chat_id) {\n  return [{ json: { ok: false, error: \"No chat_id found\", chat_id: null } }];\n}\n\nif (!text || text.trim().length === 0) {\n  return [{ json: { ok: false, error: \"Empty message\", chat_id, message_id } }];\n}\n\ntry {\n  const payload = JSON.parse(text);\n  return [{ json: { ok: true, payload, chat_id, message_id } }];\n} catch (e) {\n  return [{ json: { ok: false, error: \"Invalid JSON: \" + e.message, chat_id, message_id } }];\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0],
+      "id": "parse-json-001",
+      "name": "Parse JSON"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.ok }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    },
+                    "id": "valid-json-condition"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.ok }}",
+                    "rightValue": false,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    },
+                    "id": "invalid-json-condition"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [440, 0],
+      "id": "switch-valid-001",
+      "name": "Valid JSON?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": false
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, -100],
+      "id": "post-gateway-001",
+      "name": "POST to Gateway",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "jTp4W3tGrw2s036g",
+          "name": "Qwrk Ingest Basic Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Shape Gateway response for Telegram\n// Truncate if too long (Telegram limit ~4096 chars)\n\nconst MAX_LENGTH = 4000;\nconst chat_id = $('Parse JSON').item.json.chat_id;\nconst gateway_response = $json;\n\nlet response_text = JSON.stringify(gateway_response, null, 2);\n\nif (response_text.length > MAX_LENGTH) {\n  response_text = response_text.substring(0, MAX_LENGTH) + \"\\n\\n... (truncated)\";\n}\n\nreturn [{ json: { chat_id, text: response_text } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, -100],
+      "id": "shape-response-001",
+      "name": "Shape Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Shape error response for Telegram\n\nconst chat_id = $json.chat_id;\nconst error = $json.error;\n\nconst text = `❌ Error: ${error}\\n\\nExpected: Valid JSON payload\\n\\nExample:\\n{\"gw_action\":\"artifact.list\",\"gw_workspace_id\":\"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\"artifact_type\":\"project\",\"selector\":{\"limit\":3}}`;\n\nreturn [{ json: { chat_id, text } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 100],
+      "id": "shape-error-001",
+      "name": "Shape Error"
+    },
+    {
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1100, 0],
+      "id": "send-response-001",
+      "name": "Send Response",
+      "credentials": {
+        "telegramApi": {
+          "id": "VTIn4SmsgbApQNj2",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Parse JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse JSON": {
+      "main": [
+        [
+          {
+            "node": "Valid JSON?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid JSON?": {
+      "main": [
+        [
+          {
+            "node": "POST to Gateway",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Shape Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST to Gateway": {
+      "main": [
+        [
+          {
+            "node": "Shape Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shape Response": {
+      "main": [
+        [
+          {
+            "node": "Send Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shape Error": {
+      "main": [
+        [
+          {
+            "node": "Send Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "",
+  "meta": {
+    "instanceId": ""
+  },
+  "id": "",
+  "tags": []
+}

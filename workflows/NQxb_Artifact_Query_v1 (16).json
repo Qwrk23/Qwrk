@@ -92,6 +92,29 @@
                 ],
                 "combinator": "and"
               }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "2e1bb9d5-02c7-4e0a-9f15-cfd8d3cae7e2",
+                    "leftValue": "={{ $json.artifact_type }}",
+                    "rightValue": "instruction_pack",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
             }
           ]
         },
@@ -120,11 +143,12 @@
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.created_at ? 1 : 0 }}",
+                    "leftValue": "={{ $node[\"NQxb_Artifact_Query_v1__DB_Get_Artifact_Spine\"].json.artifact_id }}",
                     "rightValue": 0,
                     "operator": {
-                      "type": "number",
-                      "operation": "equals"
+                      "type": "string",
+                      "operation": "empty",
+                      "singleValue": true
                     },
                     "id": "217fb63d-5213-449d-8391-5a2cc55715ee"
                   }
@@ -143,11 +167,12 @@
                 "conditions": [
                   {
                     "id": "28d1e829-9368-4c6d-8521-428d7b512695",
-                    "leftValue": "={{$items().length}}",
+                    "leftValue": "={{ $node[\"NQxb_Artifact_Query_v1__DB_Get_Artifact_Spine\"].json.artifact_id }}",
                     "rightValue": 1,
                     "operator": {
-                      "type": "number",
-                      "operation": "equals"
+                      "type": "string",
+                      "operation": "notEmpty",
+                      "singleValue": true
                     }
                   }
                 ],
@@ -162,7 +187,7 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        2112,
+        2320,
         -512
       ],
       "id": "d78cbc3b-5cec-4059-8553-0521c3aec5ef",
@@ -262,6 +287,29 @@
                 ],
                 "combinator": "and"
               }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "abd68435-98c4-4c72-8057-b57f3ab60c1b",
+                    "leftValue": "={{$json.compare_key}}",
+                    "rightValue": "instruction_pack::instruction_pack",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
             }
           ]
         },
@@ -272,7 +320,7 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        2800,
+        3008,
         -544
       ],
       "id": "aff6e546-d179-4558-bd98-99e0decdaa42",
@@ -285,7 +333,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3360,
+        3776,
         -304
       ],
       "id": "f7aaa893-1d2e-40e9-a018-17d6753d81b0",
@@ -299,7 +347,7 @@
           "conditions": [
             {
               "keyName": "artifact_id",
-              "keyValue": "={{$json.artifact_id}}"
+              "keyValue": "={{ $node[\"NQxb_Artifact_Query_v1__DB_Get_Artifact_Spine\"].json.artifact_id }}"
             }
           ]
         }
@@ -307,7 +355,7 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        3136,
+        3552,
         -880
       ],
       "id": "e35c5f3f-9c46-43ad-8626-e8e7c8283cef",
@@ -322,12 +370,12 @@
     },
     {
       "parameters": {
-        "jsCode": "const spineRaw = $node[\"NQxb_Artifact_Query_v1__DB_Get_Artifact_Spine\"].json || {};\nconst spine = {\n  ...spineRaw,\n  artifact_type: (spineRaw.artifact_type ?? \"\").trim(),\n};\n\nconst extRaw = $json && Object.keys($json).length ? $json : null;\n\n// Strip artifact_type from extension if present\nlet ext = extRaw ? { ...extRaw } : null;\nif (ext && \"artifact_type\" in ext) delete ext.artifact_type;\n\nreturn [\n  {\n    json: {\n      ...spine,\n      extension: ext,\n    },\n  },\n];\n\n"
+        "jsCode": "const spineRaw = $node[\"NQxb_Artifact_Query_v1__DB_Get_Artifact_Spine\"].json || {};\nconst spine = {\n  ...spineRaw,\n  artifact_type: (spineRaw.artifact_type ?? \"\").trim(),\n};\n\nconst extRaw = $json && Object.keys($json).length ? $json : null;\n\n// Strip artifact_type from extension if present\nlet ext = extRaw ? { ...extRaw } : null;\nif (ext && \"artifact_type\" in ext) delete ext.artifact_type;\n\n// 🔒 Query Tail Guard: canonical lifecycle lives only on qxb_artifact.lifecycle_status\n// Prevent consumers from treating extension.lifecycle_stage as canonical lifecycle.\nif (ext && \"lifecycle_stage\" in ext) delete ext.lifecycle_stage;\n\nreturn [\n  {\n    json: {\n      ...spine,\n      extension: ext,\n    },\n  },\n];\n\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3360,
+        3776,
         -880
       ],
       "id": "1d7ce679-87c4-4a00-b7a1-dc4d2d01bd24",
@@ -340,7 +388,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2592,
+        2800,
         -496
       ],
       "id": "667805b5-23e9-4a47-a786-465ed36af665",
@@ -362,7 +410,7 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        1664,
+        1872,
         -608
       ],
       "id": "f00210be-b11b-4c23-8d86-c16f9011bab9",
@@ -393,7 +441,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        1888,
+        2096,
         -800
       ],
       "id": "3f5e9e1f-b569-47ba-9468-7983adf2b632",
@@ -418,7 +466,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        2368,
+        2576,
         -496
       ],
       "id": "19490f57-1a73-42c5-bcad-981ce75e8853",
@@ -442,7 +490,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        1888,
+        2096,
         -608
       ],
       "id": "060ccf97-dcc2-4a5d-b8f5-1e00d5b167a9",
@@ -464,7 +512,7 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        1664,
+        1872,
         -800
       ],
       "id": "8a9595d6-5ead-47a9-bcd5-3c1e5e41eaa7",
@@ -493,7 +541,7 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        3136,
+        3552,
         -304
       ],
       "id": "0cab99dc-18ed-4002-bcd3-1ed17dd355d1",
@@ -521,7 +569,7 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        3136,
+        3552,
         -688
       ],
       "id": "b5f40169-1222-4aa7-9766-627ebd026ca0",
@@ -540,7 +588,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3360,
+        3776,
         -688
       ],
       "id": "9189ba4d-fc66-44e8-88c7-9813020bbabf",
@@ -562,7 +610,7 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        3136,
+        3552,
         -496
       ],
       "id": "32cfa382-dec5-4e01-9dbc-77ca12662f81",
@@ -581,7 +629,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3360,
+        3776,
         -496
       ],
       "id": "ae6b4202-5ca7-4302-944c-fe6cb3c78056",
@@ -603,7 +651,7 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        1664,
+        1872,
         -224
       ],
       "id": "b03641cd-4d48-42eb-bd4e-55617fcd8c2b",
@@ -634,7 +682,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        1888,
+        2096,
         -224
       ],
       "id": "63fddaf8-daee-4c42-83c2-48cdbc698437",
@@ -656,7 +704,7 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        1664,
+        1872,
         -416
       ],
       "id": "9258201a-c0c6-4df6-956c-d6726821c780",
@@ -687,7 +735,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        1888,
+        2096,
         -416
       ],
       "id": "3b7fbfd7-dcc8-4261-a167-e954d97efc53",
@@ -704,7 +752,8 @@
         -512
       ],
       "id": "b8aaa805-6c59-4411-9bfd-552035a6f376",
-      "name": "NQxb_Artifact_Query_v1__In"
+      "name": "NQxb_Artifact_Query_v1__In",
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -723,7 +772,7 @@
       "parameters": {
         "mode": "combine",
         "combineBy": "combineByPosition",
-        "numberInputs": 4,
+        "numberInputs": 6,
         "options": {
           "includeUnpaired": true
         }
@@ -731,7 +780,7 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        3824,
+        4240,
         -544
       ],
       "id": "1b3ca85d-6963-4b10-91e0-7b621224d25d",
@@ -763,12 +812,147 @@
       ],
       "id": "40f47662-2ce9-4659-9a34-7c2507e8eb04",
       "name": "NQxb_Artifact_Query_v1__DB_Get_Artifact_Spine",
+      "alwaysOutputData": true,
       "credentials": {
         "supabaseApi": {
           "id": "n4R4JdOIV9zrCGIT",
           "name": "Qwrk Supabase – Kernel v1"
         }
       }
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Query_v1__Return_TypeMismatch\n// Purpose: Deterministic TYPE_MISMATCH when requested artifact_type != stored artifact_type.\n// MUST preserve request context (gw_workspace_id + requested_artifact_type) from Normalize_Request.\n\nconst req = $node[\"NQxb_Artifact_Query_v1__Normalize_Request\"]?.json ?? {};\nconst j = $json ?? {};\n\n// Stored type comes from the artifact spine row (current item)\nconst stored =\n  typeof j.artifact_type === \"string\" ? j.artifact_type.trim()\n  : (j.artifact_type ?? null);\n\n// Requested type comes from normalized request\nconst requested =\n  typeof req.req_artifact_type === \"string\" ? req.req_artifact_type.trim()\n  : (typeof req.artifact_type === \"string\" ? req.artifact_type.trim() : null);\n\n// Use the artifact_id from the normalized request first (source of truth)\nconst artifact_id =\n  req.req_artifact_id ?? req.artifact_id ?? j.artifact_id ?? null;\n\n// Preserve workspace_id from normalized request first (source of truth)\nconst gw_workspace_id =\n  req.gw_workspace_id ?? req.workspace_id ?? null;\n\nreturn [{\n  json: {\n    ok: false,\n    _gw_route: \"error\",\n    gw_action: req.gw_action ?? \"artifact.query\",\n    gw_workspace_id,\n    artifact_id,\n    requested_artifact_type: requested,\n    stored_artifact_type: stored,\n    compare_key: `${stored ?? \"null\"}::${requested ?? \"null\"}`,\n    error: {\n      code: \"TYPE_MISMATCH\",\n      message: \"Requested artifact_type does not match stored artifact_type for this artifact_id.\",\n    },\n    timestamp: new Date().toISOString(),\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3664,
+        128
+      ],
+      "id": "f6143c0e-f3a4-45ee-8b1c-d6dc5a3f5d39",
+      "name": "NQxb_Artifact_Query_v1__Return_TypeMismatch"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Query_v1__Shape_Return\n// Purpose: Produce deterministic errors, but on success return RAW artifact object (no envelope).\n// Input: a single merged item from NQxb_Artifact_Query_v1__Return (Merge node)\n\nconst j = $json ?? {};\n\nconst isObject = (v) => v && typeof v === \"object\" && !Array.isArray(v);\n\nconst isError =\n  j.ok === false ||\n  j._gw_route === \"error\" ||\n  isObject(j.error);\n\nif (isError) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: \"error\",\n      gw_action: j.gw_action ?? \"artifact.query\",\n      gw_workspace_id: j.gw_workspace_id ?? null,\n      artifact_id: j.artifact_id ?? null,\n      requested_artifact_type: j.requested_artifact_type ?? j.req_artifact_type ?? j.artifact_type ?? null,\n      stored_artifact_type: (typeof j.stored_artifact_type === \"string\") ? j.stored_artifact_type.trim() : (j.stored_artifact_type ?? null),\n      compare_key: j.compare_key ?? null,\n      error: j.error ?? { code: \"ERROR\", message: \"Unknown error\" },\n      timestamp: j.timestamp ?? new Date().toISOString(),\n    }\n  }];\n}\n\n// Fail-closed guard: do not return success unless we have an actual artifact spine shape.\nconst hasArtifactSpine =\n  typeof j.artifact_id === \"string\" && j.artifact_id.trim().length > 0 &&\n  typeof j.workspace_id === \"string\" && j.workspace_id.trim().length > 0 &&\n  typeof j.artifact_type === \"string\" && j.artifact_type.trim().length > 0;\n\nif (!hasArtifactSpine) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: \"error\",\n      gw_action: j.gw_action ?? \"artifact.query\",\n      gw_workspace_id: j.gw_workspace_id ?? null,\n      artifact_id: j.artifact_id ?? null,\n      requested_artifact_type: j.requested_artifact_type ?? j.req_artifact_type ?? null,\n      error: {\n        code: \"QUERY_RETURN_SHAPE_INVALID\",\n        message: \"Query did not produce a valid artifact row for shaping.\",\n        details: {\n          reason: \"missing_artifact_fields\",\n          received_keys: Object.keys(isObject(j) ? j : {}),\n        },\n      },\n      timestamp: new Date().toISOString(),\n    }\n  }];\n}\n\n// ✅ Success path: return RAW artifact object so Gateway wraps exactly once\nreturn [{\n  json: j\n}];\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4528,
+        288
+      ],
+      "id": "092f3532-1c30-43bc-aacd-a884085e1c1f",
+      "name": "NQxb_Artifact_Query_v1__Shape_Return"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Query_v1__Return_NotFound\n// Purpose: Deterministic NOT_FOUND when qxb_artifact spine row is missing\nconst req = $node[\"NQxb_Artifact_Query_v1__Normalize_Request\"]?.json ?? {};\nconst j = $json ?? {};\n\nconst found = j && j.artifact_id;\n\nif (found) {\n  // PASS-THROUGH: do not stop the workflow path\n  return [{ json: j }];\n}\n\nreturn [{\n  json: {\n    ok: false,\n    _gw_route: \"error\",\n    gw_action: req.gw_action ?? \"artifact.query\",\n    gw_workspace_id: req.gw_workspace_id ?? req.workspace_id ?? null,\n    artifact_id: req.req_artifact_id ?? req.artifact_id ?? null,\n    requested_artifact_type: req.req_artifact_type ?? req.artifact_type ?? null,\n    error: {\n      code: \"NOT_FOUND\",\n      message: \"Artifact not found for workspace_id + artifact_id.\",\n    },\n    timestamp: new Date().toISOString(),\n  }\n}];\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        304
+      ],
+      "id": "0b94dbb6-e9cd-4936-9456-6a6a254c5693",
+      "name": "NQxb_Artifact_Query_v1__Return_NotFound"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "qxb_artifact_instruction_pack",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_id",
+              "keyValue": "={{$json.artifact_id}}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3552,
+        -112
+      ],
+      "id": "85b636c3-2eb7-49a2-b8fb-f745f3d707ff",
+      "name": "Get an instruction_pack row1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge spine + instruction_pack extension into the canonical artifact shape.\n// Mirrors Merge_Spine_And_Project_Extension pattern (known-good).\n\nconst spineRaw = $node[\"NQxb_Artifact_Query_v1__DB_Get_Artifact_Spine\"].json || {};\nconst spine = {\n  ...spineRaw,\n  artifact_type: (spineRaw.artifact_type ?? \"\").trim(),\n};\n\n// Supabase Get output (current item) is the extension row\nconst extRaw = $json && Object.keys($json).length ? $json : null;\n\nlet ext = extRaw ? { ...extRaw } : null;\n\n// Strip artifact_type from extension if present\nif (ext && \"artifact_type\" in ext) delete ext.artifact_type;\n\n// (Optional parity cleanup; harmless if absent)\nif (ext && \"workspace_id\" in ext) delete ext.workspace_id;\nif (ext && \"owner_user_id\" in ext) delete ext.owner_user_id;\n\n// If any extension accidentally carries lifecycle_stage, drop it (canonical lifecycle is spine-only)\nif (ext && \"lifecycle_stage\" in ext) delete ext.lifecycle_stage;\n\nreturn [\n  {\n    json: {\n      ...spine,\n      extension: ext,\n    },\n  },\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3776,
+        -112
+      ],
+      "id": "ac3ab6c1-9262-4bc7-8bee-9fa26bbffe25",
+      "name": "NQxb_Gateway_v1__Merge_Spine_And_Instruction_Pack_Extension1"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "qxb_artifact_instruction_pack",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_id",
+              "keyValue": "={{ $json.artifact_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1872,
+        -16
+      ],
+      "id": "dcca1169-0953-4551-ad80-941a18f1a698",
+      "name": "NQxb_Gateway_v1__DB_Get_Instruction_Pack_Extension1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d25ab477-feda-488c-b494-4ca6816b1f9d",
+              "name": "spine_artifact_type",
+              "value": "={{ ($node[\"NQxb_Artifact_Query_v1__DB_Get_Artifact_Spine\"].json.artifact_type ?? '').trim() }}\n",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2096,
+        -16
+      ],
+      "id": "47e144a6-afdc-479e-bbf6-27694d213fd9",
+      "name": "NQxb_Gateway_v1__Set_SpineType4"
     }
   ],
   "pinData": {
@@ -818,12 +1002,25 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "NQxb_Gateway_v1__DB_Get_Instruction_Pack_Extension1",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "NQxb_Gateway_v1__Switch_Spine_Found": {
       "main": [
-        [],
+        [
+          {
+            "node": "NQxb_Artifact_Query_v1__Return_NotFound",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "NQxb_Gateway_v1__Edit_CompareKey",
@@ -863,7 +1060,20 @@
             "index": 0
           }
         ],
-        []
+        [
+          {
+            "node": "Get an instruction_pack row1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Query_v1__Return_TypeMismatch",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "NQxb_Gateway_v1__Merge_Spine_And_Snapshot_Extension": {
@@ -1093,6 +1303,88 @@
             "node": "NQxb_Gateway_v1__Switch_ArtifactType_ForQuery",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "NQxb_Artifact_Query_v1__Return_NotFound",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Query_v1__Return_TypeMismatch": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Query_v1__Return",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Query_v1__Return": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Query_v1__Shape_Return",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Query_v1__Return_NotFound": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Query_v1__Shape_Return",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get an instruction_pack row1": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Gateway_v1__Merge_Spine_And_Instruction_Pack_Extension1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Gateway_v1__Merge_Spine_And_Instruction_Pack_Extension1": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Query_v1__Return",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "NQxb_Gateway_v1__DB_Get_Instruction_Pack_Extension1": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Gateway_v1__Set_SpineType4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Gateway_v1__Set_SpineType4": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Gateway_v1__Switch_Spine_Found",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -1102,7 +1394,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "80f81f9d-803c-4590-a747-f509e082ecbb",
+  "versionId": "5de07aef-3a10-4106-aeb6-2a60dd90516a",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "154f6928422db881044f8d1647b40fc389c59337d14356c0ee681d50ffb55d7e"
