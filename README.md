@@ -134,7 +134,7 @@ See `schema/README.md` for detailed execution order.
 - **[North Star](docs/architecture/North_Star_v0.1.md)** - Guiding architecture and vision
 - **[Phase 1-3](docs/architecture/Phase_1-3_Kernel_Semantics_Lock.md)** - Kernel semantics and design
 - **[Behavioral Constitution](docs/architecture/Behavioral_Controls_Governing_Constitution.md)** - System behavior governance
-- **[Mutability Registry](docs/governance/Mutability_Registry_v1.md)** - Field mutation rules
+- **[Mutability Registry](docs/governance/Mutability_Registry_v2.md)** - Field mutation rules
 - **[CLAUDE.md](CLAUDE.md)** - AI collaboration rules and constraints
 
 ---

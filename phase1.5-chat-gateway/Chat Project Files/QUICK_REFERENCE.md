@@ -78,9 +78,17 @@ With pagination:
 
 ## Update (JSON)
 
+**Tag update:**
 ```
-{"gw_action":"artifact.update","gw_workspace_id":"be0d3a48-c764-44f9-90c8-e846d9dbbd0a","artifact_type":"project","artifact_id":"[UUID]","changes":{"tags":{"add":["new-tag"],"remove":["old-tag"]}}}
+{"gw_action":"artifact.update","gw_workspace_id":"be0d3a48-c764-44f9-90c8-e846d9dbbd0a","artifact_type":"project","artifact_id":"[UUID]","tags":{"add":["new-tag"],"remove":["old-tag"]}}
 ```
+
+**Extension update:**
+```
+{"gw_action":"artifact.update","gw_workspace_id":"be0d3a48-c764-44f9-90c8-e846d9dbbd0a","artifact_type":"project","artifact_id":"[UUID]","extension":{"operational_state":"active"}}
+```
+
+`tags` and `extension` are top-level fields — no `changes` wrapper.
 
 ---
 
@@ -140,4 +148,4 @@ If it needs detail, write a journal.
 
 ---
 
-*CHANGELOG: v2 (2026-02-18): Removed Session Surface Declaration and all Telegram NL sections. Unified to JSON-only execution. Added Query, Update, Promote JSON examples. Added `priority` field to all save examples. Previous version: pre-unification (this is a full rewrite).*
+*CHANGELOG: v2.1 (2026-02-20): Fixed Update payload structure — removed incorrect `changes` wrapper. `tags` and `extension` are top-level fields per Gateway Normalize_Update_Request (Update v12). Added extension update example. v2 (2026-02-18): Removed Session Surface Declaration and all Telegram NL sections. Unified to JSON-only execution. Added Query, Update, Promote JSON examples. Added `priority` field to all save examples. Previous version: pre-unification (this is a full rewrite).*

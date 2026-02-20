@@ -8,6 +8,38 @@ systems.
 
 ------------------------------------------------------------------------
 
+# Phase 2B Walk — Pending — Gaps Identified
+
+**Validated:** 2026-02-20\
+**Validator:** CC (Build Executor)
+
+### Criteria Assessment
+
+| # | Criterion | Result | Evidence |
+|---|-----------|--------|----------|
+| 1 | Status field exists and is enforceable | **PASS** | `execution_status` on spine — `IS NULL OR IN (not_started, in_progress, blocked, complete)`. DDL v2.3. |
+| 2 | Leaves can be marked complete | **PASS** | `artifact.update` routes leaf type (Update v12). Spine `execution_status` updatable. |
+| 3 | Parent rollup percentage is queryable | **FAIL** | No aggregation query, function, or API endpoint exists. Manual counting via list + filter is possible but not first-class queryable. |
+| 4 | Basic dependency blocking works | **FAIL** | `qxb_artifact_dependency` table does not exist in DDL v2.3. No dependency tracking deployed. |
+| 5 | Real project trackable end-to-end | **PARTIAL** | Save → branch → leaf → update execution_status → promote lifecycle works. Missing: rollup aggregation and dependency enforcement. |
+
+### Precise Gaps
+
+1. **Rollup query** — No mechanism to query "what % of leaves under branch X are complete?" Requires either: (a) a Gateway query extension, (b) a database function, or (c) a dedicated workflow node. This is the core Walk value proposition.
+2. **Dependency table** — `qxb_artifact_dependency` not created. Table design exists in Phase 0 DDL Audit (Section 3.5). Blocked on Phase 5 authorization.
+
+### What IS Working (Walk Partial Credit)
+
+- Execution status field deployed and enforceable (spine-level)
+- Priority field deployed (NOT NULL DEFAULT 3)
+- Branch/limb/leaf Save, Query, List, Update all routed (Gateway v56)
+- Lifecycle promotion chain works (seed → sapling → tree → archive)
+- Execution anatomy hierarchy expressible via parent_artifact_id
+
+Walk is structurally enabled but not functionally complete.
+
+------------------------------------------------------------------------
+
 # Structural Alignment Note (2026-02-20)
 
 **Aligned with DDL v2.3 (deployed 2026-02-16).**
@@ -122,6 +154,20 @@ Tree promotion still requires: - At least one execution child (branch,
 limb, or leaf).
 
 Phase 2B does not modify lifecycle rules.
+
+## Advisory Note (2026-02-20)
+
+The execution child requirement above is a **governance-layer advisory**. It is
+NOT enforced at the Gateway runtime level. Promote v2_HTTP does not validate
+child artifact existence before allowing `seed_to_sapling` or `sapling_to_tree`
+transitions.
+
+**Recommended preflight check** (manual, before promoting):
+- Query the project's children: list artifacts with `parent_artifact_id` matching the project
+- Verify at least one branch/limb/leaf exists before promoting seed → sapling
+- Verify execution anatomy is populated before promoting sapling → tree
+
+Runtime enforcement of C4 content validation gates is deferred beyond Phase 2B scope.
 
 ------------------------------------------------------------------------
 

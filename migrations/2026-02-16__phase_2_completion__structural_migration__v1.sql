@@ -8,6 +8,32 @@
 -- Governing:  Governance Gate 765dcdfc, Phase 1 Sealed Snapshot a5dcf3bb
 -- DDL Base:   LIVE_DDL__Kernel_v1__2026-01-04.sql (v2.2)
 --
+-- ============================================================================
+-- HISTORICAL ANNOTATION (2026-02-20)
+-- ============================================================================
+--
+-- This migration was authored against planning documents that included 'oak'
+-- as a lifecycle stage. The deployed DDL v2.3 EXCLUDES 'oak'.
+--
+-- Canonical lifecycle (deployed): seed, sapling, tree, archive
+--
+-- All references to 'oak' in this file are HISTORICAL ONLY. They reflect the
+-- planning-era CHECK values that were revised during deployment. Specifically:
+--   - Block A (line ~188): Extension CHECK includes oak — historical artifact
+--   - V-1 verification (line ~521): Expected oak in spine CHECK — historical
+--   - V-8 validation (line ~598): Expected oak in lifecycle_status — historical
+--
+-- The live spine CHECK is conditional (project-only):
+--   CHECK ((artifact_type <> 'project') OR (lifecycle_status IN
+--     ('seed','sapling','tree','archive')))
+--
+-- The live extension CHECK matches:
+--   CHECK (lifecycle_stage IN ('seed','sapling','tree','archive'))
+--
+-- DO NOT use this migration as a reference for current CHECK values.
+-- Authoritative source: docs/schema/LIVE_DDL__Kernel_v1__2026-01-04.sql (v2.3)
+-- ============================================================================
+--
 -- DECISIONS LOCKED (Session 2026-02-16__004):
 --   Q1: Verification-first — do not assume project extension CHECK updated
 --   Q2: Limb extension = shell only. execution_status stays on spine.

@@ -11,7 +11,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-> **Last verified against live system:** 2026-02-20 · **Gateway:** v56 · **DDL:** v2.4 · **Last reconciliation:** 2026-02-20
+> **Last verified against live system:** 2026-02-20 · **Gateway:** v56 · **DDL:** v2.3 · **Last reconciliation:** 2026-02-20
 
 ## Instruction File Drift Rule
 
@@ -210,7 +210,7 @@ Before writing ANY SQL:
 
 ### Supporting Documentation
 
-- **Human-readable reference:** `docs/schema/Schema_Reference__Kernel_v1__Canonical.md`
+- **Human-readable reference:** `docs/schema/Schema_Reference__Kernel_v1__v2.3.md`
 - **SQL templates:** `docs/sql_templates/Kernel_v1__NoFail_Inserts__v1.md`
 - **Historical schemas:** `docs/schema/AAA_New_Qwrk__Schema__*.sql` (reference only)
 
@@ -224,6 +224,16 @@ Violating DDL-as-Truth results in:
 - ❌ Wasted development time debugging avoidable errors
 
 **When in doubt: Check the DDL first.**
+
+### Drift Prevention Rule (2026-02-20)
+
+**Any DDL version change requires a corresponding Schema Reference update in the same commit.**
+
+This applies to:
+- Changes to `docs/schema/LIVE_DDL__Kernel_v1__2026-01-04.sql` (DDL source)
+- Must be accompanied by update to `docs/schema/Schema_Reference__Kernel_v1__v2.3.md` (or successor)
+
+Rationale: Schema Reference v1.2 drifted from DDL for 7 weeks (2026-01-04 to 2026-02-20), accumulating 13 discrepancies. Co-committing prevents recurrence.
 
 ---
 

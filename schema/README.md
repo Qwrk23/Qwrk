@@ -259,7 +259,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 - [North Star](../docs/architecture/North_Star_v0.1.md)
 - [Phase 1-3 Documentation](../docs/architecture/Phase_1-3_Kernel_Semantics_Lock.md)
-- [Mutability Registry](../docs/governance/Mutability_Registry_v1.md)
+- [Mutability Registry](../docs/governance/Mutability_Registry_v2.md)
 
 ---
 

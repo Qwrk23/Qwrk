@@ -14,6 +14,54 @@
 
 ---
 
+## DDL v2.3 Alignment Note (2026-02-20)
+
+**DDL has progressed from v2.2 (audit baseline) → v2.3 (deployed 2026-02-16).**
+
+This audit is now a **historical record**. The following summarizes resolution status of gaps identified below.
+
+### Resolved in DDL v2.3 (Phase 2 Structural Migration)
+
+| Section | Gap | Resolution |
+|---------|-----|------------|
+| 1.1 | Lifecycle CHECK missing on spine | **RESOLVED** — Conditional CHECK deployed: `(artifact_type <> 'project') OR (lifecycle_status IN ('seed','sapling','tree','archive'))`. No `oak`. |
+| 1.3 | Project extension CHECK {seed,sapling,tree,retired} | **RESOLVED** — Updated to {seed,sapling,tree,archive}. `retired` eliminated. |
+| 1.4 | artifact_type CHECK v5 (12 types) | **RESOLVED** — CHECK v6 deployed (13 types, `limb` added). |
+| 1.5 | `limb` missing from type registry | **RESOLVED** — Inserted with `enabled: true`. Audit row created. |
+| 1.8 | Limb extension table missing | **RESOLVED** — `qxb_artifact_limb` created as shell table (PK=FK, RLS, 3 policies, trigger). Execution fields on spine per design shift. |
+| PF-5/C | Priority nullable, no default | **RESOLVED** — `NOT NULL DEFAULT 3`, backfilled. |
+| C.4 | execution_status unconstrained | **RESOLVED** — CHECK: `IS NULL OR IN ('not_started','in_progress','blocked','complete')`. |
+
+### Resolved in Gateway v56 (T32 — Phase 2B Gateway Type Registry Expansion)
+
+| Section | Gap | Resolution |
+|---------|-----|------------|
+| 1.10 | Save routing for branch/limb/leaf | **RESOLVED** — Save v31 routes all three to extension tables. |
+| 1.12 | Query hydration for branch/limb/leaf | **RESOLVED** — Query v18 hydrates all three. |
+| 5.2 | Workflow version alignment | **RESOLVED** — Gateway v56, Save v31, Query v18, List v29, Update v12. |
+
+### Design Shift: Execution Fields on Spine (Not Extension)
+
+The audit (Sections 1.6, 1.7, 3.3) assumed `execution_status` and `priority` would be columns on branch/leaf/limb extension tables. The deployed architecture places these on the **spine** (`qxb_artifact`), making them universally available. Extension tables are shell-only (PK=FK for class-table inheritance compliance). This invalidates the extension table schemas in Section 3.3 — they are historical design, not deployed reality.
+
+### Remaining Open Items
+
+| Section | Gap | Status |
+|---------|-----|--------|
+| 1.2 | Lifecycle authority reversal (spine vs extension) | **Open** — Both columns exist; Gateway reads/writes both. Full deprecation of extension `lifecycle_stage` deferred. |
+| 1.6/1.7 | Branch/leaf extension tables | **Superseded** — No separate extension tables needed (execution fields on spine). Shell tables not created for branch/leaf (limb has shell for type compliance). |
+| 1.9 | Dependency table (`qxb_artifact_dependency`) | **Open** — Not created. Deferred beyond Phase 2B structural scope. |
+| 1.11 | Promote workflow C4 content validation gates | **Open** — Promote v2_HTTP does not enforce execution child existence or content gates. Advisory only. |
+| 1.14 | Indexes for new tables/queries | **Open** — No new indexes created. Performance adequate at current scale. |
+| 1.15 | 3 unverified triggers (PX.1) | **Open** — instruction_pack, type_registry, registry_audit triggers unverified. |
+| 1.16 | Hydrate-mode validation (PX.4) | **Open** — Not formally tested. |
+| 1.17 | Error routing verification (PX.5) | **Open** — Not formally swept. |
+| PX.8 | DDL reference document update | **RESOLVED** — Schema Reference v2.3 regenerated 2026-02-20. |
+
+**Original findings below are preserved unmodified.**
+
+---
+
 ## CHANGELOG
 
 ### v1 — 2026-02-15

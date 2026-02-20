@@ -407,7 +407,7 @@ See: [Seed__Upgrade_Tree_to_Typed_Model__v2.md](seeds/Seed__Upgrade_Tree_to_Type
 
 - [North Star](../../architecture/North_Star_v0.1.md) - Qwrk V2 architecture
 - [Phase 1-3](../../architecture/Phase_1-3_Kernel_Semantics_Lock.md) - Kernel semantics
-- [Mutability Registry](../../governance/Mutability_Registry_v1.md) - Field mutation rules
+- [Mutability Registry](../../governance/Mutability_Registry_v2.md) - Field mutation rules
 - [Gateway README](../../../workflows/README.md) - Gateway v1 workflows
 - [CLAUDE.md](../../governance/CLAUDE.md) - AI collaboration governance
 

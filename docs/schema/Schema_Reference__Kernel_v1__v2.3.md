@@ -8,6 +8,8 @@
 
 **Supersedes**: v1.2 (`Schema_Reference__Kernel_v1__Canonical__v1.1.md`) — that file contained 9+ critical discrepancies vs deployed DDL.
 
+**Drift Prevention Rule**: Any DDL version change requires a corresponding update to this Schema Reference in the same commit. See CLAUDE.md § Schema Truth Policy.
+
 ---
 
 ## Overview
@@ -774,6 +776,22 @@ SELECT user_id FROM public.qxb_user WHERE auth_user_id = auth.uid()
 | `thicket` | (no extension table) | Yes | Spine-only | Sub-forest grouping (reserved) |
 | `flower` | (no extension table) | Yes | Spine-only | Reserved |
 | `video` | `qxb_artifact_video` | **No** | UPDATE allowed | Long-form media (NOT in CHECK v6) |
+
+### Gateway Type Registry Boundary (2026-02-20)
+
+The following types exist in CHECK v6 but are **intentionally blocked** at the Gateway layer pending Phase 2C:
+
+| Type | Status | Reason |
+|------|--------|--------|
+| `grass` | **Blocked** | Extension table exists but no Gateway Save/Update routing |
+| `thorn` | **Blocked** | Extension table exists but no Gateway Save/Update routing |
+| `forest` | **Blocked** | Reserved — no extension table, no Gateway routing |
+| `thicket` | **Blocked** | Reserved — no extension table, no Gateway routing |
+| `flower` | **Blocked** | Reserved — no extension table, no Gateway routing |
+
+**Authoritative boundary**: The `qxb_artifact_type_registry` table (service_role access only) determines which types are Gateway-routable. CHECK v6 defines what types the database *accepts*; the type registry defines what types the Gateway *routes*. These are intentionally decoupled — CHECK is permissive; registry is restrictive.
+
+Types will be activated when Gateway routing, extension table schema, and validation logic are implemented for each.
 
 ---
 

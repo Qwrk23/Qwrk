@@ -149,8 +149,8 @@ Temporary doctrine blocking journal UPDATE operations until permanent mutability
 ### `Mutability_Gaps_Decision_Packet_v1.md`
 Documents unresolved mutability decisions awaiting explicit resolution.
 
-### `Mutability_Registry_v1.md`
-Registry of mutability rules for all artifact types and system entities (CREATE_ONLY, UPDATE_ALLOWED, PROMOTE_ONLY, SYSTEM_ONLY).
+### `Mutability_Registry_v2.md`
+Registry of mutability rules for all artifact types and system entities (CREATE_ONLY, UPDATE_ALLOWED, PROMOTE_ONLY, SYSTEM_ONLY). Renamed from v1 to match internal version header (v2 since 2026-02-08).
 
 ### `README_BuildTreePack.md`
 README for the Qwrk Build Tree Pack for Claude Code.
