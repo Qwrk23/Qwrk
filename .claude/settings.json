@@ -1,7 +1,13 @@
 {
   "permissions": {
-    "additionalDirectories": [
-      "C:\\Users\\j_bla\\OneDrive\\AAA QwrkX\\AAA_New_Qwrk"
+    "allow": [
+      "Read(C:\\Users\\j_bla\\OneDrive\\AAA QwrkX\\AAA_New_Qwrk\\**)",
+      "Glob(C:\\Users\\j_bla\\OneDrive\\AAA QwrkX\\AAA_New_Qwrk\\**)",
+      "Grep(C:\\Users\\j_bla\\OneDrive\\AAA QwrkX\\AAA_New_Qwrk\\**)",
+      "Edit(C:\\Users\\j_bla\\OneDrive\\AAA QwrkX\\AAA_New_Qwrk\\**)",
+      "Write(C:\\Users\\j_bla\\OneDrive\\AAA QwrkX\\AAA_New_Qwrk\\**)",
+      "Bash(move:*)",
+      "Bash(ls:*)"
     ],
     "deny": [
       "Read(C:\\Users\\j_bla\\**)",
@@ -10,12 +16,8 @@
       "Edit(C:\\Users\\j_bla\\**)",
       "Write(C:\\Users\\j_bla\\**)"
     ],
-    "allow": [
-      "Read(C:\\Users\\j_bla\\OneDrive\\AAA QwrkX\\AAA_New_Qwrk\\**)",
-      "Glob(C:\\Users\\j_bla\\OneDrive\\AAA QwrkX\\AAA_New_Qwrk\\**)",
-      "Grep(C:\\Users\\j_bla\\OneDrive\\AAA QwrkX\\AAA_New_Qwrk\\**)",
-      "Edit(C:\\Users\\j_bla\\OneDrive\\AAA QwrkX\\AAA_New_Qwrk\\**)",
-      "Write(C:\\Users\\j_bla\\OneDrive\\AAA QwrkX\\AAA_New_Qwrk\\**)"
+    "additionalDirectories": [
+      "C:\\Users\\j_bla\\OneDrive\\AAA QwrkX\\AAA_New_Qwrk"
     ]
   }
 }

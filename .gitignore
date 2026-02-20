@@ -16,6 +16,7 @@
 .env
 .env.*
 !.env.example
+!.env.supabase.template
 *.env
 
 # API keys and tokens
@@ -223,6 +224,25 @@ out/
 # Allow snapshot JSON files (design snapshots)
 !docs/snapshots/*.json
 !**/*.snapshot.json
+
+# ============================================
+# Upload Markers (OneDrive sync artifacts)
+# ============================================
+
+_UL
+_ul-*
+
+# ============================================
+# Binary Archives
+# ============================================
+
+*.zip
+
+# ============================================
+# Claude Local Settings (machine-specific)
+# ============================================
+
+.claude/settings.local.json
 
 # ============================================
 # End of .gitignore
