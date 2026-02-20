@@ -8,6 +8,20 @@ systems.
 
 ------------------------------------------------------------------------
 
+# Structural Alignment Note (2026-02-20)
+
+**Aligned with DDL v2.3 (deployed 2026-02-16).**
+
+- `execution_status` is a **spine-level column** on `qxb_artifact`, not on extension tables.
+  - CHECK: `IS NULL OR IN ('not_started', 'in_progress', 'blocked', 'complete')`
+  - Available to ALL artifact types, not only execution-layer types.
+- `priority` is a **spine-level column**: `integer NOT NULL DEFAULT 3, CHECK (1-5)`.
+- Prior references in this document to execution fields existing on extension tables were **historical planning assumptions** made before Phase 2 structural migration.
+- The deployed architecture places execution state on the spine for universal availability and simpler query patterns. Extension tables (branch, limb, leaf) inherit execution semantics via the spine.
+- `lifecycle_status` on spine: conditional CHECK — `seed`, `sapling`, `tree`, `archive` (project-only). No `oak` or `retired`.
+
+------------------------------------------------------------------------
+
 # Purpose
 
 Phase 2 (Crawl) established lifecycle governance: - Seed → Sapling →
@@ -35,19 +49,24 @@ integration
 
 # 1. Universal Execution Fields
 
-These fields apply to execution-layer artifacts (branch, limb, leaf).
+These fields exist on the **`qxb_artifact` spine** and are available to all artifact types.
+They are primarily used by execution-layer artifacts (branch, limb, leaf) but are not
+restricted to them.
 
-## 1.1 Status (Required for Execution Types)
+## 1.1 Status (Spine-Level: `execution_status`)
 
-Enum: - not_started - in_progress - blocked - complete
+Values: `not_started` | `in_progress` | `blocked` | `complete`
+
+Nullable — `NULL` means no execution tracking applies.
+CHECK constraint: `IS NULL OR IN ('not_started', 'in_progress', 'blocked', 'complete')`.
 
 Status drives rollup behavior.
 
 ------------------------------------------------------------------------
 
-## 1.2 Priority (Structured Field)
+## 1.2 Priority (Spine-Level: `priority`)
 
-Numeric scale (1--5).
+`integer NOT NULL DEFAULT 3, CHECK (1-5)` — 1 = highest, 5 = lowest.
 
 Used for ordering and future surfacing logic.\
 Replaces tag-based priority handling.

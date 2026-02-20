@@ -1,9 +1,22 @@
+---
+**SUPERSEDED — DO NOT USE**
+
+This file (v1.2) contains 9+ critical discrepancies vs deployed DDL v2.3 including:
+missing execution_status column, wrong priority nullability, wrong artifact_type CHECK,
+wrong project column types, phantom workspace.owner_user_id, 5 missing tables.
+
+**Use instead**: `docs/schema/Schema_Reference__Kernel_v1__v2.3.md`
+
+Superseded on: 2026-02-20
+
+---
+
 # Schema Reference — Kernel v1 (Canonical) v1.2
 
 **Source**: `docs/schema/LIVE_DDL__Kernel_v1__2026-01-04.sql`
 **Date**: 2026-01-04
 **Version**: v1.2 (Added artifact_type=video)
-**Status**: Authoritative DDL-as-Truth Reference
+**Status**: ~~Authoritative DDL-as-Truth Reference~~ **SUPERSEDED by v2.3**
 **Purpose**: Human-readable schema documentation derived from LIVE database DDL
 
 **Supersedes**: v1.1 (archived - lacked video artifact type)

@@ -1,9 +1,11 @@
 ---
-**⚠️ SUPERSEDED by v1.1 on 2026-01-04**
+**SUPERSEDED — DO NOT USE**
 
-This file contains errors in `qxb_artifact_thorn`, `qxb_user`, and missing indexes.
+This file (v1.0) was superseded by v1.1, then v1.2, now v2.3.
 
-**Use instead**: `Schema_Reference__Kernel_v1__Canonical__v1.1.md`
+**Use instead**: `docs/schema/Schema_Reference__Kernel_v1__v2.3.md`
+
+Superseded on: 2026-02-20
 
 ---
 
