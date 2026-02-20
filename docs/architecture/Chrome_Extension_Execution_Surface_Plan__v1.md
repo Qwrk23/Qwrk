@@ -1,0 +1,390 @@
+# Chrome Extension Execution Surface — Strategic Plan
+
+**Version:** v1
+**Date:** 2026-02-03
+**Status:** PLANNING — Awaiting Approval
+**Author:** CC + Q
+
+---
+
+## 1. Summary of New Execution Model
+
+### The Problem (In My Own Words)
+
+The hallucination regressions in BUG-019 and BUG-020 are not isolated bugs — they reveal a **structural trust failure** in the current architecture. When an LLM (GPT-4o/4o-mini) sits between the user and the Gateway:
+
+1. The AI can fabricate success responses without calling the Gateway
+2. The AI can generate plausible-looking UUIDs that never existed
+3. The user sees "✓ Saved" and has no way to know it didn't happen
+4. **The system's core value — historical truth and trust in persistence — is compromised**
+
+No amount of "verification enforcement" in the Telegram workflow can fully prevent this. The AI is fundamentally not trustworthy as an **execution authority**.
+
+### The Solution (Locked for Planning)
+
+**Pivot execution away from AI-mediated interfaces to deterministic command surfaces.**
+
+The Chrome Extension becomes a first-class execution surface where:
+
+- **User** composes intent (possibly with AI assistance) → **Qwrk (ChatGPT)** generates Gateway-valid JSON → **User** explicitly triggers execution via extension → **Extension** sends JSON directly to Gateway webhook → **Gateway** executes and returns verified result → **Extension** displays success/failure from Gateway response
+
+**Key invariants:**
+1. No LLM in the execution path — AI assists with drafting, never with confirming execution
+2. No user-facing confirmation without direct database proof — Gateway only returns success after verified Supabase write
+3. Gateway remains single enforcement boundary — all governance, lifecycle, authorization checks stay in Gateway
+4. Failures are explicit — silence or error preferred over false success
+
+---
+
+## 2. Proposed Gateway Webhook and Payload Contract
+
+### A. Minimal Webhook Surface Required
+
+The Chrome Extension needs these Gateway actions (all already implemented):
+
+| Action | Purpose | Status |
+|--------|---------|--------|
+| `artifact.save` | Create new artifacts | ✅ Live |
+| `artifact.list` | Browse/search artifacts | ✅ Live |
+| `artifact.query` | Retrieve single artifact by ID | ✅ Live |
+| `artifact.update` | Modify existing artifacts (project only) | ✅ Live (limited) |
+| `artifact.promote` | Lifecycle transitions | ✅ Live |
+
+**No new Gateway actions required.** The existing contract is sufficient.
+
+### B. Extension Request Payload Schema
+
+```json
+{
+  "gw_action": "artifact.save | artifact.list | artifact.query | artifact.update | artifact.promote",
+  "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+
+  // For save/query/update/promote:
+  "artifact_type": "project | journal | restart | snapshot | instruction_pack",
+
+  // For query/update/promote:
+  "artifact_id": "<uuid>",
+
+  // For save:
+  "title": "<string, required>",
+  "summary": "<string, optional>",
+  "tags": ["<string>", ...],
+  "extension": { /* type-specific fields */ },
+
+  // For list:
+  "selector": {
+    "limit": 50,
+    "offset": 0,
+    "filters": {
+      "lifecycle_status": "active",
+      "tags_any": ["tag1"]
+    }
+  },
+
+  // For promote:
+  "transition": "seed_to_sapling | sapling_to_tree | tree_to_retired",
+  "reason": "<string, 1-280 chars>"
+}
+```
+
+**Validation rules (enforced by extension before send):**
+
+| Field | Rule |
+|-------|------|
+| `gw_action` | Required, must be in ACTION_ALLOWLIST |
+| `gw_workspace_id` | Required, UUID format |
+| `artifact_type` | Required for most actions, must be in TYPE_ALLOWLIST |
+| `artifact_id` | Required for query/update/promote, UUID format |
+| `title` | Required for save, max 500 chars |
+| `extension.payload` | Object (not string) for restart/snapshot |
+| `extension.lifecycle_stage` | Required for project save |
+
+### C. Authentication (Phase 1)
+
+**Reuse T7 Bearer Auth work.** The Phase 1 Bearer Auth dev workflow is ready:
+
+- **Endpoint:** `POST https://n8n.halosparkai.com/webhook/nqxb/gateway/v1-dev`
+- **Auth:** `Authorization: Bearer <supabase_jwt>`
+- **Flow:** Extension gets JWT from Supabase Auth → sends to Gateway → Gateway validates via Supabase `/auth/v1/user` → maps to `qxb_user.user_id`
+
+**No `owner_user_id` in payload.** The Gateway derives user identity from the JWT (server-resolved, not client-supplied).
+
+### D. Success Response Shape
+
+```json
+{
+  "ok": true,
+  "_gw_route": "ok",
+  "data": {
+    "artifact": {
+      "artifact_id": "<uuid, database-generated>",
+      "workspace_id": "<uuid>",
+      "owner_user_id": "<uuid>",
+      "artifact_type": "<type>",
+      "title": "<string>",
+      "summary": "<string>",
+      "lifecycle_status": "active",
+      "tags": ["<string>", ...],
+      "created_at": "<iso8601>",
+      "updated_at": "<iso8601>",
+      // ... type-specific extension fields merged in
+    }
+  }
+}
+```
+
+**Trust guarantee:** If `ok: true`, the artifact exists in the database. The `artifact_id` was generated by `gen_random_uuid()` in Supabase, not fabricated by any AI.
+
+### E. Error Response Shape
+
+```json
+{
+  "ok": false,
+  "_gw_route": "error",
+  "error": {
+    "code": "<ERROR_CODE>",
+    "message": "<human-readable description>",
+    "details": { /* context-specific */ }
+  }
+}
+```
+
+**Error codes (exhaustive):**
+- `VALIDATION_ERROR` — Missing/invalid required fields
+- `ACTION_NOT_ALLOWED` — gw_action not in allowlist
+- `ARTIFACT_TYPE_NOT_ALLOWED` — artifact_type not in allowlist
+- `WORKSPACE_FORBIDDEN` — workspace_id not permitted
+- `NOT_FOUND` — Artifact doesn't exist (or RLS-filtered)
+- `TYPE_MISMATCH` — Requested type doesn't match stored type
+- `IMMUTABILITY_ERROR` — Attempted to modify immutable artifact/field
+- `MUTABILITY_ERROR` — Field not allowed for update
+- `LIFECYCLE_STATE_MISMATCH` — Promote from wrong state
+- `AUTH_REQUIRED` — No Authorization header
+- `AUTH_INVALID` — Invalid credentials
+- `AUTH_TOKEN_INVALID` — JWT expired/malformed
+- `AUTH_USER_NOT_FOUND` — Valid JWT but no qxb_user mapping
+
+---
+
+## 3. Required Instruction Pack / Project File Updates
+
+### A. Qwrk (ChatGPT) Instructions Must Change
+
+**Current state:** Qwrk instructions assume AI executes via GPT Actions (direct Gateway calls). This creates the hallucination risk.
+
+**New model:** Qwrk instructions should distinguish:
+
+| Mode | Purpose | Output |
+|------|---------|--------|
+| **Conversational** | Thinking, drafting, planning | Natural language |
+| **Payload Generation** | User explicitly requests execution-ready JSON | Gateway-valid JSON payload |
+
+**Key instruction changes:**
+
+1. **Remove direct execution authority:**
+   - Qwrk no longer "saves" artifacts directly
+   - Qwrk **drafts** payloads and presents them for user approval
+
+2. **Add explicit payload generation command:**
+   - When user says "generate save payload for [description]"
+   - Qwrk outputs **complete, Gateway-valid JSON** that can be copied into Chrome extension
+   - JSON must pass all preflight validation rules
+
+3. **Output format discipline:**
+   - Conversational output: prose, markdown, natural language
+   - Execution payload: **JSON only, fenced in code block**, no surrounding commentary that could confuse copy-paste
+
+4. **No confirmation language for drafts:**
+   - Qwrk must NOT say "✓ Saved" or "artifact_id: xyz" for draft payloads
+   - Clear language: "Here is the payload. Send it via the extension to execute."
+
+### B. Specific File Updates Required
+
+| File | Change |
+|------|--------|
+| `Qwrk_Full_Access_MVP_Instructions_v2.4.md` | Remove direct save authority; add payload generation mode |
+| GPT Actions schema | Remove or disable `artifact.save` action (Qwrk can't execute directly) |
+| New: `Qwrk_Payload_Generation_Contract.md` | Document the output format for execution payloads |
+
+### C. Boundary Between "Drafting" and "Execution"
+
+| Activity | Where it Happens | Who Confirms |
+|----------|------------------|--------------|
+| User describes intent | Conversation (any surface) | — |
+| AI interprets and structures | Qwrk (ChatGPT) | — |
+| AI generates payload JSON | Qwrk (ChatGPT) | User reviews |
+| User triggers execution | Chrome Extension | User clicks button |
+| Gateway executes | n8n workflow | Gateway confirms |
+| Success/failure displayed | Chrome Extension | Extension shows Gateway response |
+
+**The AI never sees or confirms the execution outcome.** The extension displays the Gateway response directly.
+
+---
+
+## 4. Telegram Demotion Strategy
+
+### A. Proposed Reclassification
+
+| Before | After |
+|--------|-------|
+| Telegram = Read + Write execution surface | Telegram = Capture-only / Read-only surface |
+
+**Telegram remains useful for:**
+- Quick capture of thoughts (save as draft/note, not authoritative artifact)
+- Listing artifacts (read operations are low-risk)
+- Querying specific artifacts
+- Notification/alert channel
+
+**Telegram is demoted from:**
+- Authoritative save operations
+- Update operations
+- Promote operations
+
+### B. Implementation Options
+
+**Option 1: Soft demotion (recommended for Phase 1)**
+- Keep Telegram tools functional but add prominent disclaimer
+- AI response includes: "Draft captured. To persist authoritatively, send via Chrome extension."
+- No code changes to Telegram workflow
+
+**Option 2: Hard demotion**
+- Remove save/update/promote tools from Telegram
+- Telegram becomes read-only
+- Requires workflow modification
+
+**Recommendation:** Start with Option 1. Users can still use Telegram for quick capture during transition, but understand it's not authoritative.
+
+### C. Bug Impact Analysis
+
+| Bug | Current Status | Impact After Pivot |
+|-----|----------------|-------------------|
+| **BUG-019** | CLOSED (v8-no-sanitizer) | **OBSOLETE** — Hallucination impossible when AI not in execution path |
+| **BUG-020** | PARTIAL FIX | **OBSOLETE** — Same reason |
+| **BUG-018** | Open (update creates duplicate) | **DEPRIORITIZED** — Telegram updates not authoritative |
+| **BUG-017** | Open (can't update tags) | **LOWER PRIORITY** — Extension can send update payloads directly |
+| **BUG-016** | Open (promote sends wrong transition) | **LOWER PRIORITY** — Extension sends correct payload |
+| **BUG-011** | Mostly complete (tags via Gateway work) | **UNCHANGED** — Gateway implementation is solid |
+| **BUG-015** | Open (promote validation) | **UNCHANGED** — Still needs implementation regardless of surface |
+
+**Key insight:** BUG-019 and BUG-020 are symptoms of the structural problem. They become non-issues when the structural problem is solved.
+
+---
+
+## 5. Dependency Review
+
+### A. Existing T7 Work (Chrome Extension + Gateway Auth)
+
+**Status:** READY TO DEPLOY
+
+**Completed:**
+- Phase 1 Bearer Auth dev workflow (`NQxb_Gateway_v1__Phase1_BearerAuth_Dev.json`)
+- Endpoint: `/nqxb/gateway/v1-dev`
+- Auth nodes: token validation, user lookup, finalize auth
+- README with testing checklist
+
+**Remaining:**
+- Configure n8n credentials (Supabase Anon Key, Supabase API)
+- Activate workflow
+- Test all auth paths
+
+**Key insight from T7:** The planning prompt notes that "Qwrk outputs NL not JSON" — this affects Phase 2 design. The Chrome extension must handle payload construction, not rely on Qwrk to output perfect JSON (or: Qwrk instructions must be updated to output valid JSON on explicit request).
+
+### B. Phase 2 QPM Dependencies
+
+| Dependency | Impact on This Plan |
+|------------|---------------------|
+| T1: Phase 2 QPM Implementation | Low impact — QPM is internal schema change |
+| T2: Idempotency Implementation | Medium impact — idempotency helps with retry-on-failure |
+| DB Migration: Remove instruction_pack singleton | Low impact — already drafted, can proceed independently |
+
+**Sequencing:**
+1. This pivot plan (Chrome extension execution surface) can proceed independently
+2. QPM and idempotency are orthogonal improvements
+3. The singleton constraint migration should be applied (no blockers)
+
+### C. "New Build Safety Rules" (from `CC_Inbox/new build safety rules.md`)
+
+This is a **parallel request** to codify build safety in CLAUDE.md:
+- Protect existing functionality (parallel/isolated builds)
+- No regression guarantee
+- Controlled merge-back
+
+**Recommendation:** Apply this governance update to CLAUDE.md as a separate task. It reinforces the parallel workflow pattern used in T7 (Phase 1 dev workflow alongside live Gateway).
+
+---
+
+## 6. Recommended First Executable Step
+
+**After planning approval, execute in this order:**
+
+### Step 1: Apply Build Safety Rules to CLAUDE.md
+- Codify the parallel-workflow discipline
+- Prevents accidental damage to live systems during extension development
+
+### Step 2: Deploy Phase 1 Bearer Auth Gateway
+- Configure credentials in n8n
+- Activate `NQxb_Gateway_v1__Phase1_BearerAuth_Dev`
+- Test auth paths per checklist
+- **Do NOT merge to live yet** — dev endpoint only
+
+### Step 3: Create Chrome Extension Scaffold
+- Minimal extension that:
+  - Has a JSON input field
+  - Sends to `/nqxb/gateway/v1-dev` with bearer token
+  - Displays raw Gateway response
+- No UI polish needed — proof of concept only
+
+### Step 4: Test End-to-End Save
+- User manually types/pastes valid JSON payload in extension
+- Extension sends to Gateway
+- Gateway returns success with real `artifact_id`
+- Verify artifact exists in database
+- **This proves the trust model works**
+
+### Step 5: Update Qwrk Instructions
+- Add payload generation mode
+- Remove/disable direct save authority via GPT Actions
+- Document boundary between drafting and execution
+
+### Step 6: Soft-Demote Telegram
+- Add disclaimer to save responses
+- Document Telegram as capture-only surface
+
+---
+
+## 7. Risk Assessment
+
+| Risk | Mitigation |
+|------|------------|
+| User friction (extra step to execute) | Compensated by trust guarantee; friction is feature, not bug |
+| Extension development complexity | Start minimal; JSON input + send + display response |
+| Chrome extension security | Use Supabase Auth for JWT; no secrets in extension code |
+| Qwrk instruction changes break existing users | Gradual rollout; keep conversational mode unchanged |
+| Telegram users expect save to work | Soft demotion with clear messaging |
+
+---
+
+## 8. Open Questions (Require Q Decision)
+
+1. **Telegram hard vs soft demotion:** Should Telegram save tools be removed entirely, or kept with disclaimer?
+
+2. **Qwrk GPT Actions:** Disable `artifact.save` action entirely, or keep it but update instructions to discourage use?
+
+3. **Extension UX level:** Minimal JSON input (power user), or form-based UI (guided input)?
+
+4. **Timeline:** Prioritize extension deployment over other open bugs, or address bugs first?
+
+---
+
+## CHANGELOG
+
+### v1 — 2026-02-03
+- Initial planning document
+- Architecture assessment complete
+- Execution contract defined
+- Bug impact analyzed
+- First executable step identified
+
+---
+
+**End of Planning Document**

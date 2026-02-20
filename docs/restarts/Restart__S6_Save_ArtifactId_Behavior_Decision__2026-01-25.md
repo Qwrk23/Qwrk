@@ -1,0 +1,184 @@
+# RESTART — S6 Save artifact_id Behavior Decision
+
+**Date:** 2026-01-25
+**System:** Qwrk Gateway v1 + n8n
+**Mode / Governance:** AAA_New_Qwrk under Qwrk V2 Constitution
+**Status:** LOCKED (Option A accepted)
+
+---
+
+## Decision Outcome
+
+**Option A accepted:** Nil UUIDs (`00000000-0000-0000-0000-000000000000`) are treated as "no artifact_id" and proceed as INSERT.
+
+**Implementation:** Test harness S6 updated to expect `ok: true` with `operation: INSERT`.
+
+**Result:** Save tests now 7/8 (S5 is expected failure - instruction_pack not registered).
+
+---
+
+## Context
+
+Gateway test S6 fails because the **test expectation** and **workflow behavior** differ on how `artifact.save` handles a client-supplied `artifact_id`.
+
+This is **not a bug** — it's an undocumented design decision that needs to be locked.
+
+---
+
+## Current Behavior (Workflow)
+
+```
+IF artifact_id is present and non-empty:
+    → Treat as UPDATE (modify existing artifact)
+ELSE:
+    → Treat as INSERT (create new artifact)
+```
+
+**Code location:** `NQxb_Artifact_Save_v1` — branching logic uses:
+```javascript
+is_update = artifact_id !== null && artifact_id !== ''
+```
+
+---
+
+## Test Expectation (S6)
+
+The test sends:
+```json
+{
+  "gw_action": "artifact.save",
+  "artifact_type": "project",
+  "artifact_id": "00000000-0000-0000-0000-000000000000",
+  "title": "Should fail or ignore artifact_id",
+  ...
+}
+```
+
+**Expected:** Error response (reject artifact_id on create) or ignore artifact_id and INSERT anyway.
+
+**Actual:** Workflow treats this as UPDATE, attempts to find artifact `00000000-...`, returns NOT_FOUND.
+
+---
+
+## Decision Options
+
+### Option A: Accept Workflow Behavior (artifact_id = UPDATE signal)
+
+**Change:** Update test S6 to expect NOT_FOUND when artifact_id is supplied but doesn't exist.
+
+**Rationale:**
+- Simple, predictable rule: "artifact_id present = UPDATE"
+- No workflow changes needed
+- Client controls intent by including/omitting artifact_id
+- Matches upsert-style patterns
+
+**Trade-off:**
+- Clients must be careful not to accidentally send artifact_id on creates
+- Typos/bugs in client could cause unexpected UPDATE attempts
+
+---
+
+### Option B: Reject artifact_id on Explicit Creates
+
+**Change:** Add validation in workflow: if `artifact_id` is supplied but operation intent is "create", return `VALIDATION_ERROR`.
+
+**Rationale:**
+- Defensive — prevents accidental updates
+- Clearer separation: save without artifact_id = create, save with artifact_id = update
+- Explicit is better than implicit
+
+**Trade-off:**
+- Requires workflow change
+- Need to define how "create intent" is signaled (absence of artifact_id? explicit flag?)
+
+---
+
+### Option C: Ignore artifact_id on Creates (Silent Drop)
+
+**Change:** If artifact_id is supplied but artifact doesn't exist, ignore it and INSERT anyway.
+
+**Rationale:**
+- Forgiving — client mistakes don't cause errors
+- Always succeeds if payload is valid
+
+**Trade-off:**
+- Surprising behavior — client thinks they're updating, but actually creating
+- Could mask bugs
+- **Not recommended** — violates principle of least surprise
+
+---
+
+## Recommendation
+
+**Option A (Accept Workflow Behavior)** is recommended:
+
+1. The rule is simple and predictable
+2. No workflow changes required
+3. Gateway already uses this pattern consistently
+4. Test fix is trivial (change expected outcome)
+
+If stricter validation is desired later, it can be added as a future hardening step without breaking existing clients.
+
+---
+
+## Implementation (If Option A)
+
+**Test harness change only:**
+
+File: `docs/testing/Qwrk.Gateway.TestHarness.ps1`
+
+Find S6 test and change expected result from "should fail or ignore" to "expect NOT_FOUND when artifact doesn't exist":
+
+```powershell
+# S6: artifact_id on create → expect NOT_FOUND (artifact_id signals UPDATE intent)
+$results += @{ id = "S6"; pass = ($r.ok -eq $false -and $r.error.code -eq "NOT_FOUND") }
+```
+
+---
+
+## Implementation (If Option B)
+
+**Workflow change required:**
+
+Node: `NQxb_Artifact_Save_v1__Validate_Request` (or new guard node)
+
+Add validation:
+```javascript
+if (artifact_id && !artifact_exists) {
+  return {
+    ok: false,
+    error: {
+      code: "VALIDATION_ERROR",
+      message: "artifact_id supplied but artifact does not exist. Omit artifact_id for creates.",
+      details: { artifact_id }
+    }
+  };
+}
+```
+
+This requires fetching the artifact first to check existence, adding latency.
+
+---
+
+## Decision Required
+
+**Which option do you choose?**
+
+| Option | Change | Complexity |
+|--------|--------|------------|
+| **A** | Test only | Low |
+| **B** | Workflow + Test | Medium |
+| **C** | Workflow + Test | Medium (not recommended) |
+
+---
+
+## After Decision
+
+1. Apply the chosen fix
+2. Re-run Save tests → expect 7/8 (S5 remains expected)
+3. Document the behavior in Gateway contract
+4. Proceed to Full Access Enablement
+
+---
+
+*Generated by Claude Code — 2026-01-25*

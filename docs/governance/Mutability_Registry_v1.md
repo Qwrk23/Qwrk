@@ -1,9 +1,36 @@
-# Mutability Registry (v1)
+# Mutability Registry (v2)
 
-**Version**: 1
+**Version**: 2
 **Created**: 2026-01-01
+**Updated**: 2026-02-08
 **Purpose**: Memory audit consolidation - binding, immutable reference for artifact field mutation rules
 **Status**: Locked
+
+---
+
+## CHANGELOG
+
+### v2 - 2026-02-08
+**What changed:** Added universal spine-level tag updates (BUG-017 fix)
+
+**Why:**
+- Tags are organizational metadata, not extension content
+- Users need to add/remove tags on existing artifacts (including snapshots, restarts)
+- Extension immutability is preserved — only spine-level `tags` field is affected
+
+**Scope of impact:**
+- New row: `(all types) | tags | UPDATE_ALLOWED`
+- Tags use add/remove semantics (not replace-all)
+- Snapshots and restarts remain payload-immutable
+- Gateway contract unchanged (uses `artifact.update`)
+
+**How to validate:**
+- Add tag to snapshot → succeeds
+- Add tag to project → succeeds
+- Extension update on snapshot → still blocked (IMMUTABILITY_ERROR)
+- Tags + extension on snapshot → blocked (extension immutable, tags not applied)
+
+**Previous version:** `Archive/Mutability_Registry_v1__v1__2026-02-08.md`
 
 ---
 
@@ -11,14 +38,15 @@
 
 | Artifact Type | Field Path | Operation | Notes | Source |
 |--------------|------------|-----------|-------|--------|
-| **snapshot** | (all fields) | CREATE_ONLY | Fully immutable after creation | Phase 1 — Kernel Semantics Lock (D2) |
+| **(all types)** | tags | UPDATE_ALLOWED | Spine-level organizational metadata. Add/remove semantics. Does not violate extension immutability. | v2 — BUG-017 |
+| **snapshot** | (all extension fields) | CREATE_ONLY | Fully immutable after creation | Phase 1 — Kernel Semantics Lock (D2) |
 | **snapshot** | extension.payload | CREATE_ONLY | Frozen payload, no updates allowed | Phase 2 — Type Schemas (D2.3) |
-| **restart** | (all fields) | CREATE_ONLY | Fully immutable after creation | Phase 1 — Kernel Semantics Lock (D3) |
+| **restart** | (all extension fields) | CREATE_ONLY | Fully immutable after creation | Phase 1 — Kernel Semantics Lock (D3) |
 | **restart** | extension.payload | CREATE_ONLY | Frozen payload, no updates allowed | Phase 2 — Type Schemas (D2.4) |
 | **project** | lifecycle_status | PROMOTE_ONLY | Must change only via artifact.promote, not via update | Phase 3 — Gateway Contract (P3-D1) |
 | **project** | extension.operational_state | UPDATE_ALLOWED | PATCH semantics allowed | Phase 1 Invariants, Phase 2 — Type Schemas (D2.2) |
 | **project** | extension.state_reason | UPDATE_ALLOWED | PATCH semantics allowed | Phase 1 Invariants, Phase 2 — Type Schemas (D2.2) |
-| **journal** | (all fields) | UNDECIDED_BLOCKED | Mutability policy not yet locked | Phase 2 — Deferred Unknowns |
+| **journal** | (all extension fields) | UNDECIDED_BLOCKED | Extension mutability policy not yet locked | Phase 2 — Deferred Unknowns |
 | **(all types)** | artifact_id | SYSTEM_ONLY | Never user-mutable, set at creation | North Star — Canonical Spine |
 | **(all types)** | workspace_id | SYSTEM_ONLY | Never user-mutable, set at creation | Workspace-first invariants |
 | **(all types)** | owner_user_id | SYSTEM_ONLY | Never user-mutable, set at creation | Ownership invariants |
@@ -33,10 +61,56 @@
 ## Operation Definitions
 
 - **CREATE_ONLY**: Field can only be set during artifact creation (INSERT). No updates allowed after creation.
-- **UPDATE_ALLOWED**: Field can be updated via artifact.save with PATCH semantics (only explicitly provided fields are modified).
-- **PROMOTE_ONLY**: Field can only be changed via artifact.promote operation, not via artifact.save/update.
-- **SYSTEM_ONLY**: Field is managed exclusively by the system. Never user-mutable (not even at creation for some fields like artifact_id).
+- **UPDATE_ALLOWED**: Field can be updated via artifact.update. PATCH semantics for extension fields; add/remove semantics for tags.
+- **PROMOTE_ONLY**: Field can only be changed via artifact.promote operation, not via artifact.update.
+- **SYSTEM_ONLY**: Field is managed exclusively by the system. Never user-mutable.
 - **UNDECIDED_BLOCKED**: Mutability policy has not been locked. Updates are blocked until explicit decision is made.
+
+---
+
+## Tag Update Semantics (v2)
+
+### Add/Remove Model
+
+Tags are updated using explicit add/remove operations, not replace-all:
+
+```json
+{
+  "action": "artifact.update",
+  "workspace_id": "...",
+  "artifact_id": "...",
+  "artifact_type": "snapshot",
+  "tags": {
+    "add": ["for-q", "decision"],
+    "remove": ["draft"]
+  }
+}
+```
+
+### Rules
+
+- Adding an existing tag is a no-op (idempotent)
+- Removing a missing tag is a no-op (idempotent)
+- Final stored tags are de-duplicated
+- Order does not matter
+- Tags are spine-level (`qxb_artifact.tags`), not extension-level
+
+### Combined Updates
+
+Tags can be combined with extension field updates in a single request:
+
+```json
+{
+  "action": "artifact.update",
+  "workspace_id": "...",
+  "artifact_id": "...",
+  "artifact_type": "project",
+  "tags": { "add": ["priority"] },
+  "extension": { "operational_state": "active" }
+}
+```
+
+**Constraint:** If extension fields are present on an immutable type, the **entire request** is rejected. Tags are not partially applied. This prevents ambiguous partial success states.
 
 ---
 
@@ -44,72 +118,53 @@
 
 ### Immutable Artifact Types (snapshot, restart)
 
-**Rule**: These artifact types are fully immutable after creation. The Gateway's `artifact.save` workflow enforces this via the `Check_Immutability` node, which returns an `IMMUTABILITY_ERROR` envelope if UPDATE is attempted.
+**Rule**: Extension fields are fully immutable after creation. Tags are updatable.
 
-**Rationale**: Snapshots and restarts represent point-in-time frozen states. Allowing updates would violate their semantic purpose as historical records.
+**Decision matrix:**
+- Tags-only update → ALLOWED (bypass extension checks)
+- Extension update → BLOCKED (IMMUTABILITY_ERROR)
+- Tags + extension update → BLOCKED (extension immutability takes precedence; tags not applied)
 
-**Implementation**: `NQxb_Artifact_Save_v1` workflow (v1.2 locked) prevents all UPDATE operations on these types before any DB writes occur.
+**Rationale**: Tags are organizational metadata (labeling). They do not alter the frozen point-in-time record that snapshots and restarts represent.
 
 ### Project Lifecycle Promotion
 
-**Rule**: The `lifecycle_status` field on project artifacts must change only via the `artifact.promote` Gateway action, not via `artifact.save` UPDATE operations.
+**Rule**: The `lifecycle_status` field on project artifacts must change only via `artifact.promote`.
 
-**Rationale**: Lifecycle transitions (seed → sapling → tree → retired) represent significant milestone changes that may trigger workflow automation, notifications, or business logic. These must be intentional, explicit operations separate from general field updates.
-
-**Implementation**: The `artifact.promote` action (not yet implemented) will be the exclusive mechanism for lifecycle_status changes. The `artifact.save` workflow currently allows lifecycle_status updates (v1.2) but this will be locked down when artifact.promote is implemented.
-
-**Alignment Note**: The `lifecycle_stage` field on the project extension table (qxb_artifact_project) is aligned with spine `lifecycle_status` on INSERT but follows the same PROMOTE_ONLY rule for changes.
+**Implementation**: The `artifact.promote` action is the exclusive mechanism for lifecycle_status changes. The `artifact.update` workflow returns `MUTABILITY_ERROR` with `PROMOTE_ONLY` hint if lifecycle_stage is provided in extension.
 
 ### Journal Artifacts (Deferred)
 
-**Rule**: Journal artifact mutability policy is explicitly UNDECIDED and blocked from updates pending design decision.
+**Rule**: Journal extension mutability is UNDECIDED and blocked. Tags are updatable.
 
-**Rationale**: Journals may be append-only (immutable entries) or editable (correcting typos). The semantic choice affects privacy model, audit trail, and user expectations. This decision was deferred in Phase 2.
-
-**Blocked Behavior**: Until decided, journal UPDATE operations should be blocked or clearly marked as experimental/unstable.
+**Rationale**: Journal extension mutability (content editing) requires design decision on append-only vs editable semantics. Tags are organizational metadata unaffected by this decision.
 
 ### System-Managed Fields
 
-**Rule**: Fields marked SYSTEM_ONLY are never user-mutable. These include identity fields (artifact_id, workspace_id, owner_user_id, artifact_type) and system timestamps (created_at, updated_at, version).
+**Rule**: Fields marked SYSTEM_ONLY are never user-mutable.
 
 **Enforcement**:
-- `artifact_id`: Auto-generated by PostgreSQL (uuid default)
-- Workspace/owner/type: Required at INSERT, ignored on UPDATE (immutable by design)
-- Timestamps: Managed by database triggers (`update_updated_at_column()`)
-- `version`: Reserved for future optimistic locking (currently defaults to 1)
-
-**Rationale**: These fields form the artifact's identity and audit trail. User mutation would violate referential integrity, workspace scoping, and ownership invariants.
+- `artifact_id`: Auto-generated by PostgreSQL
+- Workspace/owner/type: Required at INSERT, ignored on UPDATE
+- Timestamps: Managed by database triggers
+- `version`: Reserved for future optimistic locking
 
 ### Soft Delete (Undecided)
 
-**Rule**: The `deleted_at` field mutability is UNDECIDED_BLOCKED pending explicit decision on soft delete semantics.
-
-**Open Questions**:
-- Should users be able to set `deleted_at` directly (soft delete), or must deletion go through `artifact.delete` action?
-- Should `deleted_at` be reversible (undelete by setting to null), or permanent?
-- How do soft-deleted artifacts interact with RLS policies and list views?
-
-**Blocked Behavior**: Until decided, `deleted_at` updates should be blocked or handled only via dedicated `artifact.delete` / `artifact.undelete` actions.
+**Rule**: The `deleted_at` field mutability is UNDECIDED_BLOCKED.
 
 ---
 
 ## Compliance & Updates
 
-**This registry is LOCKED as of v1 (2026-01-01).**
+**This registry is LOCKED as of v2 (2026-02-08).**
 
 Any changes to mutation rules require:
 1. Explicit design decision documented in versioned specification
-2. Update to this registry with version increment (v2, v3, etc.)
+2. Update to this registry with version increment (v3, v4, etc.)
 3. Gateway workflow updates to enforce new rules
 4. KGB regression to verify no breakage
 5. Truth hierarchy approval (Phase 1-3 lock compliance)
-
-**How to propose a change**:
-1. Create versioned design doc (e.g., `AAA_New_Qwrk__Mutability_Change_Proposal__[Field]__v1.0__YYYY-MM-DD.md`)
-2. Document rationale, affected workflows, migration path
-3. Get Master Joel approval
-4. Implement + test + KGB regression
-5. Update this registry to v2 with changelog
 
 ---
 
@@ -117,10 +172,10 @@ Any changes to mutation rules require:
 
 - **Phase 1 — Kernel Semantics Lock**: Defines immutability for snapshot, restart
 - **Phase 2 — Type Schemas**: Extension table field definitions and constraints
-- **Phase 3 — Gateway Contract**: Operation semantics (save, query, list, promote)
-- **NQxb_Artifact_Save_v1__README.md**: Documents PATCH semantics and immutability enforcement
+- **Phase 3 — Gateway Contract**: Operation semantics (save, query, list, promote, update)
 - **CLAUDE.md**: Governance rules for Claude Code working with Qwrk artifacts
+- **BUG-017**: Original bug report — tags not updateable after creation
 
 ---
 
-**End of Mutability Registry v1**
+**End of Mutability Registry v2**

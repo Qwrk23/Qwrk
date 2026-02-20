@@ -5,6 +5,7 @@
 **Scope**: Journal artifact type mutability policy
 **Authority**: Derived from Mutability Registry v1
 **Supersedes**: None (first formal doctrine)
+**Last Reviewed**: 2026-01-07
 
 ---
 

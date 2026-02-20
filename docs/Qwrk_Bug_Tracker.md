@@ -1,7 +1,7 @@
 # Qwrk Bug Tracker
 
 **Created:** 2026-01-27
-**Last Updated:** 2026-01-31 (BUG-004 deferred to Phase 3; Phase 1 locked)
+**Last Updated:** 2026-02-15 (BUG-015 closed — Normalize_Request contract violation)
 
 ---
 
@@ -37,7 +37,7 @@ Return_Response node always returns `ok: true` without validating:
 
 ### BUG-003: artifact.query hydrates even when not requested
 
-**Status:** Open — Tracked in seed project
+**Status:** CLOSED — Fix implemented (Query v17), validated 2026-02-11
 **Severity:** Medium
 **Component:** NQxb_Artifact_Query_v1 workflow
 
@@ -49,8 +49,35 @@ Return_Response node always returns `ok: true` without validating:
 - Seed project: `fcbf8b49-8662-48fd-8f49-2963b0352e59`
 - Journal entry documenting analysis exists
 
-**Fix Required:**
-Add `If_Hydrate` conditional node (similar to List workflow pattern)
+**Root Cause (CONFIRMED 2026-02-11):**
+No hydrate gate anywhere in Query workflow. `selector.hydrate` was preserved in Normalize_Request but never inspected downstream. Extension merge always executed regardless of hydrate flag.
+
+**Fix Applied (Query v17):**
+- 5 Merge Code nodes prepended with hydrate gate checking `$node["Normalize_Request"].json.selector.hydrate === false`
+- When hydrate=false: returns spine-only with `extension: null`, skipping extension merge
+- TypeMismatch node updated: added stored===requested check for extension-less types (grass, thorn, etc.) — returns spine-only instead of false TYPE_MISMATCH
+- Zero new nodes, zero wiring changes
+- Implementation script: `work/bug003_fix.cjs`
+
+**Validation (10/10 tests passed — 2026-02-11):**
+
+| Test | Type | Result |
+|------|------|--------|
+| hydrate=false journal | H1 | PASS — extension: null |
+| hydrate=false project | H2 | PASS — extension: null |
+| hydrate=false snapshot | H3 | PASS — extension: null |
+| hydrate=true journal | H4 | PASS — extension data present |
+| hydrate=true project | H5 | PASS — extension data present |
+| hydrate=true snapshot | H6 | PASS — extension data present |
+| TYPE_MISMATCH hydrate=false | H8 | PASS — error fires correctly |
+| TYPE_MISMATCH hydrate=true | H9 | PASS — error fires correctly |
+| artifact.list regression (3 types) | H10 | PASS — no regression |
+
+**Files:**
+- Fixed: `workflows/NQxb_Artifact_Query_v1 (17).json`
+- Test harness: `work/bug003_test.ps1`
+
+**Closed:** 2026-02-11 — All 10 validation tests passed. Hydrate gate correctly skips extension merge when hydrate=false. TYPE_MISMATCH unchanged. List regression-free.
 
 ---
 
@@ -146,9 +173,11 @@ CORRECT: $node["NQxb_Artifact_Save_v1__Normalize_Request"].json.extension.entry_
 
 ### BUG-008: GPT Actions serialization fails on complex content
 
-**Status:** Open — CONFIRMED content-dependent, minimal payloads work
-**Severity:** Medium (downgraded — workaround exists: simplify content)
+**Status:** CLOSED — Moot (CustomGPT execution surface abandoned)
+**Severity:** N/A
 **Component:** OpenAI GPT Actions framework (client-side serialization)
+
+**Closed:** 2026-02-05 — CustomGPT execution surface abandoned in favor of Chrome Extension. GPT Actions serialization limits no longer relevant.
 
 **Symptoms:**
 - `artifact.save` fails before reaching Gateway
@@ -552,51 +581,452 @@ Added `parent_artifact_id` parameter to `Tool_Save_Journal`:
 
 ---
 
-### BUG-015: artifact.promote has no validation requirements
+### BUG-015: Gateway Normalize_Request drops transition/reason fields
 
-**Status:** Open — Feature gap identified
-**Severity:** Medium (governance gap; allows incomplete promotions)
-**Component:** NQxb_Artifact_Promote_v1 workflow
+**Status:** CLOSED — Contract violation fixed (Gateway v50), verified 2026-02-15
+**Severity:** Medium (contract violation; blocked artifact.promote)
+**Component:** NQxb_Gateway_v1 workflow (Normalize_Request node)
+**Classification:** Contract Violation (Normalize_Request field discard)
 
 **Symptoms:**
-- `artifact.promote` from seed → sapling succeeds with no content validation
-- Projects can be promoted even with empty summary/content
-- No check for linked companion content
-- No required fields or readiness criteria enforced
+- `artifact.promote` fails with `FROM_STATE_MISSING` error
+- `transition` and `reason` fields sent by caller are silently dropped during canonicalization
+- Promote sub-workflow receives null transition state
 
-**Reproduction (2026-02-01):**
+**Root Cause (CONFIRMED 2026-02-14):**
+`Normalize_Request` did not forward `transition` or `reason` from the webhook payload. Same bug class as T26 (selector fields stripped) — fields not explicitly included in the normalizer output were silently discarded.
+
+**Fix Applied (Gateway v50):**
+Added explicit passthrough in `Normalize_Request`:
 ```
-Promote fc09a422-a53e-4e85-b3bf-f692763bc07a to sapling
+transition: raw.transition ?? null
+reason: raw.reason ?? null
 ```
-Promotion succeeded despite project having empty summary. Only lifecycle_status changed.
+Carried through Gateway v55 (current live).
 
-**Expected Behavior:**
-Promotion should validate readiness criteria before allowing transition:
+**Verification (2026-02-15):**
 
-| Transition | Proposed Requirements |
-|------------|----------------------|
-| seed → sapling | Summary OR linked content exists; intent/goal defined |
-| sapling → tree | Branches defined; acceptance criteria locked |
-| tree → oak | All branches complete; KGB verification |
-| oak → archive | Explicit archive reason |
+| Test | Transition | Result | Reason in Event |
+|------|-----------|--------|-----------------|
+| B1 | sapling_to_tree | `ok: true` | YES — captured in event payload |
+| B2 | tree_to_retired | `ok: true` | YES — captured in event payload |
 
-**Impact:**
-- Governance gap allows "empty" saplings
-- Lifecycle stages lose semantic meaning
-- No forcing function for content maturity
+**Governance Reinforcement:**
+Sealed by doctrine rule `gov-normalize-contract` (Phase 2 Governance Hardening Instruction Pack v1): canonicalization is idempotent and monotonic — canonical fields must never be discarded once established.
 
-**Recommended Fix:**
-1. Define formal promotion requirements per transition
-2. Add validation node to Promote workflow
-3. Return `PROMOTION_REQUIREMENTS_NOT_MET` error with missing fields
-4. Document requirements in governance
+**Closed:** 2026-02-15 — Contract violation fixed and verified. Transition/reason passthrough working end-to-end.
+
+**Note:** Promotion content validation gates (readiness criteria per transition) are separate feature work, not part of this bug. Tracked separately.
 
 **Related:**
+- T26 (same bug class — selector fields stripped)
 - North Star v0.4 (lifecycle semantics)
-- Kernel Semantics Lock (lifecycle definitions)
+- Phase 2 Governance Hardening Instruction Pack v1
 
-**Deferred Work:**
-Full exercise needed to define seed → sapling → tree → oak requirements with all field/content gates.
+---
+
+### BUG-016: artifact.promote sends wrong transition for non-seed artifacts
+
+**Status:** Open — Telegram AI-specific (not a Gateway bug)
+**Severity:** Low (workaround: use JSON payloads with correct transition)
+**Component:** NQxb_Gateway_Telegram_v1 workflow (AI Agent behavior)
+
+**Symptoms:**
+- `artifact.promote` from sapling → tree fails with `FROM_STATE_MISSING`
+- Gateway receives `transition: "seed_to_tree"` even when artifact is at `sapling`
+- Artifact's actual `lifecycle_status` is ignored when formulating request
+
+**Reproduction (2026-02-03):**
+```
+Artifact: 2c935453-4af4-4e98-a52c-c65dfcd0e6a9
+Current lifecycle_status: sapling
+Command: "promote to tree"
+
+Gateway response:
+{
+  "ok": false,
+  "transition": "seed_to_tree",   // WRONG — should be "sapling_to_tree"
+  "error": {
+    "code": "FROM_STATE_MISSING",
+    "message": "from_state missing after Resolve_Transition.",
+    "details": { "from_state": null }
+  }
+}
+```
+
+**Root Cause:**
+The Gateway Promote workflow correctly uses whatever `transition` string the caller sends. The bug is in the Telegram AI Agent: when user says "promote to tree", the AI guesses `seed_to_tree` without checking the artifact's current lifecycle_status. With raw JSON payloads (Chrome Extension or T14), the caller controls the transition string directly and Gateway handles it correctly.
+
+**Resolution Path:** T14 (Telegram Gateway Pipe) will send JSON payloads directly, bypassing the AI Agent. User will construct correct transition string.
+
+**Workaround:**
+Use direct SQL to update lifecycle_status:
+```sql
+UPDATE qxb_artifact SET lifecycle_status = 'tree' WHERE artifact_id = '...';
+UPDATE qxb_artifact_project SET lifecycle_stage = 'tree' WHERE artifact_id = '...';
+```
+
+**Recommended Fix:**
+Two options:
+
+1. **Gateway_Telegram queries first:** Before calling promote, query artifact to get current lifecycle_status, then compute correct transition
+2. **Gateway infers transition:** Send only `target_state` (e.g., "tree") and let Gateway compute transition from stored lifecycle_status
+
+Option 2 is cleaner — it matches user mental model ("promote to tree") without requiring client to know current state.
+
+**Related:**
+- BUG-015 (promote has no validation requirements)
+
+---
+
+### BUG-017: Cannot add/update tags on existing artifacts
+
+**Status:** Open — See BUG-018 for duplicate creation issue
+**Severity:** Medium (workaround: direct SQL)
+**Component:** artifact.update workflow / Gateway
+
+**Symptoms:**
+- Attempting to add tags to an existing artifact fails
+- No update path exists for modifying `tags` array after initial save
+- Users cannot mark artifacts as "shipped", "completed", or add organizational tags post-creation
+
+**Reproduction (2026-02-03):**
+```
+Attempted via Telegram:
+"Update artifact e461ca2d-4a58-4e7e-956c-28b3ce921cf5 to add tags: shipped, completed"
+
+Result: Failed / not supported
+```
+
+**Root Cause:**
+The `artifact.update` workflow and/or Telegram tools do not support modifying the `tags` field. Tags can only be set at creation time via `artifact.save`.
+
+**Impact:**
+- Cannot retroactively tag artifacts for organization
+- Cannot mark work as "shipped" or "done" via tags
+- Limits usefulness of tag-based filtering (`tags_any`) for workflow state
+
+**Workaround:**
+Direct SQL update:
+```sql
+UPDATE qxb_artifact
+SET tags = tags || '["shipped", "completed"]'::jsonb
+WHERE artifact_id = '...';
+```
+
+**Recommended Fix:**
+1. Add `tags` to artifact.update mutability rules (UPDATE_ALLOWED)
+2. Implement tags merge logic: append new tags, dedupe, normalize
+3. Add Telegram tool or command for tag updates
+
+**Related:**
+- BUG-011 (tags now work on save, but not update)
+- BUG-018 (update creates duplicate instead of modifying existing)
+
+---
+
+### BUG-018: artifact.update via Telegram creates duplicate instead of updating
+
+**Status:** CLOSED — Resolved 2026-02-11 (Gateway wiring bug, T6)
+**Severity:** High (silent data corruption — duplicates created)
+**Component:** artifact.update workflow or Gateway routing
+
+**Hypothesis (2026-02-05):** The update operation may be falling through to save (creating new) rather than updating existing. This could be:
+1. Telegram AI calling save instead of update
+2. Gateway update routing failing and falling back to save
+3. Immutability rules rejecting update, causing fallback behavior
+
+Needs thorough testing with raw JSON payloads via Chrome Extension to isolate whether this is Telegram-specific or Gateway-level.
+
+**Closed:** 2026-02-11 — Root cause: Gateway wiring bug. Resolved as part of T6 thread.
+
+**Symptoms:**
+- `artifact.update` command via Telegram reports success
+- Original artifact remains UNCHANGED (same tags, same updated_at)
+- NEW artifact created with updated values and new artifact_id
+- User believes update succeeded but now has duplicate artifact
+
+**Reproduction (2026-02-03):**
+```
+Original artifact: 5d0104d0-1a0f-4cf1-96d0-3077517c78ee
+  tags: ["restart", "cc_inbox"]
+  created_at: 2026-02-03T15:14:49
+
+Command: "update restart 5d0104d0-1a0f-4cf1-96d0-3077517c78ee with tags shipped, restart, cc_inbox"
+
+Result:
+  Telegram: "✓ Updated restart"
+  Response artifact_id: cae6af5a-9e1f-4d5e-9a04-1314be2462c5 (DIFFERENT!)
+
+Query both:
+  5d0104d0: tags = ["restart", "cc_inbox"] (UNCHANGED)
+  cae6af5a: tags = ["shipped", "restart", "cc_inbox"], created_at = 2026-02-03T15:22:45 (NEW)
+```
+
+**Root Cause:**
+Unknown — likely the Telegram update tool is calling `artifact.save` instead of `artifact.update`, or the update workflow is falling through to a create path when it should update.
+
+**Impact:**
+- Silent data corruption — user thinks artifact updated but it wasn't
+- Duplicate artifacts pollute the workspace
+- Original artifact never receives intended changes
+- Tag-based queries may return wrong artifact
+
+**Workaround:**
+None via Telegram. Must use direct SQL (if permitted) or Gateway API directly.
+
+**Recommended Investigation:**
+1. Check if `Tool_Update_Restart` exists in Telegram workflow
+2. Verify it calls `artifact.update` endpoint, not `artifact.save`
+3. Check if artifact_id is passed correctly in update payload
+4. Review Gateway update workflow for restart type handling
+
+**Related:**
+- BUG-017 (cannot update tags — this bug shows update creates duplicate instead)
+- BUG-016 (promote sends wrong transition — similar routing issue)
+
+---
+
+### BUG-019: artifact.save reports success with hallucinated artifact_id (never persisted)
+
+**Status:** CLOSED — Structural fix deployed and verified 2026-02-03
+**Severity:** Critical (silent data loss — user believes save succeeded)
+**Component:** NQxb_Gateway_Telegram_v1 workflow (AI Agent + Save path)
+
+**Root Cause (CONFIRMED 2026-02-03):**
+GPT-4o-mini hallucinated the save response without calling the tool. Investigation confirmed:
+- Gateway_Telegram workflow executed
+- Gateway_v1 workflow did NOT execute (no execution at same timestamp)
+- AI Agent skipped the tool call entirely and fabricated a plausible UUID
+
+**Mitigation Applied (2026-02-03):**
+Upgraded AI model from `gpt-4o-mini` to `gpt-4o` in NQxb_Gateway_Telegram_v1 workflow.
+- GPT-4o has better tool-calling reliability and lower hallucination rate
+- File updated: `phase1.5-chat-gateway/NQxb_Gateway_Telegram_v1 (4).json`
+- Deployed to n8n
+
+**STRUCTURAL FIX IMPLEMENTED (2026-02-03):**
+Verification-based enforcement added to make it architecturally impossible for hallucinated saves to reach users.
+
+**File:** `phase1.5-chat-gateway/NQxb_Gateway_Telegram_v1 (6).json`
+
+**New Nodes Added:**
+| Node | Purpose |
+|------|---------|
+| `Check_Save_Intent` | Detects save intent from original user message |
+| `Extract_Claimed_ArtifactId` | Extracts claimed artifact_id from AI output (treated as untrusted) |
+| `Check_Has_Claim` | Routes based on whether AI returned an artifact_id |
+| `Verify_Artifact` | Calls Gateway to verify artifact actually exists |
+| `Check_Verification` | Routes based on verification result |
+| `Build_Verified_Success` | Constructs success message from verified data ONLY |
+| `Build_Verification_Failure` | Explicit failure when verification fails |
+| `Build_No_ID_Failure` | Explicit failure when no ID returned |
+| `Send_Verified_Success` | Sends verified success |
+| `Send_Verification_Failure` | Sends verification failure |
+| `Send_No_ID_Failure` | Sends no-ID failure |
+
+**Enforcement Guarantee:**
+- AI output is NEVER directly sent to Telegram for save operations
+- Claimed artifact_id is extracted and treated as untrusted claim
+- Gateway query independently verifies artifact exists
+- Success message constructed from verification response, not AI output
+- If verification fails → explicit failure message, no UUID shown
+
+**There is no execution path where Telegram receives a save success AND the artifact does not exist.**
+
+**Deployment Checklist:**
+- [x] Import `NQxb_Gateway_Telegram_v1 (6).json` to n8n
+- [x] Activate workflow
+- [x] Test: successful save → verified success message
+- [ ] Test: forced failure → explicit failure message
+- [x] Confirm no path allows hallucinated success
+
+**Closed:** 2026-02-03 — Verification-based enforcement deployed. Save operations now independently verify artifact exists before sending success. Fixes applied:
+1. `Check_Verification` path updated to read `data.artifact` (Gateway response envelope)
+2. `Build_Verified_Success` updated to read from verified data
+3. Tags displayed with `.join(', ')` instead of JSON.stringify
+
+**Hardblock Enhancement (2026-02-03):**
+Added final hard block on non-save response path (`Sanitize_Non_Save_Response`):
+- If AI output contains save-success indicators or structured fields, entire output is discarded
+- Replaced with fixed system message: "No save was performed. To save something, please use an explicit save command."
+- Uses word-boundary regex (`\bkeyword\b`) to prevent false matches
+
+**Hardblock Regression & Fix (2026-02-03):**
+- **v3-hardblock** was too aggressive — blocked ALL non-save responses
+- Keywords `artifact`, `journal`, `project`, `snapshot`, `restart` appear in legitimate list/query output
+- User says "list journals" → AI returns list → hardblock detects "journal" → blocks response
+- **v4-narrowed** attempted fix: Narrowed to save-success indicators only: `saved`, `created`, `persisted`
+- **v7-keywords-only** still false-positive: "Created on Feb 3, 2026" matched `/\bcreated\b/i`
+- **v8-no-sanitizer (FINAL):** Removed sanitizer from non-save path entirely
+  - Insight: Verification enforcement on save path is sufficient
+  - Non-save responses don't need sanitization — they can't claim saves that didn't happen
+  - Connection changed: `Check_Save_Intent → Send_Response` (direct, bypasses sanitizer)
+  - Version: `bug019-v8-no-sanitizer` — **KGB confirmed**
+
+**Restart Prompt:** `docs/restarts/RESTART__BUG-019__Structural_Hallucination_Fix__2026-02-03.md`
+
+**Symptoms:**
+- Telegram reports "✓ Saved project" with full artifact details
+- artifact_id in response does not exist in database
+- Save operation never actually executed
+- Retry with identical content succeeds with different (real) artifact_id
+
+**Reproduction (2026-02-03):**
+```
+Command: Save project titled "Seed — Canvas-First Prompt Review Paradigm": [full content]
+
+Telegram response:
+  "✓ Saved project
+   artifactid: 5e7f8e4b-3a4e-4b8e-bc6e-7d9f8e4b3a4e  ← DOES NOT EXIST
+   title: Seed — Canvas-First Prompt Review Paradigm
+   ..."
+
+Database query: artifact_id = '5e7f8e4b-3a4e-4b8e-bc6e-7d9f8e4b3a4e' → 0 rows
+
+Retry (same content):
+  artifact_id: 963826c6-a3e2-4666-b6d5-32a5171e52bf  ← EXISTS, real UUID
+```
+
+**Key Evidence:**
+1. The failed artifact_id has suspicious pattern: `5e7f8e4b-3a4e-4b8e-bc6e-7d9f8e4b3a4e`
+   - Repeating hex patterns: `4b`, `4e`, `8e`
+   - Real `gen_random_uuid()` output doesn't look like this
+   - Suggests AI-generated/hallucinated UUID, not database-generated
+
+2. n8n execution log shows "Send Response" node executed successfully
+   - The success message was sent to Telegram
+   - But the artifact_id in that message was fake
+
+3. The working retry produced a real UUID with proper entropy
+
+**Root Cause Analysis:**
+
+~~1. **AI Agent hallucination:** The Claude/GPT agent in the Telegram workflow generated a fake success response without actually calling the Gateway save endpoint~~ **← CONFIRMED**
+
+2. ~~Gateway timeout/failure silently swallowed~~ — Ruled out (Gateway never called)
+
+3. ~~Tool call never executed~~ — This is the symptom of #1
+
+4. ~~Race condition~~ — Ruled out (no concurrent execution)
+
+**Investigation (COMPLETED 2026-02-03):**
+- [x] Check n8n execution logs for the failing run — Gateway_v1 NOT called
+- [x] Check if "Call Gateway" node executed vs was skipped — Tool was SKIPPED
+- [x] Verify artifact_id in response comes from Gateway response — AI-GENERATED (hallucinated)
+- [x] Check for error handling gaps — No verification of tool execution exists
+
+**Impact:**
+- User believes artifact is saved when it's not
+- Data loss — content exists only in chat history
+- Trust violation — save confirmations cannot be relied upon
+- Worse than a visible error — silent false positive
+
+**Workaround:**
+After any save, verify with `artifact.query` using the returned artifact_id before treating as successful.
+
+**Related:**
+- BUG-018 (update creates duplicate — similar response/execution mismatch)
+
+---
+
+### BUG-020: instruction_pack save returns artifact_id: null
+
+**Status:** PARTIAL FIX — Workflow fixed (v25), but hallucination regression detected
+**Severity:** High
+**Component:** NQxb_Artifact_Save_v1 workflow (instruction_pack extension node)
+
+**Symptoms (Original):**
+- instruction_pack save returns `ok: true` but `artifact_id: null`
+- Artifact actually persists in database (verified via SQL)
+- Telegram Gateway verification expects artifact_id, fails
+
+**Root Cause (CONFIRMED):**
+Node `NQxb_Artifact_Save_v1__DB_Insert_Instruction_Pack_Extension` was misconfigured:
+- Used `operation: "update"` instead of INSERT (default)
+- Had `matchType` and `filters` blocks (for UPDATE-style matching)
+- Missing `artifact_id` in `fieldsUi.fieldValues`
+- Missing hardcoded `pack_format = 'json'` (DB constraint requirement)
+
+**Fix Applied (2026-02-03):**
+- Removed `"operation": "update"`
+- Removed `"matchType": "allFilters"`
+- Removed entire `"filters"` block
+- Added `artifact_id` to `fieldsUi.fieldValues` as first field
+- Hardcoded `pack_format = 'json'` (required by `qxb_aip_pack_format_json_chk` constraint)
+
+**Verification Results (2026-02-03):**
+- Test 1: "Fresh Test Pack ABC" — SAVED correctly (artifact_id `21b3f7a4-d9ce-4564-8d47-8d968c2aad0c` exists in both tables)
+- Test 2: "Fresh Test Pack XYZ" — Telegram reported success with artifact_id `5d9c9e5e-4b4f-4b2e-bc9b-0c3d1c5f9e3e`
+  - **HALLUCINATION DETECTED**: This artifact_id does NOT exist in database
+  - UUID has suspicious repeating patterns (AI-generated, not `gen_random_uuid()`)
+  - This is a BUG-019 regression — AI skipped tool call and fabricated response
+
+**Outstanding Issue:**
+The Save workflow fix (v25) is correct, but BUG-019 hallucination mitigation may not be working reliably. The AI Agent sometimes bypasses the Gateway tool call entirely and fabricates success responses.
+
+**Files:**
+- Fixed: `workflows/NQxb_Artifact_Save_v1 (25).json`
+- Archived: `workflows/Archive/NQxb_Artifact_Save_v1 (24).json`
+- Restart: `docs/restarts/RESTART__BUG-020__Instruction_Pack_ArtifactId_Null__2026-02-03.md`
+
+**Next Steps:**
+1. ~~Investigate why BUG-019 verification enforcement isn't catching hallucinated saves~~
+2. ~~Check n8n execution logs — was Gateway actually called for "Fresh Test Pack XYZ"?~~
+3. ~~Consider stronger verification (DB round-trip check before reporting success)~~
+
+**Resolution Path (2026-02-05):** T14 (Telegram Gateway Pipe) will send JSON payloads directly to Gateway, bypassing the AI Agent entirely. No AI = no hallucination. The workflow fix (v25) is correct; the hallucination is an AI Agent problem that T14 eliminates.
+
+---
+
+### BUG-021: TYPE_MISMATCH error shows stored_artifact_type: null
+
+**Status:** Open — Display fix only
+**Severity:** Low (cosmetic — TYPE_MISMATCH detection logic is correct)
+**Component:** NQxb_Artifact_Query_v1 workflow (Return_TypeMismatch node)
+
+**Symptoms:**
+- `artifact.query` with wrong `artifact_type` correctly returns TYPE_MISMATCH error
+- Error payload shows `stored_artifact_type: null` instead of actual stored type
+- `requested_artifact_type` is correct
+- `compare_key` shows `null::journal` instead of e.g. `project::journal`
+
+**Reproduction (2026-02-11, during BUG-003 validation):**
+```json
+{
+  "ok": false,
+  "_gw_route": "error",
+  "requested_artifact_type": "journal",
+  "stored_artifact_type": null,
+  "compare_key": "null::journal",
+  "error": {
+    "code": "TYPE_MISMATCH",
+    "message": "Requested artifact_type does not match stored artifact_type for this artifact_id."
+  }
+}
+```
+
+**Root Cause:**
+The `Return_TypeMismatch` Code node reads `$json.artifact_type` to get stored type. At this point in the workflow, `$json` is the extension table row (from Phase 1 fetch), which has no `artifact_type` column. The stored type should be extracted from the spine node: `$node["NQxb_Artifact_Query_v1__DB_Get_Artifact_Spine"].json.artifact_type`.
+
+**Scope:**
+- Extract `artifact_type` from spine node, NOT extension node
+- No logic changes — TYPE_MISMATCH detection is correct
+- Display fix only — populate `stored_artifact_type` and `compare_key` correctly
+
+**Recommended Fix:**
+In `NQxb_Artifact_Query_v1__Return_TypeMismatch` node, change:
+```javascript
+// BEFORE:
+const stored = typeof j.artifact_type === "string" ? j.artifact_type.trim() : (j.artifact_type ?? null);
+
+// AFTER:
+const spineData = $node["NQxb_Artifact_Query_v1__DB_Get_Artifact_Spine"].json || {};
+const stored = typeof spineData.artifact_type === "string" ? spineData.artifact_type.trim() : (spineData.artifact_type ?? null);
+```
+
+**Related:**
+- BUG-003 (hydrate gate fix — same workflow, same validation session)
 
 ---
 

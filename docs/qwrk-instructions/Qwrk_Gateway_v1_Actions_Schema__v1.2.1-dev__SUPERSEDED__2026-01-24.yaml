@@ -1,0 +1,278 @@
+openapi: 3.1.1
+info:
+  title: Qwrk Gateway v1 (Dev) — Actions Schema (Read-only MVP)
+  description: >
+    Custom GPT Actions schema for Qwrk Front-End MVP (ChatGPT-native UI).
+    Read-only Phase 1: supports artifact.list and artifact.query for project artifacts.
+    Calls the single Gateway v1 endpoint and dispatches by gw_action.
+    NOTE: gw_workspace_id is OPTIONAL; for authenticated users the Gateway resolves workspace from identity.
+  version: 1.2.1-dev
+
+servers:
+  - url: https://n8n.halosparkai.com
+    description: HaloSparkAI n8n gateway host
+
+tags:
+  - name: Qwrk Gateway v1 (Dev)
+
+paths:
+  /webhook/nqxb/gateway/v1:
+    post:
+      operationId: qwrk_gateway_v1
+      tags:
+        - Qwrk Gateway v1 (Dev)
+      summary: Qwrk Gateway v1 — Read-only (artifact.list + artifact.query)
+      description: >
+        Single gateway endpoint. Request body determines operation via gw_action.
+        Read-only scope: list and query project artifacts.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GatewayRequest"
+            examples:
+              listDefault:
+                summary: List projects (no workspace, no selector - uses defaults)
+                value:
+                  gw_action: "artifact.list"
+                  artifact_type: "project"
+              listWithSelector:
+                summary: List projects with pagination (selector)
+                value:
+                  gw_action: "artifact.list"
+                  artifact_type: "project"
+                  selector:
+                    limit: 50
+                    offset: 0
+                    hydrate: false
+                    as_of: "2026-01-24T12:34:56.789Z"
+              queryProject:
+                summary: Query a specific project (hydrated)
+                value:
+                  gw_action: "artifact.query"
+                  artifact_type: "project"
+                  artifact_id: "668bd18f-4424-41e6-b2f9-393ecd2ec534"
+                  selector:
+                    hydrate: true
+              listExplicitWorkspace:
+                summary: List projects in an explicit workspace (optional parameter)
+                value:
+                  gw_action: "artifact.list"
+                  gw_workspace_id: "be0d3a48-c764-44f9-90c8-e846d9dbbd0a"
+                  artifact_type: "project"
+                  selector:
+                    limit: 10
+                    offset: 0
+      responses:
+        "200":
+          description: Gateway response (pass-through). The assistant formats UI output.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayResponse"
+        "400":
+          description: Validation error (shape/type mismatch)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayErrorResponse"
+        "401":
+          description: Auth error (Basic Auth misconfigured)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayErrorResponse"
+
+components:
+  schemas:
+    #############################################
+    # Shared primitives
+    #############################################
+    UUID:
+      type: string
+      format: uuid
+
+    ArtifactTypeProject:
+      type: string
+      enum: ["project"]
+
+    GwAction:
+      type: string
+      enum: ["artifact.list", "artifact.query"]
+
+    #############################################
+    # Selectors (all fields optional)
+    #############################################
+    SelectorList:
+      type: object
+      additionalProperties: false
+      description: Optional pagination and hydration controls for artifact.list
+      properties:
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 500
+          default: 50
+          description: Max items to return (default 50, max 500)
+        offset:
+          type: integer
+          minimum: 0
+          default: 0
+          description: Number of items to skip
+        hydrate:
+          type: boolean
+          default: false
+          description: Include extension fields in response
+        as_of:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp anchor for deterministic paging
+
+    SelectorQuery:
+      type: object
+      additionalProperties: false
+      description: Optional hydration control for artifact.query
+      properties:
+        hydrate:
+          type: boolean
+          default: true
+          description: Return full hydrated payload (default true)
+        base_only:
+          type: boolean
+          default: false
+          description: Return spine fields only
+
+    #############################################
+    # Concrete requests (strict, minimal)
+    #############################################
+    ArtifactListProjectsRequest:
+      type: object
+      additionalProperties: false
+      description: Request to list artifacts of type project
+      properties:
+        gw_action:
+          type: string
+          enum: ["artifact.list"]
+        gw_workspace_id:
+          $ref: "#/components/schemas/UUID"
+          description: Optional. For authenticated users, workspace is resolved from identity when omitted.
+        artifact_type:
+          $ref: "#/components/schemas/ArtifactTypeProject"
+        selector:
+          $ref: "#/components/schemas/SelectorList"
+      required:
+        - gw_action
+        - artifact_type
+
+    ArtifactQueryProjectRequest:
+      type: object
+      additionalProperties: false
+      description: Request to query a specific project artifact
+      properties:
+        gw_action:
+          type: string
+          enum: ["artifact.query"]
+        gw_workspace_id:
+          $ref: "#/components/schemas/UUID"
+          description: Optional. For authenticated users, workspace is resolved from identity when omitted.
+        artifact_type:
+          $ref: "#/components/schemas/ArtifactTypeProject"
+        artifact_id:
+          $ref: "#/components/schemas/UUID"
+        selector:
+          $ref: "#/components/schemas/SelectorQuery"
+      required:
+        - gw_action
+        - artifact_type
+        - artifact_id
+
+    #############################################
+    # Unified request (MUST be object schema)
+    #############################################
+    GatewayRequest:
+      type: object
+      description: >
+        Unified gateway request. Dispatches by gw_action.
+        IMPORTANT: Must be an object schema for the Actions validator.
+      additionalProperties: false
+      properties:
+        gw_action:
+          $ref: "#/components/schemas/GwAction"
+        gw_workspace_id:
+          $ref: "#/components/schemas/UUID"
+          description: Optional. Resolved from authenticated identity when omitted.
+        artifact_type:
+          $ref: "#/components/schemas/ArtifactTypeProject"
+        artifact_id:
+          $ref: "#/components/schemas/UUID"
+        selector:
+          description: Optional selector object; shape depends on gw_action.
+          oneOf:
+            - $ref: "#/components/schemas/SelectorList"
+            - $ref: "#/components/schemas/SelectorQuery"
+      required:
+        - gw_action
+        - artifact_type
+      allOf:
+        - oneOf:
+            - $ref: "#/components/schemas/ArtifactListProjectsRequest"
+            - $ref: "#/components/schemas/ArtifactQueryProjectRequest"
+
+    #############################################
+    # Responses (kept permissive)
+    #############################################
+    GatewayResponse:
+      type: object
+      description: >
+        Gateway v1 response envelope (pass-through). Kept permissive but must define
+        properties for validators that reject property-less object schemas.
+      properties:
+        ok:
+          type: boolean
+        _gw_route:
+          type: string
+        gw_action:
+          type: string
+        workspace_id:
+          type: string
+        artifact_type:
+          type: string
+        artifact_id:
+          type: string
+        data:
+          type: object
+          additionalProperties: true
+        error:
+          type: object
+          additionalProperties: true
+        message:
+          type: string
+      additionalProperties: true
+
+    GatewayErrorResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        _gw_route:
+          type: string
+        error:
+          type: object
+          additionalProperties: true
+        message:
+          type: string
+      additionalProperties: true
+
+# CHANGELOG
+# v1.2.1-dev (2026-01-24)
+# - FIX: GatewayRequest is now explicitly type: object with properties (Actions validator requires this)
+# - gw_workspace_id remains OPTIONAL everywhere (removed from required)
+# - selector remains OPTIONAL; selector fields remain OPTIONAL
+# - examples updated to omit gw_workspace_id for normal identity-resolved calls
