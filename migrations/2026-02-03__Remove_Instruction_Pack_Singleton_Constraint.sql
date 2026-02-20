@@ -1,0 +1,100 @@
+-- ============================================================================
+-- Migration: Remove instruction_pack singleton constraint
+-- Date: 2026-02-03
+-- Author: CC + Q collaboration
+-- ============================================================================
+--
+-- OBJECTIVE:
+-- Remove the database uniqueness constraint that enforces only one active
+-- instruction_pack per scope, so multiple instruction_pack artifacts can be
+-- persisted without conflict.
+--
+-- RATIONALE:
+-- Instruction packs are no longer runtime-executed or dynamically loaded by
+-- the Gateway or agent. They now function as design-time governance artifacts
+-- and canonical documentation, authored as .md files in project files and
+-- optionally persisted in the database for history, retrieval, and governance
+-- tracking.
+--
+-- The existing uniqueness constraint qxb_aip_one_active_per_scope_uq reflects
+-- an outdated model where instruction packs were treated as live executable
+-- rules. This constraint is now blocking valid saves and is no longer
+-- appropriate.
+--
+-- GOVERNANCE RULE (stone-worthy):
+-- Instruction packs are design-time governance artifacts, not runtime
+-- executables. Multiple instruction packs may coexist. Canonical status is
+-- declared via snapshot or governance artifact, not enforced by database
+-- constraint.
+--
+-- ============================================================================
+-- EXECUTION ORDER:
+-- 1. Run Step 1 (drop constraint)
+-- 2. Run Step 2 (verification queries)
+-- 3. Test via Telegram: save two instruction_packs
+-- 4. Verify both exist in database with unique artifact_ids
+-- ============================================================================
+
+-- ============================================================================
+-- STEP 1: Drop the unique index (NOT a constraint - it's an index)
+-- ============================================================================
+-- Original index definition:
+-- CREATE UNIQUE INDEX qxb_aip_one_active_per_scope_uq
+-- ON public.qxb_artifact_instruction_pack
+-- USING btree (workspace_id, scope)
+-- WHERE (active = true)
+
+DROP INDEX IF EXISTS public.qxb_aip_one_active_per_scope_uq;
+
+-- ============================================================================
+-- STEP 2: Verification Queries (run after migration)
+-- ============================================================================
+
+-- 2a. Confirm index is gone (should only show pkey now)
+-- SELECT indexname, indexdef
+-- FROM pg_indexes
+-- WHERE tablename = 'qxb_artifact_instruction_pack'
+--   AND indexdef LIKE '%UNIQUE%';
+--
+-- Expected: Only qxb_artifact_instruction_pack_pkey should remain
+
+-- ============================================================================
+-- STEP 3: Functional Verification (via Telegram)
+-- ============================================================================
+--
+-- Test 1: Save instruction_pack with title "Test Pack A"
+--   Expected: Success, returns artifact_id
+--
+-- Test 2: Save another instruction_pack with title "Test Pack A" (same title)
+--   Expected: Success, returns different artifact_id (no CONFLICT error)
+--
+-- Test 3: list instruction_packs
+--   Expected: Both artifacts appear in list
+--
+-- ============================================================================
+
+-- ============================================================================
+-- ROLLBACK (if needed)
+-- ============================================================================
+-- To restore the unique index:
+--
+-- CREATE UNIQUE INDEX qxb_aip_one_active_per_scope_uq
+-- ON public.qxb_artifact_instruction_pack
+-- USING btree (workspace_id, scope)
+-- WHERE (active = true);
+--
+-- ============================================================================
+
+-- ============================================================================
+-- CHANGELOG
+-- ============================================================================
+-- v1.1 - 2026-02-03
+-- - Corrected: It's a unique INDEX, not a CONSTRAINT
+-- - Changed from ALTER TABLE DROP CONSTRAINT to DROP INDEX
+-- - Updated verification and rollback accordingly
+--
+-- v1 - 2026-02-03
+-- - Initial migration to remove singleton constraint
+-- - Aligns database with design-time governance model
+-- - No replacement constraints added (per spec)
+-- ============================================================================

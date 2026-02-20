@@ -286,7 +286,16 @@ Session continuation context. Example:
 | Column | Type | Nullable | Default | Description |
 |--------|------|----------|---------|-------------|
 | `artifact_id` | uuid | NOT NULL | — | PK & FK to qxb_artifact.artifact_id |
-| `content` | jsonb | NOT NULL | — | Video metadata, transcript, segments, and derived insights |
+| `source_url` | text | NOT NULL | — | Source video URL (e.g., YouTube URL) |
+| `source_platform` | text | NOT NULL | `'youtube'` | Platform identifier (youtube, vimeo, etc.) |
+| `source_video_id` | text | NULL | — | Platform-specific video ID (e.g., YouTube video_id) |
+| `source_channel` | text | NULL | — | Source channel name or ID |
+| `source_published_at` | timestamptz | NULL | — | Original publish timestamp from platform |
+| `duration_seconds` | integer | NULL | — | Video duration in seconds |
+| `status` | text | NOT NULL | `'queued'` | Processing status (lifecycle tracking) |
+| `idempotency_key` | text | NOT NULL | — | Unique deduplication key (UNIQUE constraint) |
+| `content` | jsonb | NOT NULL | `'{}'` | Transcript, segments, and derived insights |
+| `error` | jsonb | NULL | — | Error details if processing failed |
 | `created_at` | timestamptz | NOT NULL | `now()` | Video artifact creation timestamp |
 | `updated_at` | timestamptz | NOT NULL | `now()` | Video artifact update timestamp (auto-updated) |
 
@@ -296,6 +305,12 @@ Session continuation context. Example:
 
 **Foreign Keys**:
 - `artifact_id` → `qxb_artifact.artifact_id`
+
+**Unique Constraints**:
+- `idempotency_key` (prevents duplicate video ingests)
+
+**Check Constraints**:
+- `status` IN ('queued', 'downloading', 'chunking', 'transcribing', 'stitching', 'saving', 'complete', 'failed')
 
 ### Triggers
 
@@ -308,32 +323,46 @@ Session continuation context. Example:
 
 ### JSONB Structure (`content`)
 
-Flexible structure for video metadata, transcripts, and insights. Example:
+Stores transcript and derived insights. Metadata fields (source_url, status, etc.) are stored in dedicated columns. Example:
 ```json
 {
-  "source_url": "https://youtube.com/watch?v=...",
-  "source_platform": "youtube",
-  "duration_seconds": 3600,
-  "transcript": {
-    "full_text": "...",
+  "transcription": {
+    "engine": "openai",
+    "model": "whisper-1",
+    "full_text": "Complete transcript...",
     "segments": [
       {
-        "start_time": 0,
-        "end_time": 120,
+        "start_time": 0.0,
+        "end_time": 5.2,
         "text": "Introduction to the topic...",
-        "speaker": "Host"
+        "chunk_index": 0
+      },
+      {
+        "start_time": 5.2,
+        "end_time": 12.8,
+        "text": "Next segment...",
+        "chunk_index": 0
       }
-    ]
+    ],
+    "transcribed_at": "2026-01-04T12:00:00Z"
   },
   "derived_insights": {
     "key_topics": ["AI", "automation", "productivity"],
     "summary": "Video discusses...",
     "notable_quotes": ["Quote 1", "Quote 2"]
-  },
-  "processing_metadata": {
-    "transcript_generated_at": "2026-01-04T...",
-    "insights_extracted_at": "2026-01-04T..."
   }
+}
+```
+
+### Error JSONB Structure (`error`)
+
+Captures processing failures. Example:
+```json
+{
+  "stage": "transcribing",
+  "message": "OpenAI API rate limit exceeded",
+  "timestamp": "2026-01-04T12:00:00Z",
+  "raw_error": "..."
 }
 ```
 
@@ -635,17 +664,25 @@ owner_user_id = qxb_current_user_id()
 ## CHANGELOG
 
 ### v1.2 - 2026-01-04
-**What changed**: Added artifact_type='video' (DDL-backed)
+**What changed**: Added artifact_type='video' (DDL-backed) and corrected qxb_artifact_video schema
 
 **Additions**:
 1. **artifact_type CHECK constraint** — Added 'video' to allowed types
 2. **qxb_artifact_video table** — New extension table for long-form media artifacts:
-   - Stores video metadata, transcripts, and derived insights
-   - `content` JSONB field holds transcript segments, insights, processing metadata
+   - **Columns**: artifact_id, source_url, source_platform, source_video_id, source_channel, source_published_at, duration_seconds, status, idempotency_key (UNIQUE), content (JSONB for transcript), error (JSONB), created_at, updated_at
+   - **Status lifecycle**: queued → downloading → chunking → transcribing → stitching → saving → complete | failed
+   - **Idempotency**: UNIQUE constraint on idempotency_key prevents duplicate ingests
+   - **Content JSONB**: Stores transcription.full_text, transcription.segments, derived_insights
+   - **Error JSONB**: Captures processing failures with stage/message/timestamp
    - First-class artifact type (not journal) — can spawn child artifacts (gems, snapshots, projects)
    - Workspace-scoped RLS visibility
 3. **Artifact Type Summary** — Added video type entry
 4. **Table of Contents** — Added qxb_artifact_video section
+
+**Corrections** (aligned to LIVE database):
+- Initial v1.2 documentation incorrectly showed only 4 columns (artifact_id, content, created_at, updated_at) with all metadata inside content JSONB
+- Corrected to show actual schema: 13 columns with dedicated fields for source_url, status, idempotency_key, error, etc.
+- Clarified content JSONB stores only transcription and derived insights (not source metadata)
 
 **Why**: Video artifacts provide structured storage for long-form media content with transcripts and insights, enabling downstream artifact generation (gem extraction, insight capture)
 
