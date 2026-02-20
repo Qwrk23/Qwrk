@@ -440,7 +440,7 @@ git commit -m "Update .gitignore to exclude <pattern>"
 
 ### CLAUDE.md Integration
 
-This runbook complies with `docs/governance/CLAUDE.md` rules:
+This runbook complies with `CLAUDE.md` (repository root) rules:
 
 - ✅ No file overwrites (versioned clones for edits)
 - ✅ Pre-commit review (git diff before commit)

@@ -347,7 +347,7 @@ See individual workflow changelogs in `changelogs/` directory.
 - [Gateway Contract (Phase 3)](../docs/architecture/Phase_1-3_Kernel_Semantics_Lock.md#phase-3-gateway-contract-v1-planning-lock)
 - [Mutability Registry](../docs/governance/Mutability_Registry_v1.md)
 - [Journal Doctrine](../docs/governance/Doctrine_Journal_InsertOnly_Temporary.md)
-- [CLAUDE.md](../docs/governance/CLAUDE.md) - Workflow editing governance
+- [CLAUDE.md](../CLAUDE.md) - Workflow editing governance
 
 ---
 

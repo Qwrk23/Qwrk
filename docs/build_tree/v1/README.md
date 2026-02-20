@@ -11,7 +11,7 @@
 - **Supersedes**: All previous planning documents in AAA_New_Qwrk/Qwrk Build Tree Pack for CC/
 - **Authority**: This version is stored as PROJECT artifacts in Qwrk database (content.tree_node jsonb)
 - **Locked**: 2026-01-02
-- **Changes**: Must follow governance rules in [docs/governance/CLAUDE.md](../../governance/CLAUDE.md)
+- **Changes**: Must follow governance rules in [CLAUDE.md](../../../CLAUDE.md)
 
 **If you find conflicting documentation with this tree slug, this version wins.**
 

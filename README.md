@@ -135,7 +135,7 @@ See `schema/README.md` for detailed execution order.
 - **[Phase 1-3](docs/architecture/Phase_1-3_Kernel_Semantics_Lock.md)** - Kernel semantics and design
 - **[Behavioral Constitution](docs/architecture/Behavioral_Controls_Governing_Constitution.md)** - System behavior governance
 - **[Mutability Registry](docs/governance/Mutability_Registry_v1.md)** - Field mutation rules
-- **[CLAUDE.md](docs/governance/CLAUDE.md)** - AI collaboration rules and constraints
+- **[CLAUDE.md](CLAUDE.md)** - AI collaboration rules and constraints
 
 ---
 
@@ -150,7 +150,7 @@ This project follows strict governance:
 - **Changelog requirement** - All changes must document rationale
 - **Truth hierarchy** - Conflicts resolved via authoritative documents
 
-See `docs/governance/CLAUDE.md` for complete rules.
+See `CLAUDE.md` (repository root) for complete rules.
 
 ### Restart Prompts
 

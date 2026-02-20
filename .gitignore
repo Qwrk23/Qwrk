@@ -219,7 +219,7 @@ out/
 
 # Allow CLAUDE.md specifically (governance)
 !CLAUDE.md
-!docs/governance/CLAUDE.md
+!docs/governance/Archive/CLAUDE__fork__SUPERSEDED__2026-02-20.md
 
 # Allow snapshot JSON files (design snapshots)
 !docs/snapshots/*.json
