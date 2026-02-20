@@ -1,0 +1,55 @@
+artifact_id,title,created_at,current_tags,suggested_category,tag_recommendation
+d421c235-1295-4038-9c28-510501cd131f,"Governance Convention - Companion Journals for Project Seeds",2026-02-09,"governance, convention, companion, projects",governance,yes
+bb74b837-85d0-4e6b-8e5c-d69919b0673f,"Gateway Snapshot Insert - Sanity",2026-02-08,"(none)",test,no
+1a68cc0a-30d1-4b3f-893d-02777ac84a56,"Session Snapshot: CC_Inbox Cleanup + Governance Updates",2026-02-05,"session-snapshot, governance, cc-inbox",operational,maybe
+1ee866ce-b3a3-4716-9a4c-93c013d0ec88,"Governance - Builder Phase Declaration (Pre-QPM)",2026-02-05,"governance, builder-phase, phase2",governance,yes
+ea06c68f-d859-4015-8328-f9d02ab2cfff,"T10 Complete - Execution Surface Awareness Implemented",2026-02-04,"snapshot, governance, execution-surface, chrome-mvp",milestone,yes
+c66dfae1-aed9-4b51-9c99-28101235d801,"Milestone - Chrome Extension Lifecycle Delete and Restore Fully Validated",2026-02-04,"milestone, chrome-extension, lifecycle, mvp",milestone,yes
+57a84097-10c0-4398-954f-2654b72ed8eb,"Milestone - Chrome JSON Command Console MVP v1.1 Operational",2026-02-04,"milestone, chrome-extension, gateway, mvp",milestone,yes
+f3939830-cb25-4536-b711-09367d8db802,"Test Snapshot - Regression Artifact ID",2026-02-03,"test, regression",test,no
+0f67bd47-5774-40fc-ba7a-b3b9b0525fdf,"Decision - Remove instruction_pack Singleton Constraint",2026-02-03,"decision, governance, instruction-pack",decision,yes
+64e73946-79a2-4c5e-9244-0b09a77550f7,"Milestone - Gateway_Telegram Hallucination Issue Resolved",2026-02-03,"milestone, gateway, bug019",milestone,yes
+4907b779-c662-43aa-b32e-5ebe72be34e0,"TG Test Snapshot - Verification",2026-02-03,"test, verification",test,no
+73a71e70-4627-4ac4-8f26-3630b0c7613e,"Gateway_Telegram Verification Enforcement - Hallucination Hard Block",2026-02-03,"governance, gateway, verification, bug019",duplicate,no
+212336df-a4c1-41fd-8e66-3a5df2dd0c49,"Gateway_Telegram Verification Enforcement - Hallucination Hard Block",2026-02-03,"governance, gateway, verification, bug019",duplicate,no
+f5e255fc-d8f0-475f-9961-5439d40f342a,"Decision - TG Verification Test Snapshot",2026-02-03,"test, decision",test,no
+b4eb3e3e-83b4-40ff-86ec-8166eda1c931,"CC Prompt Formulation Guidelines Updated and Locked",2026-02-03,"governance, cc_guidelines",governance,yes
+f6b75a78-6b0d-476f-98ba-e898d5e3a1b6,"Governance Decision - Idempotency and Intent Integrity",2026-02-02,"governance, decision, phase2",decision,yes
+2f68e97d-7de9-4409-bbe1-9e5a6337d348,"Milestone - QPM Lifecycle Semantics Implemented (Phase 2)",2026-02-01,"milestone, governance, phase2, qpm",milestone,yes
+6ec5d7ba-3b83-4088-b342-678690a4c3a6,"Phase 2 Execution Order - Open Work Prioritization",2026-02-01,"phase2, execution, governance",governance,yes
+16b354da-2796-4f04-af75-33db41a1d151,"System Review - Qwrk Blind Spots Risks and Opportunities",2026-02-01,"review, governance, phase2",governance,yes
+723909c0-1cf8-478c-83a3-47a9f6717e2d,"Promotion - Journal Skill to Tree (Production Use)",2026-02-01,"governance, journal, lifecycle",governance,yes
+1676fe7d-5bf1-496e-a7dc-35bc14314ca3,"Phase 2 Scope - QPM and Lifecycle Governance",2026-02-01,"phase2, governance, qpm",governance,yes
+8eb89e3d-47da-4ead-8b67-5b11ec95d49b,"Milestone - Qwrk Alignment and Soul-Fulfillment Realized",2026-01-31,"(none)",milestone,yes
+14d3eb79-aea9-4238-9713-9f19a3f2e30a,"Definition - QPM Naming",2026-01-31,"(none)",governance,yes
+f8c9c677-3aeb-4c5c-8034-62b59e7f24d1,"Decision - Phase 2 Execution First (QPM Before RAG)",2026-01-31,"(none)",decision,yes
+692df518-4f1b-47eb-b7d0-c6a61bb04c7c,"Milestone - Project Save Tags Support Live",2026-01-31,"milestone, project, tags, support",milestone,yes
+fd625acf-c365-4547-8805-cd1a716cc11f,"Tag Backfill v2 Complete",2026-01-31,"(none)",operational,maybe
+e0e08f4f-ef3a-4a0b-8399-efa314cf8436,"BUG-011 Gateway Tags Complete - Telegram Pending",2026-01-31,"auto:bugfix, auto:gateway, auto:telegram, snapshot",duplicate,no
+b92237ac-4520-42fd-8bd6-f07afc567ecb,"BUG-011 Gateway Tags Complete - Telegram Pending",2026-01-31,"auto:bugfix, auto:gateway, auto:telegram, snapshot",duplicate,no
+7443c016-61e7-4367-b596-986a4042d00d,"Gateway Telegram Bug Fix Session",2026-01-31,"snapshot, auto:gateway, auto:telegram",operational,maybe
+7649815c-151d-42f7-b3ea-d94918dc1f43,"TG-TEST Gateway Telegram Test Pack v1 - S2 and S5 Cleared",2026-01-31,"snapshot, auto:gateway, auto:telegram",test,no
+a4ba2dd8-add5-417c-9e45-4eabfc1375e1,"TG-TEST Gateway Telegram Test Pack v1 Results",2026-01-31,"snapshot, auto:gateway, auto:telegram",test,no
+6e09ed13-cc95-4578-b8c7-d2239b23db0b,"Gateway Telegram Test Pack v1",2026-01-31,"snapshot, auto:gateway, auto:telegram",test,no
+8b1043e3-1fc9-4ed9-bee9-6391184c6fdb,"Roadmap Locked - Trust Restoration Week",2026-01-30,"snapshot",governance,yes
+4bd91af4-9ec2-4b2e-902f-7f274def527a,"Telegram Payload Contract Locked",2026-01-30,"snapshot, auto:telegram",governance,yes
+534d3cc9-a8a8-49a8-84a7-a49510248799,"KGB Proof - CC Direct Supabase Access via RLS",2026-01-30,"snapshot, auto:kgb",kgb-proof,yes
+9318aabd-8f1c-40ca-9743-80190458299f,"Telegram Gateway Full Coverage",2026-01-29,"snapshot, auto:gateway, auto:telegram",milestone,yes
+0b0057aa-45dd-433e-ad8c-965409cda351,"Phase 1.5 Telegram Gateway Complete",2026-01-29,"snapshot, auto:gateway, auto:telegram",milestone,yes
+7f647f74-4373-40ba-b837-03962d2fbd10,"DEFECT - artifact.list selector returns zero rows",2026-01-28,"snapshot",operational,maybe
+2a95b6fd-ab75-4dd2-b8a6-0e3e99c0e0ba,"SNAPSHOT - Gateway v1 artifact.list snapshot hydrate UUID whitespace fix (KGB)",2026-01-25,"artifact.list, auto:gateway, auto:kgb, gateway_v1, hydrate, kgb, n8n, snapshot, supabase, uuid, whitespace",kgb-proof,yes
+f426e189-41c6-49b4-bc6d-f5a286c4ccd4,"SNAPSHOT - Gateway v1 Promote success envelope (KGB)",2026-01-25,"artifact.promote, auto:gateway, auto:kgb, gateway_v1, kgb, linked, snapshot, success_envelope",kgb-proof,yes
+45de0fc2-478f-4d7a-a801-289354636437,"SNAPSHOT - Foundational Journal: Lifecycle Mental Model",2026-01-25,"foundational, governance, journal, lifecycle_model, linked, snapshot",governance,yes
+3e08aa81-19da-441f-a687-19d21085d115,"SNAPSHOT - Gateway Type Registry Guard (KGB-LOCK)",2026-01-24,"auto:gateway, auto:kgb, gateway_v1, guard, kgb, linked, snapshot, type_registry",kgb-proof,yes
+3c9b4030-5957-4cf0-8d84-5f3659c6e65f,"Snapshot - Deterministic SavePromoteQuery KGB",2026-01-24,"auto:kgb, gateway, kgb, linked, promote, query, snapshot",kgb-proof,yes
+3f6822bf-eeb8-43f8-8215-397724610c3d,"Full Access Enablement - Restart Prompt",2026-01-24,"snapshot",operational,maybe
+ce620e3c-6e74-4325-9935-46376d20d44f,"SNAPSHOT - Gateway v1 artifact.list hides soft-deleted artifacts (KGB)",2026-01-24,"artifact.list, auto:gateway, auto:kgb, gateway_v1, kgb, linked, snapshot, soft_delete",kgb-proof,yes
+ec7e6041-85ea-4f93-b0c9-b5b9a88dec86,"SNAPSHOT - Gateway Action Schema v1.2.0 - Selector + Workspace Optional",2026-01-24,"auto:gateway, gateway, governance, openapi, p:high, schema, selector, snapshot, v1.2.0, workspace",governance,yes
+d3d9ba9e-c62f-4c6c-b59a-ec5318696daa,"SNAPSHOT - Gateway Query Return Path Fix (instruction_pack) - KGB",2026-01-24,"auto:gateway, auto:kgb, envelope, fix, gateway, instruction_pack, kgb, query, snapshot",kgb-proof,yes
+7b0b14b8-8f9c-4dc1-be54-48788edd0d9a,"SNAPSHOT - instruction_pack query works in Gateway",2026-01-22,"snapshot, auto:gateway",operational,maybe
+051b4fcd-5575-4084-a52c-54b5b29d1e6f,"SNAPSHOT - Branch / Leaf Execution Anatomy Governance Lock",2026-01-18,"branch, execution-anatomy, governance, kernel-semantics, leaf, linked, north-star-v0.2, snapshot",governance,yes
+a98fdd14-ee5e-4b5f-bf03-0227ba3ab845,"SNAPSHOT - Gateway v1 artifact.list hydrate lifecycle_status canonical",2026-01-18,"snapshot, linked, auto:gateway",kgb-proof,yes
+f587939c-ed35-4db4-ab1c-3873e5677a25,"SNAPSHOT - Marketing Sapling - Personal Brand Authority System (8 Modules)",2026-01-17,"authority, content-strategy, linked, marketing, personal-brand, snapshot",governance,yes
+1130c92d-3fa1-417b-8e91-d2449b4c5487,"KGB Proof - Promote repeat guard + Save initializes lifecycle_status",2026-01-17,"snapshot, auto:kgb",kgb-proof,yes
+b43f5d9c-819e-4929-847e-55323054904d,"KGB Lock - Gateway v1 artifact.list (Deterministic + Anchored Pagination)",2026-01-17,"snapshot, auto:gateway, auto:kgb",kgb-proof,yes
+0452fab4-cb93-438c-a706-856c1841769e,"KGB Proof - Gateway v1 artifact.update + query verify",2026-01-17,"snapshot, auto:gateway, auto:kgb",kgb-proof,yes

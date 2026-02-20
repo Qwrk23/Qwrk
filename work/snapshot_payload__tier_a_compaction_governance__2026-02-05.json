@@ -1,0 +1,75 @@
+{
+  "gw_action": "artifact.save",
+  "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+  "artifact_type": "snapshot",
+  "title": "Governance Lock — Tier A Memory Compaction Protocol v1",
+  "tags": ["governance", "memory-management", "for-q", "tier-a", "compaction"],
+  "payload": {
+    "snapshot_type": "governance_lock",
+    "effective_date": "2026-02-05",
+    "version": "1.0",
+    "summary": "Locked specification for Tier A rolling memory compaction with Protected Core / Rotating Shell two-layer model.",
+    "for_q_why_q_needs_this": "Without this, Q might compact foundational governance entries or fail to apply consistent compaction rules, degrading memory reliability.",
+    "for_q_behavioral_impact": "Q MUST partition Tier A into Protected Core (never compacted) and Rotating Shell (eligible). Q MUST NOT remove Protected Core entries. Q MUST create audit snapshot on every compaction.",
+    "for_q_scope": "global",
+    "for_q_priority": "critical",
+    "decisions_locked": {
+      "two_layer_model": {
+        "protected_core": "Foundational governance, never compacted",
+        "rotating_shell": "Tactical/contextual, eligible for compaction"
+      },
+      "compaction_eligibility": {
+        "schema_field": "compaction_eligible: boolean (optional)",
+        "precedence": "Explicit field > Inference (critical+global = Protected Core)",
+        "backfill_required": false
+      },
+      "thresholds": {
+        "trigger": "entry_count >= 50",
+        "target": "35 entries"
+      },
+      "algorithm": {
+        "partition": "Protected Core vs Rotating Shell",
+        "sort_rotating_shell": ["priority ASC", "age ASC"],
+        "remove_until": "total <= target OR rotating shell exhausted",
+        "protected_core_overflow": "allow, emit governance alert"
+      },
+      "supersession": {
+        "trigger": "overlap detected (scope + tags)",
+        "action": "prompt user, mark superseded_by if confirmed",
+        "auto_supersession": false
+      },
+      "thrashing_detection": {
+        "window": "5 sessions",
+        "response": "governance alert only"
+      },
+      "audit": {
+        "required": true,
+        "artifact_type": "snapshot",
+        "tags": ["memory-compaction", "for-q"],
+        "payload_fields": ["timestamp", "trigger_reason", "removed_artifact_ids", "retained_artifact_ids"]
+      }
+    },
+    "protected_core_classification": [
+      "Qwrk Naming and Identity Lock",
+      "Phase 1 Lock — Kernel v1 Governance",
+      "Production Implies Tree",
+      "System Instructions — Read Access Only",
+      "North Star v0.4 — Execution Anatomy",
+      "Chrome Extension Raw JSON Invariant",
+      "Governance / Execution Milestones"
+    ],
+    "rotating_shell_examples": [
+      "Memory Load vs Addressable Registry",
+      "Snapshots at Sapling-to-Tree Transition",
+      "T15 Completion Milestone"
+    ],
+    "explicit_non_goals": [
+      "No auto-merging of Protected Core entries",
+      "No background or silent compaction",
+      "No mutation of Tier B or registry-only memory",
+      "No automatic ceiling raises"
+    ],
+    "source_thread": "T16",
+    "source_file": "CC_Inbox/cc_final_instructions_tier_a_memory_compaction.md"
+  }
+}
