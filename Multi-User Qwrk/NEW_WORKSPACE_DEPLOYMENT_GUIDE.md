@@ -7,7 +7,7 @@
 **Prerequisites:**
 - Supabase Dashboard access (project `npymhacpmxdnkqdzgxll`)
 - n8n admin access (`https://n8n.halosparkai.com`)
-- Golden template: `workflows/NQxb_Gateway_v1__ACL_Test.json`
+- Golden template: `workflows/NQxb_Gateway_v1 (57).json`
 - Chrome Extension source: `qwrk-chrome-mvp/`
 - Telegram BotFather access (optional — for Telegram surface)
 
@@ -140,7 +140,7 @@ btoa("<principal_name>:<password>")
 
 ### 2.2 Prepare Clone JSON
 
-1. Copy `workflows/NQxb_Gateway_v1__ACL_Test.json` to a working file
+1. Copy `workflows/NQxb_Gateway_v1 (57).json` to a working file
 2. Make exactly 4 edits:
 
 #### Edit 1: Webhook Node — Path
@@ -224,11 +224,11 @@ All 5 shared sub-workflows must be active (they already should be — just confi
 
 | Sub-Workflow | ID |
 |-------------|-----|
-| NQxb_Artifact_Save_v1 | `mlUCDPRRdWp286ja` |
-| NQxb_Artifact_Query_v1 | `LGYSXI586inagTPk` |
+| NQxb_Artifact_Save_v1 | `cEmJcbfQE2C92MNV` |
+| NQxb_Artifact_Query_v1 | `27efKlNfdyu89YGD` |
 | NQxb_Artifact_List_v1 | `RKDyfV4mdHCBDkmK` |
-| NQxb_Artifact_Update_v1 | `1L2HKncP2Dh0K3DI` |
-| NQxb_Artifact_Promote_v1 | `SaKD4o4FKrXfSYt6` |
+| NQxb_Artifact_Update_v1__T69 | `0FwKlCRJ1wV5qDhV` |
+| NQxb_Artifact_Promote_v1 | `DhcvKMsThjxbBReT` |
 
 ### Step 2 Checkpoint
 
@@ -433,7 +433,7 @@ Paste system instructions into the project. Must include:
 | Domain boundary | Workspace lock (never operate on another workspace) |
 | Execution surface rules | JSON in fenced code block, one payload per response, stop-and-wait |
 
-**Template:** See `Multi-User Qwrk/03_ChatGPT_Projects/Qwrk@Wrk/qwrk_work_system_instructions_v_1.md` as reference. Adapt identity, tone, and behavioral sections per user.
+**Template:** See `Multi-User Qwrk/03_ChatGPT_Projects/SYSTEM_INSTRUCTIONS_TEMPLATE.md` (T69-aligned). Adapt identity, tone, and behavioral sections per user.
 
 ### 5.3 Instruction Packs (Optional)
 
@@ -530,6 +530,7 @@ Run these 3 tests via Chrome Extension (select the new workspace profile) or Pow
   "gw_workspace_id": "<workspace_id>",
   "artifact_type": "snapshot",
   "title": "Smoke Test - <DisplayName> Workspace Deployment",
+  "semantic_type_id": "infrastructure",
   "priority": 3,
   "tags": ["smoke-test", "deployment"],
   "extension": {
@@ -636,6 +637,13 @@ Do not implement automation here — only define the threshold trigger.
 ---
 
 ## CHANGELOG
+
+### v2 — 2026-03-04
+- Updated golden template from ACL_Test to Gateway v59 era export
+- Updated all sub-workflow IDs and versions
+- Added `semantic_type_id` to smoke test save payload
+- Updated system instructions template reference (T69-aligned)
+- Previous version: `Archive/NEW_WORKSPACE_DEPLOYMENT_GUIDE__v1.1__2026-03-04.md`
 
 ### v1.1 — 2026-02-18
 - Added sub-workflow immutability guard

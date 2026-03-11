@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Qwrk Command Console \u2014 Akara",
+  "version": "1.0.0",
+  "description": "Akara's JSON command console for Qwrk Gateway",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Qwrk \u2014 Akara"
+  },
+  "permissions": [],
+  "host_permissions": [
+    "https://n8n.halosparkai.com/*"
+  ]
+}

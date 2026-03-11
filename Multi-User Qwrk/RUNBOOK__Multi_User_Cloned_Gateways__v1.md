@@ -3,8 +3,8 @@
 **Created:** 2026-02-17
 **Author:** CC (Claude Code) — Planning Phase Only
 **Mode:** 3M Build — Non-Mutating Planning Pass
-**Source Baseline:** `NQxb_Gateway_v1__ACL_Test.json` (ACL wiring verified, fail-closed proven)
-**Status:** READY FOR EXECUTION (Joel manual steps tomorrow)
+**Source Baseline:** `workflows/NQxb_Gateway_v1 (57).json` (Gateway v59 era, T69 compliant)
+**Status:** Work_Joel deployed (v2, 2026-03-04). Other clones pending.
 
 ---
 
@@ -43,11 +43,11 @@ These defaults are assumed unless Joel overrides during execution:
   ├── ACL_Guard (fail-closed)
   ├── Gatekeeper (OWNER_WORKSPACE_ID lock)
   └── Action Switch → Shared Sub-Workflows
-                        ├── Save v29
-                        ├── Query v18
+                        ├── Save v42 (T69 + Contract B)
+                        ├── Query v21 (T70 VIEW-based)
                         ├── List v29
-                        ├── Update v11
-                        └── Promote v2_HTTP
+                        ├── Update T69 (v38)
+                        └── Promote v23
 ```
 
 **Key design:** Each clone has its own webhook + Gatekeeper workspace lock + ACL principal. All clones share the same 5 sub-workflows.
@@ -58,8 +58,8 @@ These defaults are assumed unless Joel overrides during execution:
 
 ### 0.1 Confirm Golden JSON
 
-- [ ] File exists: `workflows/NQxb_Gateway_v1__ACL_Test.json`
-- [ ] Workflow name in JSON: `NQxb_Gateway_v1__ACL_Test`
+- [ ] File exists: `workflows/NQxb_Gateway_v1 (57).json`
+- [ ] Workflow name in JSON: `NQxb_Gateway_v1 (57)`
 - [ ] Webhook path: `/nqxb/gateway/v1/acl-test`
 - [ ] ACL wiring present: `ACL_Lookup` → `ACL_Guard__HasRow` → `ACL_Guard__Route`
 - [ ] ACL fail-closed snapshot verified: `ee8d3c9f`
@@ -68,11 +68,11 @@ These defaults are assumed unless Joel overrides during execution:
 
 | Action | Workflow ID (in ACL_Test JSON) | Cached Name | Status |
 |--------|-------------------------------|-------------|--------|
-| Query | `LGYSXI586inagTPk` | NQxb_Artifact_Query_v1 | [ ] Verify active in n8n |
-| Save | `mlUCDPRRdWp286ja` | NQxb_Artifact_Save_v1 | [ ] Verify active in n8n |
+| Query | `27efKlNfdyu89YGD` | NQxb_Artifact_Query_v1 | [ ] Verify active in n8n |
+| Save | `cEmJcbfQE2C92MNV` | NQxb_Artifact_Save_v1 | [ ] Verify active in n8n |
 | List | `RKDyfV4mdHCBDkmK` | NQxb_Artifact_List_v1 | [ ] Verify active in n8n |
-| Promote | `SaKD4o4FKrXfSYt6` | NQxb_Artifact_Promote_v1 | [ ] Verify active in n8n |
-| Update | `1L2HKncP2Dh0K3DI` | NQxb_Artifact_Update_v1 | [ ] Verify active in n8n |
+| Promote | `DhcvKMsThjxbBReT` | NQxb_Artifact_Promote_v1 | [ ] Verify active in n8n |
+| Update | `0FwKlCRJ1wV5qDhV` | NQxb_Artifact_Update_v1__T69 | [ ] Verify active in n8n |
 
 ### 0.3 Update workflow-ids.md
 
@@ -220,7 +220,7 @@ For each of the 4 gateways, follow the checklist in `Multi-User Qwrk/02_n8n_Work
 
 **Summary per clone:**
 
-1. **Copy** `NQxb_Gateway_v1__ACL_Test.json` to working file
+1. **Copy** `NQxb_Gateway_v1 (57).json` to working file
 2. **Rename** workflow: `NQxb_Gateway_v1__<GatewayName>`
 3. **Update Webhook path:** `/nqxb/gateway/v1/<short_name>`
 4. **Update Webhook credential:** Bind to clone's Basic Auth credential
@@ -263,11 +263,11 @@ All 5 shared sub-workflows must be active before clones can execute:
 
 | Sub-Workflow | ID | Required State |
 |-------------|-----|---------------|
-| NQxb_Artifact_Query_v1 | `LGYSXI586inagTPk` | [ ] Active |
-| NQxb_Artifact_Save_v1 | `mlUCDPRRdWp286ja` | [ ] Active |
+| NQxb_Artifact_Query_v1 | `27efKlNfdyu89YGD` | [ ] Active |
+| NQxb_Artifact_Save_v1 | `cEmJcbfQE2C92MNV` | [ ] Active |
 | NQxb_Artifact_List_v1 | `RKDyfV4mdHCBDkmK` | [ ] Active |
-| NQxb_Artifact_Promote_v1 | `SaKD4o4FKrXfSYt6` | [ ] Active |
-| NQxb_Artifact_Update_v1 | `1L2HKncP2Dh0K3DI` | [ ] Active |
+| NQxb_Artifact_Promote_v1 | `DhcvKMsThjxbBReT` | [ ] Active |
+| NQxb_Artifact_Update_v1__T69 | `0FwKlCRJ1wV5qDhV` | [ ] Active |
 
 ### Phase 2 Verification Checklist
 
@@ -496,6 +496,12 @@ If any clone causes issues:
 ---
 
 ## CHANGELOG
+
+### v2 — 2026-03-04
+- Updated golden template from ACL_Test to Gateway v59 era export
+- Updated all sub-workflow IDs and versions (Save v42, Query v21, Update T69, Promote v23)
+- Added T69 compliance requirement (semantic_type_id forwarding)
+- Previous version: `Archive/RUNBOOK__Multi_User_Cloned_Gateways__v1__2026-03-04.md`
 
 ### v1 — 2026-02-17
 - Initial planning runbook (non-mutating)

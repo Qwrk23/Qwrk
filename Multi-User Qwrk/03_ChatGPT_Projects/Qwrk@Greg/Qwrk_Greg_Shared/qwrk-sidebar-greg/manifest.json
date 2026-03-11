@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "Qwrk Sidebar \u2014 Greg",
+  "version": "1.0.0",
+  "description": "Greg's execution sidebar for Qwrk Gateway",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://chat.openai.com/*",
+        "*://chatgpt.com/*"
+      ],
+      "js": [
+        "profiles.js",
+        "auth.js",
+        "state.js",
+        "parser.js",
+        "executor.js",
+        "ui.js",
+        "content.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
+  "host_permissions": [
+    "https://n8n.halosparkai.com/*"
+  ],
+  "permissions": [
+    "storage"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "styles.css"
+      ],
+      "matches": [
+        "*://chat.openai.com/*",
+        "*://chatgpt.com/*"
+      ]
+    }
+  ]
+}
