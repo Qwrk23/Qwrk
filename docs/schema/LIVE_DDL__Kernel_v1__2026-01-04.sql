@@ -4,6 +4,67 @@
 -- Database: PostgreSQL 17.6
 --
 -- CHANGELOG:
+--   v2.9 (2026-03-07): T80 Security Advisor Fixes.
+--     - qxb_artifact_rollup_view: added WITH (security_invoker = true)
+--       Ensures view runs with caller permissions, not creator permissions.
+--     - qxb_artifact_dependency: RLS + 3 policies were in DDL but missing from
+--       live DB (T71 drift). Now confirmed deployed. No DDL text change needed.
+--     - _migration_priority_null_snapshot: dropped (leftover migration table).
+--       Removed from DDL (was never in DDL -- no text change needed).
+--     - RLS initplan optimization: 4 policies updated to use (select auth.uid())
+--       instead of auth.uid() for per-query evaluation instead of per-row.
+--       Tables: qxb_user (2 policies), qxb_workspace (1), qxb_workspace_user (1).
+--     - Migration: migrations/2026-03-07__t80_security_advisor_fixes__v1.sql
+--     - Previous version: Archive/LIVE_DDL__Kernel_v1__2026-01-04__v2.8__2026-03-06.sql
+--
+--   v2.8 (2026-03-06): T94 Twig artifact type activation.
+--     - artifact_type CHECK v6 -> v7: added 'twig' (14 types total)
+--     - New conditional CHECK: qxb_artifact_twig_lifecycle_check
+--       Enforces: proposed, active, promoted, pruned (twig-only)
+--     - Type registry entry: twig (enabled)
+--     - Semantic type registry entry: twig (active)
+--     - No extension table (Option A -- leaf precedent)
+--     - Pilot: Mother Tree only
+--     - Migration: migrations/2026-03-06__twig_artifact_type_activation__v1.sql
+--     - Previous version: Archive/LIVE_DDL__Kernel_v1__2026-01-04__v2.7__2026-03-06.sql
+--
+--   v2.7 (2026-03-06): T87 gap closure — design_spine column on qxb_artifact_project.
+--     - New column: qxb_artifact_project.design_spine (jsonb, nullable, no default)
+--     - Workflow + mutability registry already deployed in T87 (Check_Mutability_Rules v8)
+--     - Column was missing from DB while Gateway accepted the field (silently discarded)
+--     - Phase2C D20-D23 tests already cover design_spine lifecycle behavior
+--     - Migration: migrations/2026-03-06__design_spine_column__v1.sql
+--     - Previous version: Archive/LIVE_DDL__Kernel_v1__2026-01-04__v2.6__2026-03-06.sql
+--
+--   v2.6 (2026-03-03): T69 Semantic Type Registry + T70 Rollup VIEW.
+--     - T69: New table: qxb_semantic_type_registry (controlled vocabulary, 9 bootstrapped values)
+--       PK: semantic_type_id. UNIQUE on key. Self-ref FK (parent_id). FK to qxb_artifact (governance_snapshot_id).
+--       RLS enabled, 1 SELECT policy (authenticated). No write policies (service_role only).
+--     - T69: New table: qxb_semantic_type_audit (append-only classification change log)
+--       PK: id. FKs: artifact_id, old/new semantic_type_id. Index on (artifact_id, created_at DESC).
+--       RLS enabled, 1 SELECT policy (authenticated). Triggers block UPDATE/DELETE.
+--     - T69: New column: qxb_artifact.semantic_type_id (uuid, FK to registry, ON DELETE RESTRICT)
+--       Conditional NOT NULL CHECK: top-level types (project/snapshot/journal/restart) must NOT be NULL.
+--       Partial index: idx_qxb_artifact_semantic_type WHERE semantic_type_id IS NOT NULL.
+--     - T69: New function: update_semantic_type(uuid, uuid, text, uuid) — atomic semantic type
+--       update + audit insert. SECURITY DEFINER, SET search_path = public. Validates: artifact
+--       exists, is top-level, new type is active, reason non-empty. Increments version.
+--     - T70: New VIEW: qxb_artifact_rollup_view — completion percentage for project/branch/limb.
+--       Inherits RLS from qxb_artifact. T69 adds semantic_type_id to GROUP BY.
+--     - Previous version: Archive/LIVE_DDL__Kernel_v1__2026-01-04__v2.5__2026-03-04.sql
+--
+--   v2.5 (2026-03-01): T71 Dependency Enforcement — table + RPC function.
+--     - New table: qxb_artifact_dependency (many-to-many leaf-to-leaf dependencies)
+--       PK: dependency_id. FKs: artifact_id, depends_on_artifact_id -> qxb_artifact.
+--       Self-ref CHECK. RLS enabled, 3 policies (SELECT/INSERT member, DELETE owner/admin).
+--       No UPDATE policy — dependencies are immutable (create or delete only).
+--     - New function: check_leaf_dependencies(uuid, uuid) — RPC for Update workflow
+--       SECURITY DEFINER, SET search_path = public. Returns first incomplete dependency.
+--     - New indexes: idx_qxb_artifact_dependency_source, idx_qxb_artifact_dependency_target
+--     - DESIGN NOTE: Phase 2B design doc used source_artifact_id/target_artifact_id.
+--       Live table column names to be verified by Joel before deployment.
+--     - Previous version: Archive/LIVE_DDL__Kernel_v1__2026-01-04__v2.4__2026-03-01.sql
+--
 --   v2.4 (2026-02-20): Inline search_path hardening (C2).
 --     - Added SET search_path = public to all 3 DDL-defined functions:
 --       qxb_current_user_id(), qxb_block_update_delete(), qxb_set_updated_at()
@@ -93,6 +154,181 @@ BEGIN
 END;
 $$;
 
+-- T71: RPC function for dependency enforcement (Update sub-workflow)
+-- Returns first incomplete dependency for a leaf artifact.
+-- 0 rows = all deps complete (or no deps). 1 row = blocker (LIMIT 1).
+-- Called via POST /rest/v1/rpc/check_leaf_dependencies
+CREATE OR REPLACE FUNCTION public.check_leaf_dependencies(
+  p_artifact_id uuid,
+  p_workspace_id uuid
+)
+RETURNS TABLE (
+  depends_on_artifact_id uuid,
+  execution_status text
+)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT d.depends_on_artifact_id, a.execution_status
+  FROM public.qxb_artifact_dependency d
+  JOIN public.qxb_artifact a ON a.artifact_id = d.depends_on_artifact_id
+  WHERE d.artifact_id = p_artifact_id
+    AND d.workspace_id = p_workspace_id
+    AND (a.execution_status IS DISTINCT FROM 'complete')
+  LIMIT 1;
+$$;
+
+COMMENT ON FUNCTION public.check_leaf_dependencies(uuid, uuid) IS 'T71: Returns first incomplete dependency for a leaf artifact. 0 rows = all deps complete (or no deps). Used by Update sub-workflow to enforce leaf-to-leaf dependency rules before allowing execution_status = complete.';
+
+-- T69: Atomic semantic type update + audit insert
+-- Validates: artifact exists, is top-level, new type is active, reason non-empty.
+-- Increments version. Inserts audit row. Fail-closed.
+-- Called via POST /rest/v1/rpc/update_semantic_type
+CREATE OR REPLACE FUNCTION public.update_semantic_type(
+    p_artifact_id uuid,
+    p_new_semantic_type_id uuid,
+    p_reason text,
+    p_actor_id uuid DEFAULT NULL
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_artifact record;
+    v_old_semantic_type_id uuid;
+    v_registry_active boolean;
+    v_new_version integer;
+    v_top_level_types text[] := ARRAY['project', 'snapshot', 'journal', 'restart'];
+BEGIN
+    -- 1. Validate reason is non-empty
+    IF p_reason IS NULL OR length(trim(p_reason)) = 0 THEN
+        RETURN jsonb_build_object(
+            'ok', false,
+            'error', jsonb_build_object(
+                'code', 'VALIDATION_ERROR',
+                'message', 'reason is required and must be non-empty'
+            )
+        );
+    END IF;
+
+    -- 2. Fetch artifact (existence + type + current semantic_type_id)
+    SELECT artifact_id, artifact_type, semantic_type_id, owner_user_id
+    INTO v_artifact
+    FROM public.qxb_artifact
+    WHERE artifact_id = p_artifact_id
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object(
+            'ok', false,
+            'error', jsonb_build_object(
+                'code', 'NOT_FOUND',
+                'message', 'Artifact not found',
+                'details', jsonb_build_object('artifact_id', p_artifact_id)
+            )
+        );
+    END IF;
+
+    -- 3. Validate artifact is a top-level type
+    IF NOT (v_artifact.artifact_type = ANY(v_top_level_types)) THEN
+        RETURN jsonb_build_object(
+            'ok', false,
+            'error', jsonb_build_object(
+                'code', 'SEMANTIC_TYPE_NOT_APPLICABLE',
+                'message', 'semantic_type_id applies only to top-level artifact types',
+                'details', jsonb_build_object(
+                    'artifact_id', p_artifact_id,
+                    'artifact_type', v_artifact.artifact_type,
+                    'allowed_types', to_jsonb(v_top_level_types)
+                )
+            )
+        );
+    END IF;
+
+    -- 4. Validate new semantic type exists and is active
+    SELECT active INTO v_registry_active
+    FROM public.qxb_semantic_type_registry
+    WHERE semantic_type_id = p_new_semantic_type_id;
+
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object(
+            'ok', false,
+            'error', jsonb_build_object(
+                'code', 'INVALID_SEMANTIC_TYPE',
+                'message', 'semantic_type_id not found in registry',
+                'details', jsonb_build_object(
+                    'semantic_type_id', p_new_semantic_type_id
+                )
+            )
+        );
+    END IF;
+
+    IF NOT v_registry_active THEN
+        RETURN jsonb_build_object(
+            'ok', false,
+            'error', jsonb_build_object(
+                'code', 'SEMANTIC_TYPE_INACTIVE',
+                'message', 'Target semantic type is inactive in registry',
+                'details', jsonb_build_object(
+                    'semantic_type_id', p_new_semantic_type_id
+                )
+            )
+        );
+    END IF;
+
+    -- 5. Capture old value
+    v_old_semantic_type_id := v_artifact.semantic_type_id;
+
+    -- 6. No-op detection (same value = skip mutation)
+    IF v_old_semantic_type_id IS NOT DISTINCT FROM p_new_semantic_type_id THEN
+        RETURN jsonb_build_object(
+            'ok', true,
+            'noop', true,
+            'message', 'semantic_type_id unchanged'
+        );
+    END IF;
+
+    -- 7. ATOMIC: Update spine (semantic_type_id + version increment)
+    UPDATE public.qxb_artifact
+    SET semantic_type_id = p_new_semantic_type_id,
+        version = version + 1
+    WHERE artifact_id = p_artifact_id
+    RETURNING version INTO v_new_version;
+
+    -- 8. ATOMIC: Insert audit row (same transaction as step 7)
+    INSERT INTO public.qxb_semantic_type_audit (
+        artifact_id,
+        old_semantic_type_id,
+        new_semantic_type_id,
+        reason,
+        actor_id,
+        created_at
+    ) VALUES (
+        p_artifact_id,
+        v_old_semantic_type_id,
+        p_new_semantic_type_id,
+        trim(p_reason),
+        COALESCE(p_actor_id, v_artifact.owner_user_id),
+        now()
+    );
+
+    -- 9. Return success
+    RETURN jsonb_build_object(
+        'ok', true,
+        'artifact_id', p_artifact_id,
+        'old_semantic_type_id', v_old_semantic_type_id,
+        'new_semantic_type_id', p_new_semantic_type_id,
+        'version', v_new_version
+    );
+END;
+$$;
+
+COMMENT ON FUNCTION public.update_semantic_type(uuid, uuid, text, uuid) IS 'T69: Atomic semantic type update + audit. Validates: artifact exists, is top-level, new type is active, reason non-empty. Increments version. Inserts audit row. Fail-closed. Called via POST /rest/v1/rpc/update_semantic_type.';
+
+
 -- ============================================================================
 -- TABLE: qxb_user [VERIFIED]
 -- ============================================================================
@@ -145,6 +381,8 @@ COMMENT ON TABLE public.qxb_workspace_user IS 'Kernel v1 workspace membership ta
 -- [VERIFIED 2026-02-09] CHECK constraints confirmed from live DB.
 -- [UPDATED 2026-02-16] Phase 2 Completion: execution_status added, priority NOT NULL DEFAULT 3,
 --   artifact_type CHECK v6 (13 types), lifecycle_status CHECK, execution_status CHECK.
+-- [UPDATED 2026-03-06] T94: artifact_type CHECK v7 (14 types, twig added), twig lifecycle CHECK.
+-- [UPDATED 2026-03-03] T69: semantic_type_id column + conditional NOT NULL CHECK.
 -- NOTE: 'video' is NOT in the CHECK despite qxb_artifact_video table existing.
 
 CREATE TABLE public.qxb_artifact (
@@ -157,6 +395,7 @@ CREATE TABLE public.qxb_artifact (
     priority integer DEFAULT 3 NOT NULL,
     lifecycle_status text,
     execution_status text,
+    semantic_type_id uuid,
     tags jsonb,
     content jsonb,
     parent_artifact_id uuid,
@@ -164,10 +403,12 @@ CREATE TABLE public.qxb_artifact (
     deleted_at timestamptz,
     created_at timestamptz DEFAULT now() NOT NULL,
     updated_at timestamptz DEFAULT now() NOT NULL,
-    CONSTRAINT qxb_artifact_artifact_type_check_v6 CHECK ((artifact_type = ANY (ARRAY['project'::text, 'journal'::text, 'restart'::text, 'snapshot'::text, 'grass'::text, 'thorn'::text, 'forest'::text, 'thicket'::text, 'flower'::text, 'branch'::text, 'leaf'::text, 'instruction_pack'::text, 'limb'::text]))),
+    CONSTRAINT qxb_artifact_artifact_type_check_v7 CHECK ((artifact_type = ANY (ARRAY['project'::text, 'journal'::text, 'restart'::text, 'snapshot'::text, 'grass'::text, 'thorn'::text, 'forest'::text, 'thicket'::text, 'flower'::text, 'branch'::text, 'leaf'::text, 'instruction_pack'::text, 'limb'::text, 'twig'::text]))),
     CONSTRAINT qxb_artifact_priority_check CHECK (((priority >= 1) AND (priority <= 5))),
     CONSTRAINT qxb_artifact_lifecycle_status_check CHECK (((artifact_type <> 'project'::text) OR (lifecycle_status = ANY (ARRAY['seed'::text, 'sapling'::text, 'tree'::text, 'archive'::text])))),
-    CONSTRAINT qxb_artifact_execution_status_check CHECK ((execution_status IS NULL OR (execution_status = ANY (ARRAY['not_started'::text, 'in_progress'::text, 'blocked'::text, 'complete'::text]))))
+    CONSTRAINT qxb_artifact_execution_status_check CHECK ((execution_status IS NULL OR (execution_status = ANY (ARRAY['not_started'::text, 'in_progress'::text, 'blocked'::text, 'complete'::text])))),
+    CONSTRAINT qxb_artifact_twig_lifecycle_check CHECK (((artifact_type <> 'twig'::text) OR (lifecycle_status = ANY (ARRAY['proposed'::text, 'active'::text, 'promoted'::text, 'pruned'::text])))),
+    CONSTRAINT qxb_artifact_semantic_type_required_for_top_level CHECK (((artifact_type NOT IN ('project', 'snapshot', 'journal', 'restart')) OR (semantic_type_id IS NOT NULL)))
 );
 
 COMMENT ON TABLE public.qxb_artifact IS 'Kernel v1 canonical spine. All record types spawn from this table and extend via PK=FK class-table inheritance. RLS enabled; policies added later (deny-by-default).';
@@ -198,6 +439,7 @@ CREATE TABLE public.qxb_artifact_project (
     lifecycle_stage text NOT NULL,
     operational_state text DEFAULT 'active'::text NOT NULL,
     state_reason text,
+    design_spine jsonb,
     created_at timestamptz DEFAULT now() NOT NULL,
     updated_at timestamptz DEFAULT now() NOT NULL,
     CONSTRAINT qxb_artifact_project_lifecycle_stage_check CHECK ((lifecycle_stage = ANY (ARRAY['seed'::text, 'sapling'::text, 'tree'::text, 'archive'::text]))),
@@ -345,6 +587,28 @@ CREATE TABLE public.qxb_artifact_limb (
 COMMENT ON TABLE public.qxb_artifact_limb IS 'Limb type table extending qxb_artifact via PK=FK. Shell extension for class-table inheritance compliance. Execution state (execution_status, priority) tracked on spine. Phase 2 Completion (2026-02-16).';
 
 -- ============================================================================
+-- TABLE: qxb_artifact_dependency [2026-03-01] [T71 Dependency Enforcement]
+-- ============================================================================
+-- Many-to-many dependency table for leaf-to-leaf execution dependencies.
+-- artifact_id = the artifact that depends on another (source/dependent).
+-- depends_on_artifact_id = the artifact being depended upon (target/dependency).
+-- No UPDATE policy — dependencies are immutable (create or delete only).
+-- No updated_at column — append/delete only.
+-- DESIGN NOTE: Phase 2B DDL Reconciliation Audit used column names
+--   source_artifact_id / target_artifact_id. Verify live table matches.
+
+CREATE TABLE public.qxb_artifact_dependency (
+    dependency_id uuid NOT NULL DEFAULT gen_random_uuid(),
+    artifact_id uuid NOT NULL,
+    depends_on_artifact_id uuid NOT NULL,
+    workspace_id uuid NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT qxb_artifact_dependency_no_self_ref CHECK (artifact_id != depends_on_artifact_id)
+);
+
+COMMENT ON TABLE public.qxb_artifact_dependency IS 'Many-to-many dependency table for leaf-to-leaf execution dependencies. artifact_id depends on depends_on_artifact_id. No UPDATE policies — dependencies are immutable (create or delete only). T71 enforcement (2026-03-01).';
+
+-- ============================================================================
 -- TABLE: qxb_artifact_type_registry [LIVE-ONLY] [RLS VERIFIED 2026-02-11]
 -- ============================================================================
 -- Reconstructed from PostgREST OpenAPI on 2026-02-09.
@@ -398,6 +662,81 @@ CREATE TABLE public.qxb_gateway_acl (
 
 COMMENT ON TABLE public.qxb_gateway_acl IS 'Gateway ACL table. Maps principal_name x workspace_id for multi-forest access control.';
 
+-- ============================================================================
+-- TABLE: qxb_semantic_type_registry [2026-03-03] [T69 Semantic Type Registry]
+-- ============================================================================
+-- Controlled vocabulary for artifact semantic classification.
+-- key is UNIQUE and immutable after creation. Deactivate via active=false.
+-- governance_snapshot_id: required for post-bootstrap additions (procedural).
+-- parent_id: structural reservation for future hierarchy (nullable).
+-- Bootstrapped with 9 values. No write policies (service_role only).
+
+CREATE TABLE public.qxb_semantic_type_registry (
+    semantic_type_id uuid DEFAULT gen_random_uuid() NOT NULL,
+    key text NOT NULL,
+    description text NOT NULL,
+    active boolean DEFAULT true NOT NULL,
+    parent_id uuid,
+    governance_snapshot_id uuid,
+    created_at timestamptz DEFAULT now() NOT NULL,
+    created_by text DEFAULT 'service_role'::text NOT NULL
+);
+
+COMMENT ON TABLE public.qxb_semantic_type_registry IS 'T69: Controlled vocabulary for artifact semantic classification. Sole source of truth. key is UNIQUE and immutable after creation. Deactivate via active=false, never delete. governance_snapshot_id required for post-bootstrap additions (procedural enforcement).';
+
+-- ============================================================================
+-- TABLE: qxb_semantic_type_audit [2026-03-03] [T69 Semantic Type Registry]
+-- ============================================================================
+-- Append-only audit log for semantic_type_id changes.
+-- Triggers block UPDATE/DELETE. All writes go through update_semantic_type() RPC.
+
+CREATE TABLE public.qxb_semantic_type_audit (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    artifact_id uuid NOT NULL,
+    old_semantic_type_id uuid,
+    new_semantic_type_id uuid NOT NULL,
+    reason text NOT NULL,
+    actor_id uuid NOT NULL,
+    created_at timestamptz DEFAULT now() NOT NULL
+);
+
+COMMENT ON TABLE public.qxb_semantic_type_audit IS 'T69: Append-only audit log for semantic_type_id changes on qxb_artifact. Triggers block UPDATE/DELETE. Writes exclusively via update_semantic_type() RPC (SECURITY DEFINER).';
+
+-- ============================================================================
+-- VIEW: qxb_artifact_rollup_view [2026-03-01 T70, updated 2026-03-03 T69]
+-- ============================================================================
+-- Completion percentage for rollup-eligible artifact types (project, branch, limb).
+-- Denominator: all non-deleted children. Numerator: children with execution_status = 'complete'.
+-- 0 children → completion_ratio = NULL. Direct parent-child only (no recursive CTE).
+-- VIEW uses security_invoker=true -- runs with caller RLS, not creator.
+-- T69 adds semantic_type_id to SELECT/GROUP BY.
+
+CREATE VIEW public.qxb_artifact_rollup_view
+WITH (security_invoker = true)
+AS
+SELECT
+    p.artifact_id,
+    p.artifact_type,
+    p.workspace_id,
+    p.semantic_type_id,
+    COUNT(c.artifact_id)
+        AS total_active_children_count,
+    COUNT(c.artifact_id) FILTER (WHERE c.execution_status = 'complete')
+        AS completed_children_count,
+    CASE
+        WHEN COUNT(c.artifact_id) = 0 THEN NULL
+        ELSE (COUNT(c.artifact_id) FILTER (WHERE c.execution_status = 'complete'))::numeric
+             / COUNT(c.artifact_id)::numeric
+    END AS completion_ratio
+FROM public.qxb_artifact p
+LEFT JOIN public.qxb_artifact c
+    ON c.parent_artifact_id = p.artifact_id
+    AND c.deleted_at IS NULL
+    AND c.workspace_id = p.workspace_id
+WHERE p.artifact_type IN ('project', 'branch', 'limb')
+    AND p.deleted_at IS NULL
+GROUP BY p.artifact_id, p.artifact_type, p.workspace_id, p.semantic_type_id;
+
 
 -- ============================================================================
 -- PRIMARY KEYS
@@ -448,6 +787,10 @@ ALTER TABLE ONLY public.qxb_artifact_instruction_pack
 ALTER TABLE ONLY public.qxb_artifact_limb
     ADD CONSTRAINT qxb_artifact_limb_pkey PRIMARY KEY (artifact_id);
 
+-- [2026-03-01] T71 Dependency Enforcement
+ALTER TABLE ONLY public.qxb_artifact_dependency
+    ADD CONSTRAINT qxb_artifact_dependency_pkey PRIMARY KEY (dependency_id);
+
 ALTER TABLE ONLY public.qxb_artifact_type_registry
     ADD CONSTRAINT qxb_artifact_type_registry_pkey PRIMARY KEY (artifact_type);
 
@@ -456,6 +799,13 @@ ALTER TABLE ONLY public.qxb_artifact_type_registry_audit
 
 ALTER TABLE ONLY public.qxb_gateway_acl
     ADD CONSTRAINT qxb_gateway_acl_pkey PRIMARY KEY (acl_id);
+
+-- [2026-03-03] T69 Semantic Type Registry
+ALTER TABLE ONLY public.qxb_semantic_type_registry
+    ADD CONSTRAINT qxb_semantic_type_registry_pkey PRIMARY KEY (semantic_type_id);
+
+ALTER TABLE ONLY public.qxb_semantic_type_audit
+    ADD CONSTRAINT qxb_semantic_type_audit_pkey PRIMARY KEY (id);
 
 
 -- ============================================================================
@@ -472,6 +822,10 @@ ALTER TABLE ONLY public.qxb_workspace_user
 ALTER TABLE ONLY public.qxb_artifact_video
     ADD CONSTRAINT qxb_artifact_video_idempotency_key_key UNIQUE (idempotency_key);
 
+-- [2026-03-03] T69 Semantic Type Registry
+ALTER TABLE ONLY public.qxb_semantic_type_registry
+    ADD CONSTRAINT qxb_semantic_type_registry_key_unique UNIQUE (key);
+
 
 -- ============================================================================
 -- INDEXES
@@ -487,6 +841,14 @@ CREATE INDEX qxb_artifact_thorn_status_detected_idx ON public.qxb_artifact_thorn
 CREATE UNIQUE INDEX uq_qxb_artifact_forest_title_active ON public.qxb_artifact USING btree (workspace_id, lower(title)) WHERE ((artifact_type = 'forest'::text) AND (deleted_at IS NULL));
 
 CREATE UNIQUE INDEX uq_qxb_artifact_thicket_title_per_forest_active ON public.qxb_artifact USING btree (workspace_id, parent_artifact_id, lower(title)) WHERE ((artifact_type = 'thicket'::text) AND (deleted_at IS NULL));
+
+-- [2026-03-01] T71 Dependency Enforcement
+CREATE INDEX idx_qxb_artifact_dependency_source ON public.qxb_artifact_dependency (artifact_id);
+CREATE INDEX idx_qxb_artifact_dependency_target ON public.qxb_artifact_dependency (depends_on_artifact_id);
+
+-- [2026-03-03] T69 Semantic Type Registry
+CREATE INDEX idx_qxb_artifact_semantic_type ON public.qxb_artifact USING btree (semantic_type_id) WHERE semantic_type_id IS NOT NULL;
+CREATE INDEX idx_qxb_semantic_type_audit_artifact ON public.qxb_semantic_type_audit USING btree (artifact_id, created_at DESC);
 
 -- [NEEDS VERIFICATION] New tables may have additional indexes not exposed by OpenAPI
 
@@ -559,6 +921,49 @@ ALTER TABLE ONLY public.qxb_artifact_limb
 ALTER TABLE ONLY public.qxb_gateway_acl
     ADD CONSTRAINT qxb_gateway_acl_workspace_fk FOREIGN KEY (workspace_id) REFERENCES public.qxb_workspace(workspace_id);
 
+-- [2026-03-01] T71 Dependency Enforcement
+ALTER TABLE ONLY public.qxb_artifact_dependency
+    ADD CONSTRAINT qxb_artifact_dependency_source_fk FOREIGN KEY (artifact_id) REFERENCES public.qxb_artifact(artifact_id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.qxb_artifact_dependency
+    ADD CONSTRAINT qxb_artifact_dependency_target_fk FOREIGN KEY (depends_on_artifact_id) REFERENCES public.qxb_artifact(artifact_id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.qxb_artifact_dependency
+    ADD CONSTRAINT qxb_artifact_dependency_workspace_fk FOREIGN KEY (workspace_id) REFERENCES public.qxb_workspace(workspace_id);
+
+-- [2026-03-03] T69 Semantic Type Registry
+
+-- qxb_artifact → qxb_semantic_type_registry
+ALTER TABLE ONLY public.qxb_artifact
+    ADD CONSTRAINT qxb_artifact_semantic_type_fk
+    FOREIGN KEY (semantic_type_id) REFERENCES public.qxb_semantic_type_registry(semantic_type_id)
+    ON DELETE RESTRICT;
+
+-- qxb_semantic_type_registry self-referential FK (parent hierarchy)
+ALTER TABLE ONLY public.qxb_semantic_type_registry
+    ADD CONSTRAINT qxb_semantic_type_registry_parent_fk
+    FOREIGN KEY (parent_id) REFERENCES public.qxb_semantic_type_registry(semantic_type_id);
+
+-- qxb_semantic_type_registry → qxb_artifact (governance snapshot)
+ALTER TABLE ONLY public.qxb_semantic_type_registry
+    ADD CONSTRAINT qxb_semantic_type_registry_snapshot_fk
+    FOREIGN KEY (governance_snapshot_id) REFERENCES public.qxb_artifact(artifact_id);
+
+-- qxb_semantic_type_audit FKs
+ALTER TABLE ONLY public.qxb_semantic_type_audit
+    ADD CONSTRAINT qxb_semantic_type_audit_artifact_fk
+    FOREIGN KEY (artifact_id) REFERENCES public.qxb_artifact(artifact_id);
+
+ALTER TABLE ONLY public.qxb_semantic_type_audit
+    ADD CONSTRAINT qxb_semantic_type_audit_old_type_fk
+    FOREIGN KEY (old_semantic_type_id) REFERENCES public.qxb_semantic_type_registry(semantic_type_id)
+    ON DELETE RESTRICT;
+
+ALTER TABLE ONLY public.qxb_semantic_type_audit
+    ADD CONSTRAINT qxb_semantic_type_audit_new_type_fk
+    FOREIGN KEY (new_semantic_type_id) REFERENCES public.qxb_semantic_type_registry(semantic_type_id)
+    ON DELETE RESTRICT;
+
 
 -- ============================================================================
 -- TRIGGERS
@@ -582,6 +987,10 @@ CREATE TRIGGER qxb_workspace_user_set_updated_at BEFORE UPDATE ON public.qxb_wor
 
 -- [2026-02-16] Phase 2 Completion
 CREATE TRIGGER qxb_artifact_limb_set_updated_at BEFORE UPDATE ON public.qxb_artifact_limb FOR EACH ROW EXECUTE FUNCTION public.qxb_set_updated_at();
+
+-- [2026-03-03] T69 — Append-only protection on semantic type audit
+CREATE TRIGGER qxb_semantic_type_audit_block_update BEFORE UPDATE ON public.qxb_semantic_type_audit FOR EACH ROW EXECUTE FUNCTION public.qxb_block_update_delete();
+CREATE TRIGGER qxb_semantic_type_audit_block_delete BEFORE DELETE ON public.qxb_semantic_type_audit FOR EACH ROW EXECUTE FUNCTION public.qxb_block_update_delete();
 
 
 -- ============================================================================
@@ -608,6 +1017,11 @@ ALTER TABLE public.qxb_artifact_limb ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.qxb_artifact_type_registry ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.qxb_artifact_type_registry_audit ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.qxb_gateway_acl ENABLE ROW LEVEL SECURITY;
+-- [2026-03-01] T71 Dependency Enforcement
+ALTER TABLE public.qxb_artifact_dependency ENABLE ROW LEVEL SECURITY;
+-- [2026-03-03] T69 Semantic Type Registry
+ALTER TABLE public.qxb_semantic_type_registry ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.qxb_semantic_type_audit ENABLE ROW LEVEL SECURITY;
 
 
 -- ============================================================================
@@ -615,18 +1029,18 @@ ALTER TABLE public.qxb_gateway_acl ENABLE ROW LEVEL SECURITY;
 -- ============================================================================
 
 -- qxb_user: self-only access
-CREATE POLICY qxb_user_select_self ON public.qxb_user FOR SELECT TO authenticated USING ((auth_user_id = auth.uid()));
-CREATE POLICY qxb_user_update_self ON public.qxb_user FOR UPDATE TO authenticated USING ((auth_user_id = auth.uid())) WITH CHECK ((auth_user_id = auth.uid()));
+CREATE POLICY qxb_user_select_self ON public.qxb_user FOR SELECT TO authenticated USING ((auth_user_id = (select auth.uid())));
+CREATE POLICY qxb_user_update_self ON public.qxb_user FOR UPDATE TO authenticated USING ((auth_user_id = (select auth.uid()))) WITH CHECK ((auth_user_id = (select auth.uid())));
 
 -- qxb_workspace: member access via auth
 CREATE POLICY qxb_workspace_select_via_auth_membership ON public.qxb_workspace FOR SELECT TO authenticated USING ((EXISTS (
   SELECT 1 FROM (public.qxb_workspace_user wsu JOIN public.qxb_user u ON ((u.user_id = wsu.user_id)))
-  WHERE ((wsu.workspace_id = qxb_workspace.workspace_id) AND (u.auth_user_id = auth.uid()))
+  WHERE ((wsu.workspace_id = qxb_workspace.workspace_id) AND (u.auth_user_id = (select auth.uid())))
 )));
 
 -- qxb_workspace_user: self-only select via auth
 CREATE POLICY qxb_workspace_user_select_via_auth ON public.qxb_workspace_user FOR SELECT TO authenticated USING ((EXISTS (
-  SELECT 1 FROM public.qxb_user u WHERE ((u.user_id = qxb_workspace_user.user_id) AND (u.auth_user_id = auth.uid()))
+  SELECT 1 FROM public.qxb_user u WHERE ((u.user_id = qxb_workspace_user.user_id) AND (u.auth_user_id = (select auth.uid())))
 )));
 
 -- qxb_artifact: workspace member SELECT (journals = owner-only)
@@ -710,6 +1124,51 @@ CREATE POLICY qxb_artifact_instruction_pack_update_owner_or_admin ON public.qxb_
 
 -- qxb_artifact_type_registry: RLS enabled (not flagged by linter). Policies: [NEEDS VERIFICATION] (T27)
 -- qxb_artifact_type_registry_audit: RLS enabled (not flagged by linter). Policies: [NEEDS VERIFICATION] (T27)
+
+
+-- ============================================================================
+-- RLS POLICIES [2026-03-03] — T69 Semantic Type Registry
+-- ============================================================================
+-- Both tables: read-only for authenticated users. No write policies (service_role only).
+-- Writes to audit exclusively via update_semantic_type() RPC (SECURITY DEFINER bypasses RLS).
+
+-- qxb_semantic_type_registry: SELECT for authenticated (vocabulary is public)
+CREATE POLICY qxb_semantic_type_registry_select_authenticated
+    ON public.qxb_semantic_type_registry
+    FOR SELECT TO authenticated
+    USING (true);
+
+-- qxb_semantic_type_audit: SELECT for authenticated (audit trail is readable)
+CREATE POLICY qxb_semantic_type_audit_select_authenticated
+    ON public.qxb_semantic_type_audit
+    FOR SELECT TO authenticated
+    USING (true);
+
+
+-- ============================================================================
+-- RLS POLICIES [2026-03-01] — T71 Dependency Enforcement
+-- ============================================================================
+-- Dependencies use workspace membership (not spine delegation).
+-- No UPDATE policy — dependencies are immutable (create or delete only).
+
+-- qxb_artifact_dependency: SELECT via workspace membership
+CREATE POLICY qxb_artifact_dependency_select_member ON public.qxb_artifact_dependency FOR SELECT TO authenticated
+  USING ((EXISTS (SELECT 1 FROM public.qxb_workspace_user wsu
+    WHERE ((wsu.workspace_id = qxb_artifact_dependency.workspace_id)
+    AND (wsu.user_id = public.qxb_current_user_id())))));
+
+-- qxb_artifact_dependency: INSERT via workspace membership
+CREATE POLICY qxb_artifact_dependency_insert_member ON public.qxb_artifact_dependency FOR INSERT TO authenticated
+  WITH CHECK ((EXISTS (SELECT 1 FROM public.qxb_workspace_user wsu
+    WHERE ((wsu.workspace_id = qxb_artifact_dependency.workspace_id)
+    AND (wsu.user_id = public.qxb_current_user_id())))));
+
+-- qxb_artifact_dependency: DELETE via owner/admin only
+CREATE POLICY qxb_artifact_dependency_delete_owner_or_admin ON public.qxb_artifact_dependency FOR DELETE TO authenticated
+  USING ((EXISTS (SELECT 1 FROM public.qxb_workspace_user wsu
+    WHERE ((wsu.workspace_id = qxb_artifact_dependency.workspace_id)
+    AND (wsu.user_id = public.qxb_current_user_id())
+    AND (wsu.role = ANY (ARRAY['owner'::text, 'admin'::text]))))));
 
 
 -- ============================================================================

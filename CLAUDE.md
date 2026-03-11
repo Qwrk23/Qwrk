@@ -11,7 +11,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-> **Last verified against live system:** 2026-02-20 · **Gateway:** v56 · **DDL:** v2.3 · **Last reconciliation:** 2026-02-20
+> **Last verified against live system:** 2026-03-06 · **Gateway:** v59 · **DDL:** v2.7 · **Last reconciliation:** 2026-03-06
 
 ## Instruction File Drift Rule
 
@@ -36,9 +36,9 @@ No architectural or governance edits may be made during drift reconciliation. Th
 - Project ref: `npymhacpmxdnkqdzgxll`
 - Authentication: Supabase Auth integrated with custom user mapping
 
-**Gateway Layer: n8n Workflows (v55)**
+**Gateway Layer: n8n Workflows (v58)**
 - Workflow: `NQxb_Gateway_v1` handles all artifact operations
-- Implements: `artifact.save`, `artifact.query`, `artifact.list`, `artifact.update`, `artifact.promote`
+- Implements: `artifact.save`, `artifact.query`, `artifact.list`, `artifact.update`, `artifact.promote`, `artifact.delete`, `artifact.restore`, `artifact.list_deleted`
 
 ### Database Schema Architecture
 
@@ -63,7 +63,7 @@ No architectural or governance edits may be made during drift reconciliation. Th
 4. `qxb_artifact` (spine)
 5. Type tables + event log
 
-**Artifact Types (CHECK v6 — 13 types):**
+**Artifact Types (CHECK v7 — 14 types):**
 - `project` - lifecycle_stage: seed → sapling → tree → archive
 - `journal` - owner-private reflective entries (RLS: owner-only)
 - `snapshot` - immutable lifecycle snapshots
@@ -75,6 +75,7 @@ No architectural or governance edits may be made during drift reconciliation. Th
 - `limb` - execution anatomy (North Star v0.4, Phase 2)
 - `instruction_pack` - instruction pack storage
 - `forest`, `thicket`, `flower` - in CHECK constraint; no extension tables
+- `twig` - experimental micro-initiative (T94, pilot: Mother Tree)
 
 ### Row Level Security (RLS) Model
 
@@ -154,6 +155,41 @@ When updating ANY sub-workflow called by Gateway (Save, Query, List, Update, Pro
 
 **Forgetting step 3 means the Gateway still calls the old version — fix will appear to have no effect!**
 
+### Phase 2C — Certification Harness (Gateway Contract Protection)
+
+**Purpose:**
+Black-box regression harness validating Gateway + Save + Update + Promote contract surfaces.
+
+**Harness Location:**
+`Phase2C_Cert/Run-Phase2C-Cert.ps1`
+
+**Scope:**
+- Gateway boundary behavior
+- Save normalization logic
+- Update mutation determinism
+- Promote lifecycle enforcement
+- Immutability enforcement
+- Error contract stability
+
+**PASS Standard:**
+- 100% tests passing
+- 0 systemic failures
+- 0 nondeterministic behavior
+- 0 contract drift
+
+**When To Run (Current Phase — Qwrk Prime):**
+Run after any change to:
+- Gateway
+- Save
+- Update
+- Promote
+- Registry / lifecycle logic
+
+Mandatory gating is deferred until QBeta Dev/Prod environment is stood up.
+
+**Future State (QBeta Launch):**
+Certification becomes a required deployment gate prior to promotion from Dev → Prod.
+
 ## Schema Truth Policy — DDL-as-Truth
 
 **Effective Date:** 2026-01-04
@@ -210,7 +246,7 @@ Before writing ANY SQL:
 
 ### Supporting Documentation
 
-- **Human-readable reference:** `docs/schema/Schema_Reference__Kernel_v1__v2.3.md`
+- **Human-readable reference:** `docs/schema/Schema_Reference__Kernel_v1__v2.9.md`
 - **SQL templates:** `docs/sql_templates/Kernel_v1__NoFail_Inserts__v1.md`
 - **Historical schemas:** `docs/schema/AAA_New_Qwrk__Schema__*.sql` (reference only)
 
@@ -231,7 +267,7 @@ Violating DDL-as-Truth results in:
 
 This applies to:
 - Changes to `docs/schema/LIVE_DDL__Kernel_v1__2026-01-04.sql` (DDL source)
-- Must be accompanied by update to `docs/schema/Schema_Reference__Kernel_v1__v2.3.md` (or successor)
+- Must be accompanied by update to `docs/schema/Schema_Reference__Kernel_v1__v2.9.md` (or successor)
 
 Rationale: Schema Reference v1.2 drifted from DDL for 7 weeks (2026-01-04 to 2026-02-20), accumulating 13 discrepancies. Co-committing prevents recurrence.
 
@@ -257,8 +293,8 @@ See `docs/schema/AAA_New_Qwrk__Execution_Order__Kernel_v1__v1.0__2025-12-30.md`
 
 ## Known-Good State (KGB)
 
-**Current MVP Status (Gateway v55):**
-- All 5 Gateway actions operational: save, query, list, update, promote
+**Current MVP Status (Gateway v58):**
+- All 8 Gateway actions operational: save, query, list, update, promote, delete, restore, list_deleted
 - Spine-first architecture validated
 - Type mismatch guards in place
 
@@ -313,11 +349,19 @@ When user's **first message** contains any of these phrases (or close variations
    - Last session summary (from `LATEST_END_SESSION.md`)
    - Any blockers or carry-over reminders
 3. **Ask for session intent** — Offer options derived from open threads
-4. **Rolling Memory Sync Check** — Compare `for-q` tagged artifacts against current rolling file
+4. **Rolling Memory Sync Check** — Compare `for-q` tagged artifacts against current rolling files for **each active workspace**:
+
+   **Prime (Qwrk Personal — `be0d3a48-...`):**
    - Read latest `Qwrk_RollingMem/Qwrk_Rolling_Memory__for-q__*.md` (by date)
-   - Query Supabase for artifacts tagged `for-q` with valid `for_q_*` fields
+   - Query Supabase for artifacts tagged `for-q` in workspace `be0d3a48-...`
    - If new artifacts exist not in rolling file: report delta, offer to regenerate
-   - If Gateway unavailable: skip silently (non-blocking)
+
+   **Q@W (Work / Resolve — `635bb8d7-...`):**
+   - Read latest `Multi-User Qwrk/03_ChatGPT_Projects/Qwrk@Wrk/Q@W Rolling Mem/Qwrk_Rolling_Memory__for-q-work__*.md` (by date)
+   - Query Supabase for artifacts tagged `for-q` in workspace `635bb8d7-...`
+   - If new artifacts exist not in rolling file: report delta, offer to regenerate
+
+   If Gateway/MCP unavailable: skip silently (non-blocking)
 5. **for-cc Work Queue Sweep** — Process artifacts tagged `for-cc` as pre-execution work queue items
 
    **Protocol:**
@@ -414,19 +458,27 @@ See `phase1.5-chat-gateway/Chat Project Files/CONVERSATION_RESTART_PROTOCOL.md` 
 
 **Trigger:** Session start (after reading OPEN_THREADS.md, step 6 above)
 
-**Process:**
+**Process (run for each active workspace):**
+
+**Prime (Qwrk Personal — `be0d3a48-...`):**
 1. Find latest rolling file: `Qwrk_RollingMem/Qwrk_Rolling_Memory__for-q__*.md`
 2. Extract artifact_ids from Section B entries
-3. Query Supabase: `SELECT artifact_id FROM qxb_artifact WHERE tags ? 'for-q'`
+3. Query Supabase: `SELECT artifact_id FROM qxb_artifact WHERE tags ? 'for-q' AND workspace_id = 'be0d3a48-c764-44f9-90c8-e846d9dbbd0a'`
 4. Compare: identify new artifacts not in rolling file
-5. If delta exists:
-   - Report: "Found X new for-q artifacts not in rolling memory"
-   - Offer: "Regenerate rolling file now?"
+5. If delta exists: report and offer to regenerate
 6. If no delta: proceed silently
 
-**Non-blocking:** If Gateway returns 403/error, log warning and continue session.
+**Q@W (Work / Resolve — `635bb8d7-...`):**
+1. Find latest rolling file: `Multi-User Qwrk/03_ChatGPT_Projects/Qwrk@Wrk/Q@W Rolling Mem/Qwrk_Rolling_Memory__for-q-work__*.md`
+2. Extract artifact_ids from Section B entries
+3. Query Supabase: `SELECT artifact_id FROM qxb_artifact WHERE tags ? 'for-q' AND workspace_id = '635bb8d7-7b93-4bea-8ca6-ee2c924c9557'`
+4. Compare: identify new artifacts not in rolling file
+5. If delta exists: report and offer to regenerate
+6. If no delta: proceed silently
 
-**Manual override:** User can always request `regenerate for-q rolling file` mid-session.
+**Non-blocking:** If MCP/Gateway returns error, log warning and continue session.
+
+**Manual override:** User can always request `regenerate for-q rolling file` mid-session (specify workspace if needed).
 
 ### Tier A Memory Compaction Protocol
 
@@ -579,6 +631,60 @@ Snapshot payload may be minimal but must be complete.
 - No mutation of Tier B or registry-only memory
 - No automatic ceiling raises
 
+## Artifact Registry Discipline (Operational Index)
+
+The artifact registry is a manual operational mirror of `qxb_artifact` in Supabase. It reduces artifact lookup friction by providing a local CSV index.
+
+The registry is an index convenience layer and is NOT a system-of-record.
+
+- Refreshed only via explicit **`Registry refresh`** command
+- NOT auto-checked at session start
+- NOT auto-offered at session end
+- NOT Tier A memory
+- Does not influence runtime behavior or governance
+
+**On `Registry refresh`:**
+
+Run for **each active workspace**:
+
+1. Execute the canonical SQL (below) via MCP for each workspace
+2. CC generates CSV from query results
+3. Save to workspace-specific location:
+   - **Prime:** `Qwrk_RollingMem/artifact_registry__YYYY-MM-DD.csv`
+   - **Q@W:** `Multi-User Qwrk/03_ChatGPT_Projects/Qwrk@Wrk/Q@W Rolling Mem/artifact_registry__qw__YYYY-MM-DD.csv`
+4. Confirm row count and filename for each
+5. Previous dated files are retained — do NOT overwrite or delete
+
+**Canonical SQL (parameterize workspace_id):**
+
+```sql
+SELECT
+    a.artifact_id::text,
+    a.artifact_type,
+    a.title,
+    a.priority,
+    a.lifecycle_status,
+    a.execution_status,
+    a.semantic_type_id::text,
+    st.key AS semantic_type,
+    COALESCE(a.tags::text, '[]') AS tags,
+    a.parent_artifact_id::text,
+    a.created_at,
+    a.updated_at
+FROM public.qxb_artifact a
+LEFT JOIN public.qxb_semantic_type_registry st
+  ON st.semantic_type_id = a.semantic_type_id
+WHERE a.workspace_id = '<WORKSPACE_ID>'
+  AND a.deleted_at IS NULL
+ORDER BY a.created_at ASC;
+```
+
+**Workspace IDs:**
+- Prime: `be0d3a48-c764-44f9-90c8-e846d9dbbd0a`
+- Q@W: `635bb8d7-7b93-4bea-8ca6-ee2c924c9557`
+
+This SQL must not drift unless DDL schema changes require it.
+
 ## Important Constraints
 
 **Immutability Rules:**
@@ -607,7 +713,7 @@ Snapshot payload may be minimal but must be complete.
 ### 1) Binding Truth Hierarchy (must obey; never contradict)
 
 1. Behavioral Controls — Governing Constitution
-2. Qwrk V2 — North Star (v0.4)
+2. Qwrk V2 — North Star (v1.0)
 3. Kernel v1 Snapshots (Pre/Post KGB)
 4. Phase 1–3 Locks (Kernel semantics, type schemas, Gateway contract)
 5. Known-Good n8n Workflow Snapshots / KGB results
@@ -925,6 +1031,72 @@ Merge order must never be reversed.
 ---
 
 ## CHANGELOG - CLAUDE.md Updates
+
+### v22 - 2026-03-09
+**What changed:** Multi-workspace support for Rolling Memory Sync, Registry Refresh, and CmdCtr briefing
+
+**Why:**
+- Q@W (Work / Resolve) workspace now has its own rolling memory and registry files
+- Session start must sync for-q artifacts across both Prime and Q@W workspaces
+- Registry refresh must generate CSV for both workspaces to their respective folders
+- CmdCtr briefing is now workspace-parameterized (Block 0 of Q@W Feature Parity Sprint)
+
+**Scope of impact:**
+- Step 4 (Rolling Memory Sync Check): now covers Prime + Q@W with workspace-specific paths
+- Rolling Memory Sync Protocol: duplicated process for each workspace with explicit workspace_id filters
+- Artifact Registry Discipline: parameterized SQL, dual save paths (Prime → `Qwrk_RollingMem/`, Q@W → `Qwrk@Wrk/Q@W Rolling Mem/`)
+- No existing governance rules changed — additive only
+
+**How to validate:**
+- On "new session", CC syncs rolling memory for both workspaces
+- On "Registry refresh", CC generates CSV for both workspaces
+- Rolling memory paths: Prime in `Qwrk_RollingMem/`, Q@W in `Multi-User Qwrk/03_ChatGPT_Projects/Qwrk@Wrk/Q@W Rolling Mem/`
+
+**Previous version:** `Archive/CLAUDE__v21__2026-03-09.md`
+
+### v21 - 2026-02-22
+**What changed:** Added Phase 2C Certification Harness subsection under Workflow Deployment Checklist
+
+**Why:**
+- Phase 2C black-box certification harness (26 tests) was built and executed successfully (26/26 PASS)
+- Need governance documentation linking the harness to the deployment lifecycle
+- Harness validates Gateway + Save + Update + Promote contract surfaces via live endpoint testing
+- Mandatory gating deferred to QBeta; current phase is advisory post-deployment
+
+**Scope of impact:**
+- New subsection "Phase 2C — Certification Harness (Gateway Contract Protection)" under n8n Gateway Workflow Rules
+- Inserted after Workflow Deployment Checklist, before Schema Truth Policy
+- Documentation only — no workflow, schema, or runtime changes
+
+**How to validate:**
+- Subsection appears under n8n Gateway Workflow Rules after the 6-step deployment checklist
+- Harness path references `Phase2C_Cert/Run-Phase2C-Cert.ps1`
+- PASS standard and trigger conditions documented
+- Future state (QBeta gating) documented as deferred
+
+**Previous version:** `Archive/CLAUDE__v20__2026-02-22.md`
+
+### v20 - 2026-02-22
+**What changed:** Added Artifact Registry Discipline section (operational index)
+
+**Why:**
+- Introduced explicit command to refresh local CSV mirror of qxb_artifact spine
+- Intentionally lean model — no session hooks, no automation, no staleness checks
+- Registry is operational index only and not a governance surface or system-of-record
+
+**Scope of impact:**
+- New section "Artifact Registry Discipline (Operational Index)" before Important Constraints
+- New command trigger: `Registry refresh`
+- No session lifecycle changes
+- No rolling memory changes
+- No workflow changes
+
+**How to validate:**
+- Say "Registry refresh" — CC outputs SQL and save instructions
+- CC does NOT check registry at session start
+- CC does NOT offer registry refresh at session end
+
+**Previous version:** `Archive/CLAUDE__v19__2026-02-18.md`
 
 ### v19 - 2026-02-18
 **What changed:** Added Section 10: Parallel Mutation Guardrail
