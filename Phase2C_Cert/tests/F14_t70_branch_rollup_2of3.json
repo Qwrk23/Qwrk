@@ -1,0 +1,19 @@
+{
+  "name": "F14 — T70 Branch rollup (2/3 complete)",
+  "expected": {
+    "ok": true,
+    "error_code": null,
+    "rollup_present": true,
+    "total_active_children_count": 3,
+    "completed_children_count": 2,
+    "completion_ratio": 0.667
+  },
+  "notes": "After updating Leaf 2 to complete, branch now has 2/3 complete leaves.",
+  "payload": {
+    "gw_action": "artifact.query",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "branch",
+    "artifact_id": "{{T70_BRANCH_ID}}",
+    "selector": { "rollup": true }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "H13 - T87 Query project to verify spine updates persisted",
+  "expected": {
+    "ok": true,
+    "error_code": null
+  },
+  "payload": {
+    "gw_action": "artifact.query",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "project",
+    "artifact_id": "{{H_PROJECT_ID}}",
+    "hydrate": true
+  }
+}

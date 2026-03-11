@@ -1,0 +1,14 @@
+{
+  "name": "F07 — T70 Create Branch (child of project)",
+  "expected": { "ok": true, "error_code": null },
+  "capture": { "T70_BRANCH_ID": "artifact_id" },
+  "payload": {
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "branch",
+    "title": "[T70-CERT] Branch 1",
+    "parent_artifact_id": "{{T70_PROJECT_ID}}",
+    "execution_status": "not_started",
+    "tags": ["t70-cert"]
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "H02 - T87 Spine-only update (summary)",
+  "expected": {
+    "ok": true,
+    "error_code": null
+  },
+  "payload": {
+    "gw_action": "artifact.update",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "project",
+    "artifact_id": "{{H_PROJECT_ID}}",
+    "summary": "T87 spine-only summary update verified"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "E01 — Limb INSERT (Phase 2 Walk Type)",
+  "expected": { "ok": true, "error_code": null },
+  "capture": { "LIMB_ID": "artifact_id" },
+  "payload": {
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "limb",
+    "title": "[P2-CERT] Limb Insert Test",
+    "tags": ["p2-cert", "limb-test"],
+    "extension": {}
+  }
+}

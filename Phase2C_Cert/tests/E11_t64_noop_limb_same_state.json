@@ -1,0 +1,11 @@
+{
+  "name": "E11 — D09 Limb in_progress to in_progress (NOOP)",
+  "expected": { "ok": true, "error_code": null },
+  "payload": {
+    "gw_action": "artifact.update",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "limb",
+    "artifact_id": "{{T64_LIMB_ID}}",
+    "extension": { "execution_status": "in_progress" }
+  }
+}

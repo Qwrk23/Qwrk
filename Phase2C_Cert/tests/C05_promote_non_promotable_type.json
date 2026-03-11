@@ -1,0 +1,13 @@
+{
+  "name": "C05 — Promote: Non-promotable Type (journal)",
+  "expected": { "ok": false, "error_code": null },
+  "capture": {},
+  "payload": {
+    "gw_action": "artifact.promote",
+    "workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+    "artifact_type": "journal",
+    "artifact_id": "{{JOURNAL_ID}}",
+    "transition": "seed_to_sapling",
+    "reason": "Phase 2 hardening verification -- non-promotable type"
+  }
+}

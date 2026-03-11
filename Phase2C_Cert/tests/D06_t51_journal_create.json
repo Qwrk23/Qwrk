@@ -1,0 +1,15 @@
+{
+  "name": "D06 — T51 Create Journal for Extension Tests",
+  "expected": { "ok": true, "error_code": null },
+  "capture": { "D_JOURNAL_ID": "artifact_id" },
+  "payload": {
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "journal",
+    "title": "[T51-CERT] Journal Extension Block Test",
+    "tags": ["t51-cert"],
+    "extension": {
+      "entry_text": "T51 certification — journal created for extension block validation"
+    }
+  }
+}

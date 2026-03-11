@@ -1,0 +1,11 @@
+{
+  "name": "E09 — Leaf not_started to in_progress (D03 setup)",
+  "expected": { "ok": true, "error_code": null },
+  "payload": {
+    "gw_action": "artifact.update",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "leaf",
+    "artifact_id": "{{T64_LEAF_ID}}",
+    "extension": { "execution_status": "in_progress" }
+  }
+}

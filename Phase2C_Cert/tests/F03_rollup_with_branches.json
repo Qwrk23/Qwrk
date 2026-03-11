@@ -1,0 +1,12 @@
+{
+  "name": "F03 — Project rollup with branches and leaves",
+  "expected": { "ok": true, "error_code": null, "rollup_present": true },
+  "notes": "Phase 2B Walk Migration project has branch children. VIEW returns direct child counts. Exact values not asserted (dynamic data).",
+  "payload": {
+    "gw_action": "artifact.query",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "project",
+    "artifact_id": "d8ebceb1-1fa1-4931-bb1e-9b7ce5e46d9c",
+    "selector": { "rollup": true }
+  }
+}

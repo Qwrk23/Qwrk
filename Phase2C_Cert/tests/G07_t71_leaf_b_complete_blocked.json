@@ -1,0 +1,11 @@
+{
+  "name": "G07 — T71 LEAF_B in_progress to complete (BLOCKED — LEAF_A not complete)",
+  "expected": { "ok": false, "error_code": "DEPENDENCY_INCOMPLETE" },
+  "payload": {
+    "gw_action": "artifact.update",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "leaf",
+    "artifact_id": "{{T71_LEAF_B_ID}}",
+    "extension": { "execution_status": "complete" }
+  }
+}

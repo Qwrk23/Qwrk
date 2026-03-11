@@ -1,0 +1,11 @@
+{
+  "name": "B04 — Fuzz: Missing Required Extension (snapshot without payload)",
+  "expected": { "ok": false, "error_code": "VALIDATION_ERROR" },
+  "payload": {
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "snapshot",
+    "title": "[P2C-CERT] Fuzz — Missing Required Extension",
+    "extension": {}
+  }
+}

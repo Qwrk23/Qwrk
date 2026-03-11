@@ -1,0 +1,14 @@
+{
+  "name": "H20 - T87 Tree project title update = FIELD_FROZEN",
+  "expected": {
+    "ok": false,
+    "error_code": "FIELD_FROZEN"
+  },
+  "payload": {
+    "gw_action": "artifact.update",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "project",
+    "artifact_id": "{{H_LIFE_PROJECT_ID}}",
+    "title": "[T87-CERT] Attempted title change on tree"
+  }
+}

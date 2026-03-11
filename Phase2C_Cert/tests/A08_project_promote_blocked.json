@@ -1,0 +1,12 @@
+{
+  "name": "A08 — Project Promote BLOCKED (seed not ready)",
+  "expected": { "ok": false, "error_code": "PROMOTION_BLOCKED_SEED_NOT_READY" },
+  "payload": {
+    "gw_action": "artifact.promote",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "project",
+    "artifact_id": "{{PROJECT_ID}}",
+    "transition": "seed_to_sapling",
+    "reason": "Certification test — should be blocked (no summary or journal child)"
+  }
+}

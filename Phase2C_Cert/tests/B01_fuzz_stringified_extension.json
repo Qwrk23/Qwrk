@@ -1,0 +1,13 @@
+{
+  "name": "B01 — Fuzz: Stringified Extension (belt-and-suspenders recovery)",
+  "expected": { "ok": true, "error_code": null },
+  "capture": { "FUZZ_JOURNAL_ID": "artifact_id" },
+  "payload": {
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "journal",
+    "title": "[P2C-CERT] Fuzz — Stringified Extension",
+    "tags": ["phase2c-cert", "fuzz"],
+    "extension": "{\"entry_text\": \"Stringified extension — belt-and-suspenders recovery test\"}"
+  }
+}

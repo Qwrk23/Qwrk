@@ -1,0 +1,20 @@
+{
+  "name": "H06 - T87 Mixed update (title + priority + tags)",
+  "expected": {
+    "ok": true,
+    "error_code": null
+  },
+  "payload": {
+    "gw_action": "artifact.update",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "project",
+    "artifact_id": "{{H_PROJECT_ID}}",
+    "title": "[T87-CERT] Multi-field Mixed Update",
+    "priority": 2,
+    "tags": {
+      "add": [
+        "t87-multi-mixed"
+      ]
+    }
+  }
+}

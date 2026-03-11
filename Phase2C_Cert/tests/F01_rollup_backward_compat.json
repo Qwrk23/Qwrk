@@ -1,0 +1,12 @@
+{
+  "name": "F01 — Project QUERY without rollup flag (backward compat)",
+  "expected": { "ok": true, "error_code": null, "rollup_absent": true },
+  "notes": "Normal project query with no selector.rollup. Response must NOT contain rollup key.",
+  "payload": {
+    "gw_action": "artifact.query",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "project",
+    "artifact_id": "{{KGB_PROJECT_ID}}",
+    "selector": {}
+  }
+}

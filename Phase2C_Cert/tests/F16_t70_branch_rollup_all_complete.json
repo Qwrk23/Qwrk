@@ -1,0 +1,19 @@
+{
+  "name": "F16 — T70 Branch rollup (3/3 complete)",
+  "expected": {
+    "ok": true,
+    "error_code": null,
+    "rollup_present": true,
+    "total_active_children_count": 3,
+    "completed_children_count": 3,
+    "completion_ratio": 1
+  },
+  "notes": "All 3 leaves now complete. VIEW returns 3/3 = 1.0.",
+  "payload": {
+    "gw_action": "artifact.query",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "branch",
+    "artifact_id": "{{T70_BRANCH_ID}}",
+    "selector": { "rollup": true }
+  }
+}

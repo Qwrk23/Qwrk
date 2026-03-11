@@ -1,0 +1,25 @@
+{
+  "name": "H11 - T87 Create Snapshot for immutability test",
+  "expected": {
+    "ok": true,
+    "error_code": null
+  },
+  "capture": {
+    "H_SNAPSHOT_ID": "artifact_id"
+  },
+  "payload": {
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "snapshot",
+    "title": "[T87-CERT] Snapshot Immutability Test",
+    "tags": [
+      "t87-cert"
+    ],
+    "extension": {
+      "payload": {
+        "note": "T87 immutability verification"
+      }
+    },
+    "semantic_type_id": "governance"
+  }
+}

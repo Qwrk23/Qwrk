@@ -1,0 +1,14 @@
+{
+  "name": "H21 - T87 Tree project summary update allowed",
+  "expected": {
+    "ok": true,
+    "error_code": null
+  },
+  "payload": {
+    "gw_action": "artifact.update",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "project",
+    "artifact_id": "{{H_LIFE_PROJECT_ID}}",
+    "summary": "Summary updated at tree stage - T87 lifecycle cert"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "D22b - T87 Promote tree to archive (design_spine setup)",
+  "expected": {
+    "ok": true,
+    "error_code": null
+  },
+  "payload": {
+    "gw_action": "artifact.promote",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "project",
+    "artifact_id": "{{D_DS_PROJECT_ID}}",
+    "transition": "tree_to_archive",
+    "reason": "T87 design_spine cert"
+  }
+}

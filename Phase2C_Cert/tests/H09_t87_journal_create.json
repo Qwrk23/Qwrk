@@ -1,0 +1,23 @@
+{
+  "name": "H09 - T87 Create Journal for immutability test",
+  "expected": {
+    "ok": true,
+    "error_code": null
+  },
+  "capture": {
+    "H_JOURNAL_ID": "artifact_id"
+  },
+  "payload": {
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "journal",
+    "title": "[T87-CERT] Journal Immutability Test",
+    "tags": [
+      "t87-cert"
+    ],
+    "extension": {
+      "entry_text": "T87 journal for INSERT_ONLY verification"
+    },
+    "semantic_type_id": "governance"
+  }
+}

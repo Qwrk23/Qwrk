@@ -1,0 +1,16 @@
+{
+  "name": "H15 - T87 Extension-only update (regression)",
+  "expected": {
+    "ok": true,
+    "error_code": null
+  },
+  "payload": {
+    "gw_action": "artifact.update",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "project",
+    "artifact_id": "{{H_PROJECT_ID}}",
+    "extension": {
+      "operational_state": "active"
+    }
+  }
+}

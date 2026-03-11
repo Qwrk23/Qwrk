@@ -1,0 +1,16 @@
+{
+  "name": "H10 - T87 Journal extension update = JOURNAL_INSERT_ONLY",
+  "expected": {
+    "ok": false,
+    "error_code": "JOURNAL_INSERT_ONLY"
+  },
+  "payload": {
+    "gw_action": "artifact.update",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "journal",
+    "artifact_id": "{{H_JOURNAL_ID}}",
+    "extension": {
+      "entry_text": "should be rejected"
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "D20a - T87 Create project for design_spine tests",
+  "expected": {
+    "ok": true,
+    "error_code": null
+  },
+  "capture": {
+    "D_DS_PROJECT_ID": "artifact_id"
+  },
+  "payload": {
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "project",
+    "title": "[T87-CERT] Design Spine Test Project",
+    "summary": "Pre-filled summary for design_spine certification",
+    "tags": [
+      "t87-design-spine-cert"
+    ],
+    "extension": {
+      "lifecycle_stage": "seed"
+    },
+    "semantic_type_id": "execution-core"
+  }
+}

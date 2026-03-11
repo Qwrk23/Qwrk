@@ -1,0 +1,10 @@
+{
+  "name": "B06 — Fuzz: Invalid UUID in Query",
+  "expected": { "ok": false, "error_code": null },
+  "payload": {
+    "gw_action": "artifact.query",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "project",
+    "artifact_id": "not-a-valid-uuid-format"
+  }
+}

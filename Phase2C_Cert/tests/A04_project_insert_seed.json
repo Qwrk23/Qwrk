@@ -1,0 +1,13 @@
+{
+  "name": "A04 — Project INSERT (seed)",
+  "expected": { "ok": true, "error_code": null },
+  "capture": { "PROJECT_ID": "artifact_id" },
+  "payload": {
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "project",
+    "title": "[P2C-CERT] Project Seed Test",
+    "tags": ["phase2c-cert"],
+    "extension": { "lifecycle_stage": "seed" }
+  }
+}

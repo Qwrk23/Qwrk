@@ -1,0 +1,24 @@
+{
+  "name": "H01 - T87 Create Project for spine testing",
+  "expected": {
+    "ok": true,
+    "error_code": null
+  },
+  "capture": {
+    "H_PROJECT_ID": "artifact_id"
+  },
+  "payload": {
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "project",
+    "title": "[T87-CERT] Spine Field Test Project",
+    "summary": "Original summary before T87 spine updates",
+    "tags": [
+      "t87-cert"
+    ],
+    "extension": {
+      "lifecycle_stage": "seed"
+    },
+    "semantic_type_id": "execution-core"
+  }
+}

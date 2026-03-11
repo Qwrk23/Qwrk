@@ -1,0 +1,16 @@
+{
+  "name": "D07 - T51 Journal Extension Update BLOCKED (JOURNAL_INSERT_ONLY per T87)",
+  "expected": {
+    "ok": false,
+    "error_code": "JOURNAL_INSERT_ONLY"
+  },
+  "payload": {
+    "gw_action": "artifact.update",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "journal",
+    "artifact_id": "{{D_JOURNAL_ID}}",
+    "extension": {
+      "entry_text": "should be rejected"
+    }
+  }
+}

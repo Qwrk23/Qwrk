@@ -1,0 +1,14 @@
+{
+  "name": "A09 — Add Linked Journal to Project",
+  "expected": { "ok": true, "error_code": null },
+  "capture": { "CHILD_JOURNAL_ID": "artifact_id" },
+  "payload": {
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "journal",
+    "title": "[P2C-CERT] Child Journal for QPM Gate",
+    "parent_artifact_id": "{{PROJECT_ID}}",
+    "tags": ["phase2c-cert"],
+    "extension": { "entry_text": "Linked journal child — satisfies QPM seed_to_sapling gate." }
+  }
+}

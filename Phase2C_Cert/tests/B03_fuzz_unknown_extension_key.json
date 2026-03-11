@@ -1,0 +1,14 @@
+{
+  "name": "B03 — Fuzz: Unknown Extension Key (journal strict allowlist)",
+  "expected": { "ok": false, "error_code": "JOURNAL_EXTENSION_INVALID" },
+  "payload": {
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "journal",
+    "title": "[P2C-CERT] Fuzz — Unknown Extension Key",
+    "extension": {
+      "entry_text": "Valid text present",
+      "unknown_field": "should trigger rejection"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "G04 — T71 MANUAL STEP: Insert dependency B depends on A",
+  "expected": { "ok": true, "error_code": null },
+  "payload": {
+    "gw_action": "artifact.query",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "leaf",
+    "artifact_id": "{{T71_DEPENDENCY_INSERTED}}"
+  }
+}

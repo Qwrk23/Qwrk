@@ -1,0 +1,18 @@
+{
+  "name": "H12 - T87 Snapshot extension update = IMMUTABILITY_ERROR",
+  "expected": {
+    "ok": false,
+    "error_code": "IMMUTABILITY_ERROR"
+  },
+  "payload": {
+    "gw_action": "artifact.update",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "snapshot",
+    "artifact_id": "{{H_SNAPSHOT_ID}}",
+    "extension": {
+      "payload": {
+        "note": "should be rejected"
+      }
+    }
+  }
+}

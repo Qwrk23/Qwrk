@@ -1,0 +1,11 @@
+{
+  "name": "D03 — T51 Query Project After Summary Update (hydrate)",
+  "expected": { "ok": true, "error_code": null },
+  "payload": {
+    "gw_action": "artifact.query",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "project",
+    "artifact_id": "{{D_PROJECT_ID}}",
+    "selector": { "hydrate": true }
+  }
+}

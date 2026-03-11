@@ -1,0 +1,13 @@
+{
+  "name": "A07 — Project Extension Update (state_reason)",
+  "expected": { "ok": true, "error_code": null },
+  "payload": {
+    "gw_action": "artifact.update",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "project",
+    "artifact_id": "{{PROJECT_ID}}",
+    "extension": {
+      "state_reason": "Phase 2C certification — extension update verified"
+    }
+  }
+}

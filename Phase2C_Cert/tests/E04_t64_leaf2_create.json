@@ -1,0 +1,12 @@
+{
+  "name": "E04 — T64 Create Leaf 2 for Skip/Backward Tests",
+  "expected": { "ok": true, "error_code": null },
+  "capture": { "T64_LEAF2_ID": "artifact_id" },
+  "payload": {
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "leaf",
+    "title": "[T64-CERT] Leaf 2 — Backward/Skip Rejection Tests",
+    "tags": ["t64-cert"]
+  }
+}

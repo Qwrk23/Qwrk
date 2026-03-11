@@ -1,0 +1,23 @@
+{
+  "name": "H17a - T87 Create temp project for delete test",
+  "expected": {
+    "ok": true,
+    "error_code": null
+  },
+  "capture": {
+    "H_TEMP_PROJECT_ID": "artifact_id"
+  },
+  "payload": {
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "project",
+    "title": "[T87-CERT] Temp Project for Delete Test",
+    "tags": [
+      "t87-cert-temp"
+    ],
+    "extension": {
+      "lifecycle_stage": "seed"
+    },
+    "semantic_type_id": "execution-core"
+  }
+}

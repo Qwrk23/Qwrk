@@ -1,0 +1,10 @@
+{
+  "name": "A02 — Journal QUERY by ID",
+  "expected": { "ok": true, "error_code": null },
+  "payload": {
+    "gw_action": "artifact.query",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "journal",
+    "artifact_id": "{{JOURNAL_ID}}"
+  }
+}

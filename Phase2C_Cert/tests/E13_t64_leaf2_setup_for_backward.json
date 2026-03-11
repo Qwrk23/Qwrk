@@ -1,0 +1,11 @@
+{
+  "name": "E13 — Leaf 2 NULL to not_started (D06 setup)",
+  "expected": { "ok": true, "error_code": null },
+  "payload": {
+    "gw_action": "artifact.update",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "leaf",
+    "artifact_id": "{{T64_LEAF2_ID}}",
+    "extension": { "execution_status": "not_started" }
+  }
+}

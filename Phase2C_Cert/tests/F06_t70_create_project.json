@@ -1,0 +1,13 @@
+{
+  "name": "F06 — T70 Create Project for Rollup Tests",
+  "expected": { "ok": true, "error_code": null },
+  "capture": { "T70_PROJECT_ID": "artifact_id" },
+  "payload": {
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "project",
+    "title": "[T70-CERT] Project — Rollup Tests",
+    "tags": ["t70-cert"],
+    "extension": { "lifecycle_stage": "seed" }
+  }
+}

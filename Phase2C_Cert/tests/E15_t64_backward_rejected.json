@@ -1,0 +1,11 @@
+{
+  "name": "E15 — D06 Leaf in_progress to not_started (backward rejection)",
+  "expected": { "ok": false, "error_code": "INVALID_TRANSITION" },
+  "payload": {
+    "gw_action": "artifact.update",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "leaf",
+    "artifact_id": "{{T64_LEAF2_ID}}",
+    "extension": { "execution_status": "not_started" }
+  }
+}

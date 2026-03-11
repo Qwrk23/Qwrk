@@ -1,0 +1,15 @@
+{
+  "name": "H19 - T87 Promote sapling to tree",
+  "expected": {
+    "ok": true,
+    "error_code": null
+  },
+  "payload": {
+    "gw_action": "artifact.promote",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "project",
+    "artifact_id": "{{H_LIFE_PROJECT_ID}}",
+    "transition": "sapling_to_tree",
+    "reason": "T87 lifecycle governance cert"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "H16 - T87 Empty update rejected (no spine/tags/extension)",
+  "expected": {
+    "ok": false,
+    "error_code": "VALIDATION_ERROR"
+  },
+  "payload": {
+    "gw_action": "artifact.update",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "project",
+    "artifact_id": "{{H_PROJECT_ID}}"
+  }
+}

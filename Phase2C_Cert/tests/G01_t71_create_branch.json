@@ -1,0 +1,12 @@
+{
+  "name": "G01 — T71 Create Branch (non-leaf baseline)",
+  "expected": { "ok": true, "error_code": null },
+  "capture": { "T71_BRANCH_ID": "artifact_id" },
+  "payload": {
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "branch",
+    "title": "[T71-CERT] Branch — Dependency Enforcement Tests",
+    "tags": ["t71-cert"]
+  }
+}

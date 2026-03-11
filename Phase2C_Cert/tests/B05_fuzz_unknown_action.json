@@ -1,0 +1,9 @@
+{
+  "name": "B05 — Fuzz: Unknown Gateway Action",
+  "expected": { "ok": false, "error_code": "ACTION_NOT_ALLOWED" },
+  "payload": {
+    "gw_action": "artifact.explode",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "project"
+  }
+}

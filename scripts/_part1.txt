@@ -1,0 +1,8 @@
+var fs = require("fs");
+var path = require("path");
+
+var v32Path = path.resolve("C:/Users/j_bla/OneDrive/AAA QwrkX/new-qwrk-kernel/workflows/2_22_26_6_30am current workflow files/NQxb_Artifact_Save_v1 (32).json");
+var v33Path = path.resolve("C:/Users/j_bla/OneDrive/AAA QwrkX/new-qwrk-kernel/workflows/NQxb_Artifact_Save_v1 (33).json");
+
+var v32 = JSON.parse(fs.readFileSync(v32Path, "utf8"));
+var v33 = JSON.parse(fs.readFileSync(v33Path, "utf8"));

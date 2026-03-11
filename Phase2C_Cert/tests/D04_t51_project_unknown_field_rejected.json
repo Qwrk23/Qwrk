@@ -1,0 +1,14 @@
+{
+  "name": "D04 — T51 Project Unknown Extension Field REJECTED",
+  "expected": { "ok": false, "error_code": "MUTABILITY_ERROR" },
+  "payload": {
+    "gw_action": "artifact.update",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "project",
+    "artifact_id": "{{D_PROJECT_ID}}",
+    "extension": {
+      "operational_state": "active",
+      "unknown_field": "should be rejected"
+    }
+  }
+}

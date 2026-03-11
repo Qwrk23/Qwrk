@@ -1,0 +1,1 @@
+﻿{"ok":true,"gw_action":"artifact.update","operation":"UPDATE","artifact_id":"c18fadd9-6522-4bcc-ae3e-9731ae4bbd39","artifact_type":"project","gw_workspace_id":"be0d3a48-c764-44f9-90c8-e846d9dbbd0a","updated_fields":["operational_state","state_reason"],"_kgb":{"status":"UPDATE_CONFIRMED","note":"Update completed. Query intentionally not invoked."}}

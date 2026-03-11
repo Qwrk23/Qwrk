@@ -1,0 +1,12 @@
+{
+  "name": "G12 — T71 Create LEAF_C (no dependencies)",
+  "expected": { "ok": true, "error_code": null },
+  "capture": { "T71_LEAF_C_ID": "artifact_id" },
+  "payload": {
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "leaf",
+    "title": "[T71-CERT] Leaf C — No Dependencies",
+    "tags": ["t71-cert"]
+  }
+}

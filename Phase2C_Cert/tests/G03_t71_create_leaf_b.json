@@ -1,0 +1,12 @@
+{
+  "name": "G03 — T71 Create LEAF_B (depends on LEAF_A)",
+  "expected": { "ok": true, "error_code": null },
+  "capture": { "T71_LEAF_B_ID": "artifact_id" },
+  "payload": {
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "leaf",
+    "title": "[T71-CERT] Leaf B — Depends on Leaf A",
+    "tags": ["t71-cert"]
+  }
+}

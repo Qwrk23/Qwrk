@@ -1,0 +1,14 @@
+{
+  "name": "H23 - T87 Archive project summary update = ARCHIVE_IMMUTABLE",
+  "expected": {
+    "ok": false,
+    "error_code": "ARCHIVE_IMMUTABLE"
+  },
+  "payload": {
+    "gw_action": "artifact.update",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "project",
+    "artifact_id": "{{H_LIFE_PROJECT_ID}}",
+    "summary": "Attempted summary change on archived project"
+  }
+}

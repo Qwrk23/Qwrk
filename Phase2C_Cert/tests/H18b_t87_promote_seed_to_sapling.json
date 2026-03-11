@@ -1,0 +1,15 @@
+{
+  "name": "H18b - T87 Promote seed to sapling",
+  "expected": {
+    "ok": true,
+    "error_code": null
+  },
+  "payload": {
+    "gw_action": "artifact.promote",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "project",
+    "artifact_id": "{{H_LIFE_PROJECT_ID}}",
+    "transition": "seed_to_sapling",
+    "reason": "T87 lifecycle governance cert"
+  }
+}

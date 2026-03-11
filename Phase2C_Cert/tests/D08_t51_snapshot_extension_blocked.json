@@ -1,0 +1,13 @@
+{
+  "name": "D08 — T51 Snapshot Extension Update BLOCKED (immutability)",
+  "expected": { "ok": false, "error_code": "IMMUTABILITY_ERROR" },
+  "payload": {
+    "gw_action": "artifact.update",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "snapshot",
+    "artifact_id": "{{SNAPSHOT_ID}}",
+    "extension": {
+      "payload": { "modified": true }
+    }
+  }
+}

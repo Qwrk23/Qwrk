@@ -1,0 +1,11 @@
+{
+  "name": "E06 — Limb NULL to not_started (D02 setup)",
+  "expected": { "ok": true, "error_code": null },
+  "payload": {
+    "gw_action": "artifact.update",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "limb",
+    "artifact_id": "{{T64_LIMB_ID}}",
+    "extension": { "execution_status": "not_started" }
+  }
+}

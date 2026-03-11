@@ -1,0 +1,4 @@
+﻿"TestName","Expected","Actual","Pass","Notes"
+"G01 â€” T71 Create Branch (non-leaf baseline)","{""ok"":true,""error_code"":null}","ok=True error=none","PASS",""
+"G02 â€” T71 Create LEAF_A (dependency target)","{""ok"":true,""error_code"":null}","ok=True error=none","PASS",""
+"G03 â€” T71 Create LEAF_B (depends on LEAF_A)","{""ok"":true,""error_code"":null}","ok=True error=none","PASS",""

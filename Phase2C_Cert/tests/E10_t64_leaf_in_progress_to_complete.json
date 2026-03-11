@@ -1,0 +1,11 @@
+{
+  "name": "E10 — D03 Leaf in_progress to complete (no parent check)",
+  "expected": { "ok": true, "error_code": null },
+  "payload": {
+    "gw_action": "artifact.update",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "leaf",
+    "artifact_id": "{{T64_LEAF_ID}}",
+    "extension": { "execution_status": "complete" }
+  }
+}

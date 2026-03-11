@@ -1,0 +1,11 @@
+{
+  "name": "A03 — Journal TAG Update",
+  "expected": { "ok": true, "error_code": null },
+  "payload": {
+    "gw_action": "artifact.update",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "journal",
+    "artifact_id": "{{JOURNAL_ID}}",
+    "tags": { "add": ["cert-tagged"], "remove": [] }
+  }
+}

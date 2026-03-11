@@ -1,0 +1,11 @@
+{
+  "name": "E19 — D08 Branch blocked to complete (skip rejection)",
+  "expected": { "ok": false, "error_code": "INVALID_TRANSITION" },
+  "payload": {
+    "gw_action": "artifact.update",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "branch",
+    "artifact_id": "{{T64_BRANCH_ID}}",
+    "extension": { "execution_status": "complete" }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "H08 - T87 Extension + tags = MIXED_UPDATE_NOT_ALLOWED",
+  "expected": {
+    "ok": false,
+    "error_code": "MIXED_UPDATE_NOT_ALLOWED"
+  },
+  "payload": {
+    "gw_action": "artifact.update",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "project",
+    "artifact_id": "{{H_PROJECT_ID}}",
+    "tags": {
+      "add": [
+        "should-reject"
+      ]
+    },
+    "extension": {
+      "operational_state": "active"
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "H05 - T87 Mixed update (summary + tags)",
+  "expected": {
+    "ok": true,
+    "error_code": null
+  },
+  "payload": {
+    "gw_action": "artifact.update",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "project",
+    "artifact_id": "{{H_PROJECT_ID}}",
+    "summary": "T87 mixed update - summary + tags in one PATCH",
+    "tags": {
+      "add": [
+        "t87-mixed-verified"
+      ]
+    }
+  }
+}

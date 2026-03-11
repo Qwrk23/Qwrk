@@ -1,0 +1,18 @@
+{
+  "name": "D12 — T51 Create Instruction Pack for Immutability Test",
+  "expected": { "ok": true, "error_code": null },
+  "capture": { "D_IPACK_ID": "artifact_id" },
+  "payload": {
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "instruction_pack",
+    "title": "[T51-CERT] Instruction Pack Immutability Test",
+    "tags": ["t51-cert"],
+    "extension": {
+      "scope": "t51-cert",
+      "active": true,
+      "priority": 0,
+      "pack_format": "json"
+    }
+  }
+}

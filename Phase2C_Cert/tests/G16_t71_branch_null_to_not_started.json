@@ -1,0 +1,11 @@
+{
+  "name": "G16 — T71 Branch null to not_started (non-leaf setup)",
+  "expected": { "ok": true, "error_code": null },
+  "payload": {
+    "gw_action": "artifact.update",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "branch",
+    "artifact_id": "{{T71_BRANCH_ID}}",
+    "extension": { "execution_status": "not_started" }
+  }
+}

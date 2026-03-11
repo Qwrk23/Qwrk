@@ -1,0 +1,19 @@
+{
+  "name": "A11 — Snapshot INSERT Valid",
+  "expected": { "ok": true, "error_code": null },
+  "capture": { "SNAPSHOT_ID": "artifact_id" },
+  "payload": {
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "snapshot",
+    "title": "[P2C-CERT] Snapshot INSERT Test",
+    "tags": ["phase2c-cert"],
+    "extension": {
+      "payload": {
+        "cert_gate": "G1",
+        "test": "snapshot_insert",
+        "nested": { "key": "value" }
+      }
+    }
+  }
+}

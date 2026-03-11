@@ -1,0 +1,17 @@
+{
+  "name": "D21b - T87 Create branch child for QPM gate (design_spine)",
+  "expected": {
+    "ok": true,
+    "error_code": null
+  },
+  "payload": {
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "branch",
+    "title": "[T87-CERT] Design Spine Branch",
+    "tags": [
+      "t87-design-spine-cert"
+    ],
+    "parent_artifact_id": "{{D_DS_PROJECT_ID}}"
+  }
+}

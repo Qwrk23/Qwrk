@@ -1,0 +1,11 @@
+{
+  "name": "G09 — T71 LEAF_A not_started to in_progress",
+  "expected": { "ok": true, "error_code": null },
+  "payload": {
+    "gw_action": "artifact.update",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "leaf",
+    "artifact_id": "{{T71_LEAF_A_ID}}",
+    "extension": { "execution_status": "in_progress" }
+  }
+}

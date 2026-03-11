@@ -1,0 +1,15 @@
+{
+  "name": "D20d - T87 Promote seed to sapling (design_spine setup)",
+  "expected": {
+    "ok": true,
+    "error_code": null
+  },
+  "payload": {
+    "gw_action": "artifact.promote",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "project",
+    "artifact_id": "{{D_DS_PROJECT_ID}}",
+    "transition": "seed_to_sapling",
+    "reason": "T87 design_spine cert"
+  }
+}

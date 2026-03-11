@@ -1,0 +1,11 @@
+{
+  "name": "F15a — T70 Leaf 3 NULL to not_started",
+  "expected": { "ok": true, "error_code": null },
+  "payload": {
+    "gw_action": "artifact.update",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "leaf",
+    "artifact_id": "{{T70_LEAF_3_ID}}",
+    "extension": { "execution_status": "not_started" }
+  }
+}

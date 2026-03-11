@@ -1,0 +1,21 @@
+{
+  "name": "D22 - T87 Update design_spine.constraints on tree project",
+  "expected": {
+    "ok": true,
+    "error_code": null
+  },
+  "payload": {
+    "gw_action": "artifact.update",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "project",
+    "artifact_id": "{{D_DS_PROJECT_ID}}",
+    "extension": {
+      "design_spine": {
+        "constraints": [
+          "No new DB tables",
+          "Must work offline"
+        ]
+      }
+    }
+  }
+}

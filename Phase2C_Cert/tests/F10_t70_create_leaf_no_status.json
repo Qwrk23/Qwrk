@@ -1,0 +1,13 @@
+{
+  "name": "F10 — T70 Create Leaf 3 (no execution_status, child of branch)",
+  "expected": { "ok": true, "error_code": null },
+  "capture": { "T70_LEAF_3_ID": "artifact_id" },
+  "payload": {
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "leaf",
+    "title": "[T70-CERT] Leaf 3 — No Status",
+    "parent_artifact_id": "{{T70_BRANCH_ID}}",
+    "tags": ["t70-cert"]
+  }
+}

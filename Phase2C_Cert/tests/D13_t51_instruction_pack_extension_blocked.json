@@ -1,0 +1,13 @@
+{
+  "name": "D13 — T51 Instruction Pack Extension Update BLOCKED (immutability)",
+  "expected": { "ok": false, "error_code": "IMMUTABILITY_ERROR" },
+  "payload": {
+    "gw_action": "artifact.update",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "instruction_pack",
+    "artifact_id": "{{D_IPACK_ID}}",
+    "extension": {
+      "scope": "modified"
+    }
+  }
+}

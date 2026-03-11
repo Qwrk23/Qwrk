@@ -1,0 +1,12 @@
+{
+  "name": "F02 — Project rollup with zero leaves",
+  "expected": { "ok": true, "error_code": null, "rollup_present": true, "total_active_children_count": 0, "completed_children_count": 0, "completion_ratio": null },
+  "notes": "KGB project has no children. VIEW returns total=0, completed=0, ratio=null. Still SKIP (KGB_PROJECT_ID unresolved).",
+  "payload": {
+    "gw_action": "artifact.query",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "project",
+    "artifact_id": "{{KGB_PROJECT_ID}}",
+    "selector": { "rollup": true }
+  }
+}

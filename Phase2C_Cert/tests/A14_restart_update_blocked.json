@@ -1,0 +1,13 @@
+{
+  "name": "A14 — Restart Extension Update BLOCKED (immutability)",
+  "expected": { "ok": false, "error_code": "IMMUTABILITY_ERROR" },
+  "payload": {
+    "gw_action": "artifact.update",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "restart",
+    "artifact_id": "{{RESTART_ID}}",
+    "extension": {
+      "payload": { "modified": true }
+    }
+  }
+}

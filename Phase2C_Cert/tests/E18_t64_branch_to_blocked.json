@@ -1,0 +1,11 @@
+{
+  "name": "E18 — Branch in_progress to blocked (D08 setup)",
+  "expected": { "ok": true, "error_code": null },
+  "payload": {
+    "gw_action": "artifact.update",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "branch",
+    "artifact_id": "{{T64_BRANCH_ID}}",
+    "extension": { "execution_status": "blocked" }
+  }
+}

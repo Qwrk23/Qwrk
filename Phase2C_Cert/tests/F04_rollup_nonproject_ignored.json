@@ -1,0 +1,12 @@
+{
+  "name": "F04 — Rollup flag on non-project type (ignored)",
+  "expected": { "ok": true, "error_code": null, "rollup_absent": true },
+  "notes": "Snapshot query with selector.rollup=true. Flag is silently ignored. No rollup key in response.",
+  "payload": {
+    "gw_action": "artifact.query",
+    "gw_workspace_id": "{{WORKSPACE_ID}}",
+    "artifact_type": "snapshot",
+    "artifact_id": "{{KGB_SNAPSHOT_ID}}",
+    "selector": { "rollup": true }
+  }
+}
