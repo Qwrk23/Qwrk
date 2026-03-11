@@ -1,0 +1,188 @@
+{
+  "name": "QXB__Resolve_Semantic_Type_v1",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1024,
+        300
+      ],
+      "id": "9113c35e-2d9b-4617-b1db-df6488052c82",
+      "name": "QXB__Resolve_Semantic_Type_v1__In"
+    },
+    {
+      "parameters": {
+        "jsCode": "// QXB__Resolve_Semantic_Type_v1__Detect_Input\n// Detect UUID vs text key. Route top-level vs non-top-level.\n// Non-lookup paths return complete envelopes (terminal via Switch fallback).\n\nconst req = $json;\nconst semanticTypeId = (req.semantic_type_id ?? '').toString().trim();\nconst artifactType = (req.artifact_type ?? '').trim();\n\nconst TOP_LEVEL_TYPES = ['project', 'snapshot', 'journal', 'restart'];\nconst UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\n\n// --- Non-top-level types ---\nif (!TOP_LEVEL_TYPES.includes(artifactType)) {\n  if (!semanticTypeId) {\n    // Non-top-level + null/empty: correct, not applicable\n    return [{\n      json: {\n        ok: true,\n        resolved_semantic_type_id: null,\n        resolution_mode: 'not_applicable',\n        _route: 'early_return',\n        _resolution_debug: {\n          original_value: null,\n          artifact_type: artifactType,\n          reason: 'non_top_level_type'\n        }\n      }\n    }];\n  }\n  // Non-top-level + has value: error\n  return [{\n    json: {\n      ok: false,\n      resolved_semantic_type_id: null,\n      _route: 'early_return',\n      error: {\n        code: 'VALIDATION_ERROR',\n        message: 'semantic_type_id is not applicable for non-top-level artifact types',\n        details: {\n          artifact_type: artifactType,\n          semantic_type_id: semanticTypeId,\n          hint: 'Only project, snapshot, journal, restart support semantic_type_id'\n        }\n      }\n    }\n  }];\n}\n\n// --- Top-level types ---\nif (!semanticTypeId) {\n  // Top-level + missing: error (required)\n  return [{\n    json: {\n      ok: false,\n      resolved_semantic_type_id: null,\n      _route: 'early_return',\n      error: {\n        code: 'VALIDATION_ERROR',\n        message: 'semantic_type_id is required for top-level artifact types',\n        details: {\n          artifact_type: artifactType,\n          hint: 'Provide a valid registry key (e.g., execution-core, governance) or UUID'\n        }\n      }\n    }\n  }];\n}\n\n// Top-level + has value: needs registry lookup\nconst isUuid = UUID_REGEX.test(semanticTypeId);\n\nreturn [{\n  json: {\n    _route: 'needs_lookup',\n    _semantic_lookup: {\n      original_value: semanticTypeId,\n      is_uuid: isUuid,\n      filter_param: isUuid\n        ? 'semantic_type_id=eq.' + semanticTypeId\n        : 'key=eq.' + semanticTypeId\n    },\n    artifact_type: artifactType\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -800,
+        300
+      ],
+      "id": "b5067fd1-1a8b-42e5-904a-248e491959b7",
+      "name": "QXB__Resolve_Semantic_Type_v1__Detect_Input"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json._route }}",
+                    "rightValue": "needs_lookup",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "needs-lookup"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -576,
+        300
+      ],
+      "id": "75f0b40b-5058-4856-943e-aaf6308360bd",
+      "name": "QXB__Resolve_Semantic_Type_v1__Switch_Route"
+    },
+    {
+      "parameters": {
+        "url": "=https://npymhacpmxdnkqdzgxll.supabase.co/rest/v1/qxb_semantic_type_registry?{{ $json._semantic_lookup.filter_param }}&limit=1",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -352,
+        300
+      ],
+      "id": "3e825479-d005-4e3d-b559-0f99f7ec7005",
+      "name": "QXB__Resolve_Semantic_Type_v1__Lookup_Registry",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase \u2013 Kernel v1"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// QXB__Resolve_Semantic_Type_v1__Guard_Result\n// Validate registry lookup result.\n// Handles: not found, inactive, HTTP errors, UUID contract assertion.\n// Terminal node \u2014 output returns to calling workflow.\n\nconst UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\n\nconst lookupCtx = $node['QXB__Resolve_Semantic_Type_v1__Detect_Input'].json;\nconst registryRow = $json;\nconst originalValue = lookupCtx._semantic_lookup.original_value;\nconst isUuidInput = lookupCtx._semantic_lookup.is_uuid;\nconst artifactType = lookupCtx.artifact_type;\n\n// Handle HTTP error objects (from continueErrorOutput)\nif (registryRow.errorMessage || registryRow.errorDescription || registryRow.error) {\n  return [{\n    json: {\n      ok: false,\n      resolved_semantic_type_id: null,\n      error: {\n        code: 'INTERNAL_ERROR',\n        message: 'Registry lookup failed (HTTP error)',\n        details: {\n          semantic_type_id: originalValue,\n          http_error: registryRow.errorMessage ?? registryRow.errorDescription ?? registryRow.error ?? 'unknown'\n        }\n      }\n    }\n  }];\n}\n\n// No row found (alwaysOutputData \u2192 {} when empty array [])\nif (!registryRow || !registryRow.semantic_type_id) {\n  return [{\n    json: {\n      ok: false,\n      resolved_semantic_type_id: null,\n      error: {\n        code: 'INVALID_SEMANTIC_TYPE',\n        message: 'semantic_type_id not found in registry',\n        details: {\n          semantic_type_id: originalValue,\n          hint: 'Provide a valid registry key (e.g., execution-core, governance) or UUID'\n        }\n      }\n    }\n  }];\n}\n\n// Row found but inactive\nif (registryRow.active === false) {\n  return [{\n    json: {\n      ok: false,\n      resolved_semantic_type_id: null,\n      error: {\n        code: 'SEMANTIC_TYPE_INACTIVE',\n        message: 'Target semantic type is inactive in registry',\n        details: {\n          semantic_type_id: originalValue,\n          resolved_uuid: registryRow.semantic_type_id\n        }\n      }\n    }\n  }];\n}\n\n// Contract assertion: resolved value must be UUID (defense-in-depth)\nconst resolvedUuid = registryRow.semantic_type_id;\nif (!UUID_REGEX.test(resolvedUuid)) {\n  return [{\n    json: {\n      ok: false,\n      resolved_semantic_type_id: null,\n      error: {\n        code: 'INTERNAL_ERROR',\n        message: 'Registry returned non-UUID semantic_type_id (contract assertion failed)',\n        details: {\n          raw_value: resolvedUuid,\n          original_input: originalValue\n        }\n      }\n    }\n  }];\n}\n\n// Success \u2014 resolved\nreturn [{\n  json: {\n    ok: true,\n    resolved_semantic_type_id: resolvedUuid,\n    resolution_mode: isUuidInput ? 'uuid_passthrough' : 'key_to_uuid',\n    _resolution_debug: {\n      original_value: originalValue,\n      is_uuid: isUuidInput,\n      resolved_uuid: resolvedUuid,\n      artifact_type: artifactType\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -128,
+        300
+      ],
+      "id": "81a74b18-d0f5-41a3-bc12-463d763ad1f2",
+      "name": "QXB__Resolve_Semantic_Type_v1__Guard_Result"
+    },
+    {
+      "parameters": {
+        "jsCode": "// QXB__Resolve_Semantic_Type_v1__Return_Early\n// Terminal passthrough for non-lookup paths.\n// Receives early-return envelopes from Detect_Input via Switch_Route fallback.\n// Makes the envelope the sub-workflow output (not_applicable, validation errors, etc.)\nreturn [$input.first()];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -352,
+        500
+      ],
+      "id": "d4e5f6a7-return-early-terminal",
+      "name": "QXB__Resolve_Semantic_Type_v1__Return_Early"
+    }
+  ],
+  "connections": {
+    "QXB__Resolve_Semantic_Type_v1__In": {
+      "main": [
+        [
+          {
+            "node": "QXB__Resolve_Semantic_Type_v1__Detect_Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QXB__Resolve_Semantic_Type_v1__Detect_Input": {
+      "main": [
+        [
+          {
+            "node": "QXB__Resolve_Semantic_Type_v1__Switch_Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QXB__Resolve_Semantic_Type_v1__Switch_Route": {
+      "main": [
+        [
+          {
+            "node": "QXB__Resolve_Semantic_Type_v1__Lookup_Registry",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "QXB__Resolve_Semantic_Type_v1__Return_Early",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QXB__Resolve_Semantic_Type_v1__Lookup_Registry": {
+      "main": [
+        [
+          {
+            "node": "QXB__Resolve_Semantic_Type_v1__Guard_Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "QXB__Resolve_Semantic_Type_v1__Guard_Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "60052a43-f55e-45f1-b37e-f89aac9f06f8",
+  "tags": []
+}

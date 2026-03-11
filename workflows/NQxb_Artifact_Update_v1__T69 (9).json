@@ -1,0 +1,2003 @@
+{
+  "name": "NQxb_Artifact_Update_v1__T69",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -4032,
+        464
+      ],
+      "id": "8ca5c5d0-c065-4471-b804-2d81202c99c0",
+      "name": "NQxb_Artifact_Update_v1__In"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Normalize_Request\n// UPDATE-ONLY: Require artifact_id, reject if missing\n// v2: Tags forwarding (T41 — Mutability Registry v2)\n// T94: Twig lifecycle_status support\n\nconst raw = $json ?? {};\n\nconst body =\n  raw.body && typeof raw.body === \"object\" && !Array.isArray(raw.body)\n    ? raw.body\n    : null;\n\nconst req = body ?? raw;\n\nconst asObj = (v) =>\n  v && typeof v === \"object\" && !Array.isArray(v) ? v : {};\n\nconst artifact_id = req.artifact_id ?? null;\nconst artifact_type = (req.artifact_type ?? \"\").trim();\n\n// UPDATE_ONLY: artifact_id is REQUIRED\nif (!artifact_id || artifact_id.trim() === '') {\n  return [\n    {\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"UPDATE_ONLY\",\n          message: \"artifact.update is update-only. Use artifact.create for new artifacts.\",\n          details: {\n            hint: \"artifact_id field is required for UPDATE operations.\"\n          },\n        },\n      },\n    },\n  ];\n}\n\n// Tags canonicalization (Mutability Registry v2 — spine-level, type-agnostic)\nconst rawTags = req.tags ?? null;\nlet tags = null;\nif (rawTags && typeof rawTags === 'object' && !Array.isArray(rawTags)) {\n  const addArr = Array.isArray(rawTags.add) ? rawTags.add : [];\n  const removeArr = Array.isArray(rawTags.remove) ? rawTags.remove : [];\n  const addSet = [...new Set(addArr.filter(t => typeof t === 'string' && t.trim().length > 0).map(t => t.trim()))];\n  const removeSet = [...new Set(removeArr.filter(t => typeof t === 'string' && t.trim().length > 0).map(t => t.trim()))];\n  if (addSet.length > 0 || removeSet.length > 0) {\n    tags = { add: addSet, remove: removeSet };\n  }\n}\n\n// T87: Spine fields extraction\nconst spine_fields = {};\n\nif ('title' in req) spine_fields.title = req.title;\nif ('summary' in req) spine_fields.summary = req.summary;\nif ('priority' in req) spine_fields.priority = req.priority;\nif ('parent_artifact_id' in req) spine_fields.parent_artifact_id = req.parent_artifact_id;\n\n// T94: lifecycle_status extraction (twig-only)\n// Twig lifecycle transitions go through artifact.update, not artifact.promote.\n// Guard: Check_Mutability_Rules v9 blocks lifecycle_status for non-twig types.\nif ('lifecycle_status' in req && artifact_type === 'twig') {\n  spine_fields.lifecycle_status = req.lifecycle_status;\n}\n\n// recompute after all spine fields added\nconst hasSpineFields = Object.keys(spine_fields).length > 0;\n\nconst canonical = {\n  gw_action: req.gw_action ?? \"artifact.update\",\n  gw_workspace_id: req.gw_workspace_id ?? null,\n  artifact_type: artifact_type,\n  artifact_id: artifact_id.trim(),\n\n  // Extension fields (only operational_state and state_reason allowed for project)\n  extension: asObj(req.extension),\n\n  // Tags\n  tags: tags,\n\n  // Spine fields\n  spine_fields: hasSpineFields ? spine_fields : null,\n\n  // deleted_at (BLOCKED - UNDECIDED per Mutability Registry v1)\n  deleted_at: req.deleted_at ?? null,\n};\n\ncanonical._gw_debug = {\n  received_shape: body ? \"body\" : \"flat\",\n  operation: \"UPDATE\",\n  has_tags: tags !== null,\n  has_extension: Object.keys(canonical.extension).length > 0,\n  has_spine_fields: hasSpineFields,\n  spine_field_keys: hasSpineFields ? Object.keys(spine_fields) : [],\n};\n\nreturn [{ json: canonical }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3808,
+        464
+      ],
+      "id": "80f1cfeb-df62-4e5d-866c-ec94555e2fa0",
+      "name": "NQxb_Artifact_Update_v1__Normalize_Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Validate_Request\n// UPDATE-only validation (strict, predictable, preserves payload)\n// v3.0: Extension optional when tags present (T41)\n\nconst req = $json ?? {};\nconst errors = [];\n\nfunction isNonEmptyString(v) {\n  return typeof v === \"string\" && v.trim().length > 0;\n}\n\nfunction asObj(v) {\n  return v && typeof v === \"object\" && !Array.isArray(v) ? v : {};\n}\n\n// Required: gw_workspace_id\nif (!isNonEmptyString(req.gw_workspace_id)) {\n  errors.push({ field: \"gw_workspace_id\", reason: \"required\", expected: \"uuid string\" });\n}\n\n// Required: artifact_type\nif (!isNonEmptyString(req.artifact_type)) {\n  errors.push({ field: \"artifact_type\", reason: \"required\", expected: \"non-empty string\" });\n}\n\n// Required: artifact_id\nif (!isNonEmptyString(req.artifact_id)) {\n  errors.push({ field: \"artifact_id\", reason: \"required\", expected: \"uuid string\" });\n}\n\n// Extension validation: optional when tags present, but if present must be object\nconst hasExtension = req.extension && typeof req.extension === \"object\" && !Array.isArray(req.extension);\nconst hasTags = req.tags !== null && req.tags !== undefined;\n\nif (req.extension !== undefined && req.extension !== null && !hasExtension) {\n  // Extension was provided but is not a valid object\n  errors.push({ field: \"extension\", reason: \"invalid_type\", expected: \"object (if provided)\" });\n}\n\nconst hasSpineFields = req.spine_fields !== null && req.spine_fields !== undefined && Object.keys(req.spine_fields).length > 0;\n\nif (!hasExtension && !hasTags && !hasSpineFields) {\n  errors.push({ field: \"extension_or_tags_or_spine\", reason: \"required\", expected: \"at least one of: extension object, tags object, spine_fields object\" });\n}\n\nconst ext = hasExtension ? asObj(req.extension) : {};\n\nif (errors.length > 0) {\n  return [\n    {\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"VALIDATION_ERROR\",\n          message: \"Validation failed for artifact.update (UPDATE)\",\n          details: {\n            validation_errors: errors,\n            operation: \"UPDATE\",\n            artifact_type: req.artifact_type ?? null,\n            artifact_id: req.artifact_id ?? null,\n          },\n        },\n        gw_action: req.gw_action ?? \"artifact.update\",\n        gw_workspace_id: req.gw_workspace_id ?? null,\n        artifact_type: req.artifact_type ?? null,\n        artifact_id: req.artifact_id ?? null,\n        _gw_debug: req._gw_debug ?? undefined,\n      },\n    },\n  ];\n}\n\n// Pass-through with normalized values\nreturn [\n  {\n    json: {\n      ...req,\n      ok: true,\n      _gw_route: \"ok\",\n      gw_action: req.gw_action ?? \"artifact.update\",\n      extension: ext,\n      tags: req.tags ?? null,\n      deleted_at: req.deleted_at ?? null,\n      _gw_debug: {\n        ...(req._gw_debug ?? {}),\n        operation: \"UPDATE\",\n        received_shape: (req._gw_debug && req._gw_debug.received_shape) ? req._gw_debug.received_shape : \"flat\",\n      },\n    },\n  },\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3584,
+        464
+      ],
+      "id": "10e25e31-5fa3-46b1-aa23-aa9669d3a655",
+      "name": "NQxb_Artifact_Update_v1__Validate_Request"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "error-check",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "false"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -3360,
+        464
+      ],
+      "id": "7c572dc4-ed98-487f-9f54-949ba1293674",
+      "name": "NQxb_Artifact_Update_v1__Guard_Error_ShortCircuit"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "qxb_artifact_type_registry",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_type",
+              "keyValue": "={{ $node['NQxb_Artifact_Update_v1__Guard_Error_ShortCircuit'].json.artifact_type }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -3136,
+        544
+      ],
+      "id": "3a12b31b-9698-40f7-b596-e4c2b954fbbf",
+      "name": "NQxb_Artifact_Update_v1__Lookup_Type_Registry",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Type Registry Guard\n// Check artifact type against qxb_artifact_type_registry\n// Error code: ARTIFACT_TYPE_NOT_ALLOWED\n// Fail-closed: no row or disabled = reject\n\n// Get original request from the Guard_Error_ShortCircuit node (ok path)\nconst originalRequest = $node['NQxb_Artifact_Update_v1__Guard_Error_ShortCircuit'].json;\n\n// Get registry lookup result (may be empty if no row found)\nconst registryRow = $json;\n\nconst artifact_type = originalRequest.artifact_type;\n\n// FAIL-CLOSED: No row found = type not registered\nif (!registryRow || !registryRow.artifact_type) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: 'error',\n      gw_action: originalRequest.gw_action ?? 'artifact.update',\n      gw_workspace_id: originalRequest.gw_workspace_id ?? null,\n      artifact_type: artifact_type,\n      artifact_id: originalRequest.artifact_id ?? null,\n      error: {\n        code: 'ARTIFACT_TYPE_NOT_ALLOWED',\n        message: `Artifact type '${artifact_type}' is not allowed`,\n        details: {\n          artifact_type: artifact_type,\n          reason: 'not_registered',\n          hint: 'Type must be registered in qxb_artifact_type_registry'\n        }\n      },\n      timestamp: new Date().toISOString()\n    }\n  }];\n}\n\n// Type found but disabled\nif (registryRow.enabled === false) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: 'error',\n      gw_action: originalRequest.gw_action ?? 'artifact.update',\n      gw_workspace_id: originalRequest.gw_workspace_id ?? null,\n      artifact_type: artifact_type,\n      artifact_id: originalRequest.artifact_id ?? null,\n      error: {\n        code: 'ARTIFACT_TYPE_NOT_ALLOWED',\n        message: `Artifact type '${artifact_type}' is not allowed`,\n        details: {\n          artifact_type: artifact_type,\n          reason: 'disabled',\n          registry_enabled: false,\n          hint: 'Type is registered but currently disabled'\n        }\n      },\n      timestamp: new Date().toISOString()\n    }\n  }];\n}\n\n// Type is registered and enabled - pass through original request\nreturn [{ json: originalRequest }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2912,
+        544
+      ],
+      "id": "f48799e2-5706-4832-adff-7cc35a4e6e77",
+      "name": "NQxb_Artifact_Update_v1__Type_Registry_Guard"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.ok }}",
+                    "rightValue": false,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    },
+                    "id": "registry-error"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "registry-ok",
+                    "leftValue": "={{ $json.ok }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -2688,
+        528
+      ],
+      "id": "a2838256-b1ec-44de-98da-143aa1dfe0b1",
+      "name": "NQxb_Artifact_Update_v1__Switch_Type_Registry"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "qxb_artifact",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_id",
+              "keyValue": "={{ $json.artifact_id }}"
+            },
+            {
+              "keyName": "workspace_id",
+              "keyValue": "={{ $json.gw_workspace_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -2464,
+        672
+      ],
+      "id": "9e1dd717-3ac5-4652-aed7-a6b73909b545",
+      "name": "NQxb_Artifact_Update_v1__Fetch_Existing_Spine",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Check_Mutability_Rules\n// Enforce Mutability Registry v3 rules\n// v3: T64\n// v4: T71 â€” dependency check flagging for leaf completing â€” spine-field update mode for branch/limb/leaf\n// v5: T69 architectural fix\n// v6: T87 -- Spine field routing (title, summary, priority) + mixed update support\n// v7: T87 Task 3 -- Lifecycle-scoped mutability governance\n// v8: T87 Task 4 -- design_spine added to project extension allowlist\n// v9: T94 -- twig added to execution anatomy types (no extension table, lifecycle via spine)\n//   - archive: ALL mutations blocked (spine, extension, tags)\n//   - tree: title frozen (summary, priority, extension, tags remain mutable)\n//   - seed/sapling: fully mutable\n//\n// Order of checks:\n// 1. Existence check (NOT_FOUND)\n// 2. Lifecycle-scoped archive guard (blocks everything)\n// 3. Routing classification (T87)\n//    Three dimensions: hasTags, hasSpineFields, hasExtension\n// 4. Lifecycle-scoped tree guard (title frozen -- checked in spine/mixed paths)\n// 5. Type-specific rules\n\nconst existing = $json;\nconst artifact_type = existing.artifact_type;\nconst lifecycle_status = existing.lifecycle_status ?? null;\n\n// Pull the normalized request from the Normalize_Request node output.\nfunction getNormalizeNode() {\n  const candidateNodeNames = [\n    \"NQxb_Artifact_Update_v1__Normalize_Request\",\n    \"Normalize_Request\",\n    \"NQxb_Artifact_Update_v1__Normalize_Request_v3\",\n  ];\n\n  for (const name of candidateNodeNames) {\n    try {\n      const items = $items(name, 0);\n      if (items && items.length > 0 && items[0]?.json) return items[0].json;\n    } catch (e) {\n      // ignore and try next name\n    }\n  }\n\n  if (existing._normalized_request) return existing._normalized_request;\n  if (existing.normalizeNode) return existing.normalizeNode;\n\n  return {};\n}\n\nconst normalizeNode = getNormalizeNode();\n\nconst normalizedTags = normalizeNode.tags ?? null;\nconst extensionKeys = Object.keys(normalizeNode.extension || {});\n// T87: Spine field detection â€” check both normalizeNode.spine_fields AND $json top-level\n// Belt-and-suspenders: works regardless of which upstream node provides the data\nconst spineFieldsObj = normalizeNode.spine_fields || {};\nconst spineFieldKeys = Object.keys(spineFieldsObj);\n\nconst hasSpineFields = spineFieldKeys.length > 0;\n\nconst hasTags = normalizedTags !== null;\nconst hasExtension = extensionKeys.length > 0;\n\n// ============================================================================\n// 1.5 LIFECYCLE GUARD: archive = ALL mutations blocked\n// Applies to projects only (execution anatomy has its own archive guard at 6.7.5)\n// ============================================================================\nif (artifact_type === \"project\" && lifecycle_status === \"archive\") {\n  const attemptedFields = [];\n  if (hasSpineFields) attemptedFields.push(...spineFieldKeys.map(k => `spine.${k}`));\n  if (hasExtension) attemptedFields.push(...extensionKeys.map(k => `extension.${k}`));\n  if (hasTags) attemptedFields.push(\"tags\");\n\n  return [\n    {\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"ARCHIVE_IMMUTABLE\",\n          message: \"Archived projects are fully immutable. No mutations are permitted.\",\n          details: {\n            artifact_id: existing.artifact_id,\n            artifact_type: \"project\",\n            lifecycle_status: \"archive\",\n            attempted_fields: attemptedFields,\n            hint: \"Archived artifacts are read-only historical records. No spine, extension, or tag updates are allowed.\",\n          },\n        },\n      },\n    },\n  ];\n}\n\n\n// 2d. Extension + (tags OR spine fields) = MIXED_UPDATE_NOT_ALLOWED\nif (hasExtension && (hasTags || hasSpineFields)) {\n  return [\n    {\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"MIXED_UPDATE_NOT_ALLOWED\",\n          message: \"Cannot combine extension fields with tags or spine fields in a single update. Send extension updates separately.\",\n          details: {\n            artifact_id: existing.artifact_id,\n            artifact_type: artifact_type,\n            has_extension: true,\n            has_tags: hasTags,\n            has_spine_fields: hasSpineFields,\n            spine_field_keys: spineFieldKeys,\n            hint: \"Split into two requests: (1) extension-only update, (2) tags/spine update.\",\n          },\n        },\n      },\n    },\n  ];\n}\n\n// ============================================================================\n// LIFECYCLE GUARD HELPER: tree = title frozen\n// Used by spine_only and mixed paths below\n// ============================================================================\nfunction checkTreeTitleFreeze() {\n  if (artifact_type === \"project\" && lifecycle_status === \"tree\" && spineFieldKeys.includes(\"title\")) {\n    return {\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"FIELD_FROZEN\",\n        message: \"Field 'title' is frozen at lifecycle stage 'tree'. Title cannot be changed once a project reaches tree.\",\n        details: {\n          artifact_id: existing.artifact_id,\n          artifact_type: \"project\",\n          lifecycle_status: \"tree\",\n          frozen_field: \"title\",\n          allowed_spine_fields: spineFieldKeys.filter(k => k !== \"title\"),\n          hint: \"At tree stage, title is locked as the project's permanent identity. Summary and priority remain mutable.\",\n        },\n      },\n    };\n  }\n  return null;\n}\n\n// 2a. Tags only\nif (hasTags && !hasSpineFields && !hasExtension) {\n  return [\n    {\n      json: {\n        ok: true,\n        _gw_route: \"ok\",\n        _update_mode: \"tags_only\",\n        gw_action: normalizeNode.gw_action ?? \"artifact.update\",\n        gw_workspace_id: normalizeNode.gw_workspace_id ?? null,\n        artifact_id: existing.artifact_id,\n        workspace_id: existing.workspace_id,\n        artifact_type: artifact_type,\n        _normalized_request: normalizeNode,\n        _existing_artifact: existing,\n        _gw_debug: {\n          ...(normalizeNode._gw_debug ?? {}),\n          mutability: \"tags_only_bypass\",\n          operation: \"UPDATE\",\n        },\n      },\n    },\n  ];\n}\n\n// 2a.5 GUARD: lifecycle_status via spine_fields is TWIG-ONLY\n// Projects use artifact.promote -- direct lifecycle_status update is blocked.\nif (hasSpineFields && spineFieldKeys.includes('lifecycle_status') && artifact_type !== 'twig') {\n  return [\n    {\n      json: {\n        ok: false,\n        _gw_route: 'error',\n        error: {\n          code: 'MUTABILITY_ERROR',\n          message: \"Field 'lifecycle_status' cannot be updated via artifact.update for type '\" + artifact_type + \"'. Use artifact.promote for lifecycle transitions.\",\n          details: {\n            field: 'lifecycle_status',\n            artifact_type: artifact_type,\n            artifact_id: existing.artifact_id,\n            registry_rule: 'PROMOTE_ONLY',\n            hint: 'lifecycle_status updates via spine fields are only allowed for twig artifacts. Projects must use artifact.promote.',\n          },\n        },\n      },\n    },\n  ];\n}\n\n// 2a.6 GUARD: twig lifecycle transition validation\nif (hasSpineFields && spineFieldKeys.includes('lifecycle_status') && artifact_type === 'twig') {\n  const currentLifecycle = existing.lifecycle_status ?? null;\n  const requestedLifecycle = spineFieldsObj.lifecycle_status ?? null;\n\n  // Terminal states: promoted and pruned cannot be changed\n  if (currentLifecycle === 'promoted' || currentLifecycle === 'pruned') {\n    return [\n      {\n        json: {\n          ok: false,\n          _gw_route: 'error',\n          error: {\n            code: 'ARCHIVE_TERMINAL',\n            message: 'Cannot update lifecycle_status on ' + currentLifecycle + ' twig. Terminal state.',\n            details: {\n              artifact_id: existing.artifact_id,\n              artifact_type: 'twig',\n              lifecycle_status: currentLifecycle,\n              hint: 'Twigs in promoted or pruned state are terminal. Archive the twig and create a new artifact if needed.',\n            },\n          },\n        },\n      },\n    ];\n  }\n\n  // Transition matrix: proposed -> active -> promoted | pruned\n  const twigTransitions = {\n    'null': ['proposed'],\n    'proposed': ['active', 'pruned'],\n    'active': ['promoted', 'pruned'],\n  };\n\n  const fromKey = currentLifecycle === null ? 'null' : currentLifecycle;\n  const allowed = twigTransitions[fromKey] || [];\n\n  if (requestedLifecycle !== null && !allowed.includes(requestedLifecycle)) {\n    return [\n      {\n        json: {\n          ok: false,\n          _gw_route: 'error',\n          error: {\n            code: 'INVALID_TRANSITION',\n            message: \"lifecycle_status transition not allowed: '\" + (currentLifecycle ?? 'NULL') + \"' \\u2192 '\" + requestedLifecycle + \"'\",\n            details: {\n              field: 'lifecycle_status',\n              from_status: currentLifecycle,\n              to_status: requestedLifecycle,\n              artifact_type: 'twig',\n              artifact_id: existing.artifact_id,\n              allowed_from_current: allowed,\n              hint: \"Allowed from '\" + (currentLifecycle ?? 'NULL') + \"': \" + (allowed.length > 0 ? allowed.join(', ') : '(none -- terminal state)') + '.',\n            },\n          },\n        },\n      },\n    ];\n  }\n\n  // No-op detection\n  if (currentLifecycle === requestedLifecycle) {\n    return [{\n      json: {\n        ok: true,\n        _gw_route: 'ok',\n        _update_mode: 'noop',\n        gw_action: normalizeNode.gw_action ?? 'artifact.update',\n        gw_workspace_id: normalizeNode.gw_workspace_id ?? null,\n        artifact_id: existing.artifact_id,\n        workspace_id: existing.workspace_id,\n        artifact_type: artifact_type,\n        lifecycle_status: currentLifecycle,\n        version: existing.version,\n      }\n    }];\n  }\n}\n\n// 2b. Spine only\nif (hasSpineFields && !hasTags && !hasExtension) {\n  // T87 Task 3: tree title freeze check\n  const titleFreeze = checkTreeTitleFreeze();\n  if (titleFreeze) return [{ json: titleFreeze }];\n\n  return [\n    {\n      json: {\n        ok: true,\n        _gw_route: \"ok\",\n        _update_mode: \"spine_only\",\n        gw_action: normalizeNode.gw_action ?? \"artifact.update\",\n        gw_workspace_id: normalizeNode.gw_workspace_id ?? null,\n        artifact_id: existing.artifact_id,\n        workspace_id: existing.workspace_id,\n        artifact_type: artifact_type,\n        _normalized_request: normalizeNode,\n        _existing_artifact: existing,\n        _gw_debug: {\n          ...(normalizeNode._gw_debug ?? {}),\n          mutability: \"spine_only\",\n          operation: \"UPDATE\",\n          spine_field_keys: spineFieldKeys,\n        },\n      },\n    },\n  ];\n}\n\n// 2c. Mixed -- tags + spine fields, no extension (single atomic PATCH)\nif (hasTags && hasSpineFields && !hasExtension) {\n  // T87 Task 3: tree title freeze check\n  const titleFreeze = checkTreeTitleFreeze();\n  if (titleFreeze) return [{ json: titleFreeze }];\n\n  return [\n    {\n      json: {\n        ok: true,\n        _gw_route: \"ok\",\n        _update_mode: \"mixed\",\n        gw_action: normalizeNode.gw_action ?? \"artifact.update\",\n        gw_workspace_id: normalizeNode.gw_workspace_id ?? null,\n        artifact_id: existing.artifact_id,\n        workspace_id: existing.workspace_id,\n        artifact_type: artifact_type,\n        _normalized_request: normalizeNode,\n        _existing_artifact: existing,\n        _gw_debug: {\n          ...(normalizeNode._gw_debug ?? {}),\n          mutability: \"mixed_tags_spine\",\n          operation: \"UPDATE\",\n          spine_field_keys: spineFieldKeys,\n        },\n      },\n    },\n  ];\n}\n\n// --- Below: extension-only paths ---\n\n// 3. RULE: snapshot and restart are fully immutable (Mutability Registry v1)\nif (artifact_type === \"snapshot\" || artifact_type === \"restart\" || artifact_type === \"instruction_pack\") {\n  return [\n    {\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"IMMUTABILITY_ERROR\",\n          message: `Artifact type '${artifact_type}' is immutable and cannot be updated. Only INSERT operations are allowed.`,\n          details: {\n            artifact_type: artifact_type,\n            artifact_id: existing.artifact_id,\n            operation_attempted: \"UPDATE\",\n            registry_rule: \"CREATE_ONLY\",\n            source: \"Mutability Registry v3\",\n            hint: \"Extension fields on immutable types cannot be updated. Tags-only updates are allowed via tags.add/tags.remove.\",\n          },\n        },\n      },\n    },\n  ];\n}\n\n// 4. RULE: journal is INSERT-ONLY (Mutability Registry v3 -- PERMANENT)\n// Decision locked: T46 / T87\nif (artifact_type === \"journal\") {\n  return [\n    {\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"JOURNAL_INSERT_ONLY\",\n          message:\n            \"Journals are permanently INSERT-ONLY. Use artifact.save to append new entries.\",\n          details: {\n            artifact_type: \"journal\",\n            artifact_id: existing.artifact_id,\n            operation_attempted: \"UPDATE\",\n            registry_rule: \"INSERT_ONLY\",\n            source: \"Mutability Registry v3\",\n            doctrine: \"Journal INSERT-ONLY (Permanent)\",\n            hint: \"Journal extension fields cannot be updated. Tags and spine field updates are allowed via separate requests. Use append-to:<journal_id> tag convention for thread-append.\",\n          },\n        },\n      },\n    },\n  ];\n}\n\n// 5. RULE: deleted_at is UNDECIDED_BLOCKED (Mutability Registry v1)\nif (normalizeNode.deleted_at !== null && normalizeNode.deleted_at !== undefined) {\n  return [\n    {\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"MUTABILITY_ERROR\",\n          message: \"Field 'deleted_at' is UNDECIDED_BLOCKED and cannot be updated.\",\n          details: {\n            field: \"deleted_at\",\n            artifact_type: artifact_type,\n            artifact_id: existing.artifact_id,\n            registry_rule: \"UNDECIDED_BLOCKED\",\n            source: \"Mutability Registry v1\",\n            hint: \"Soft delete semantics not yet locked. Use dedicated artifact.delete action when implemented.\",\n          },\n        },\n      },\n    },\n  ];\n}\n\n// 6. RULE: For project artifacts, only operational_state and state_reason allowed\nif (artifact_type === \"project\" && !hasSpineFields) {\n  const extension = normalizeNode.extension || {};\n  const allowedFields = [\"summary\", \"operational_state\", \"state_reason\", \"design_spine\"];\n  const providedFields = Object.keys(extension);\n\n  const disallowedFields = providedFields.filter((f) => !allowedFields.includes(f));\n\n  if (disallowedFields.length > 0) {\n    if (disallowedFields.includes(\"lifecycle_stage\")) {\n      return [\n        {\n          json: {\n            ok: false,\n            _gw_route: \"error\",\n            error: {\n              code: \"MUTABILITY_ERROR\",\n              message:\n                \"Field 'lifecycle_stage' is PROMOTE_ONLY and cannot be updated via artifact.update.\",\n              details: {\n                field: \"extension.lifecycle_stage\",\n                artifact_type: \"project\",\n                artifact_id: existing.artifact_id,\n                registry_rule: \"PROMOTE_ONLY\",\n                source: \"Mutability Registry v1\",\n                hint: \"Use artifact.promote operation to change lifecycle_stage.\",\n              },\n            },\n          },\n        },\n      ];\n    }\n\n    return [\n      {\n        json: {\n          ok: false,\n          _gw_route: \"error\",\n          error: {\n            code: \"MUTABILITY_ERROR\",\n            message: `Disallowed fields in extension for project UPDATE: ${disallowedFields.join(\n              \", \"\n            )}`,\n            details: {\n              disallowed_fields: disallowedFields,\n              allowed_fields: allowedFields,\n              artifact_type: \"project\",\n              artifact_id: existing.artifact_id,\n              source: \"Mutability Registry v1\",\n              hint: \"Only summary, operational_state, state_reason, and design_spine are UPDATE_ALLOWED for project artifacts.\",\n            },\n          },\n        },\n      },\n    ];\n  }\n\n  if (providedFields.length === 0) {\n    return [\n      {\n        json: {\n          ok: false,\n          _gw_route: \"error\",\n          error: {\n            code: \"VALIDATION_ERROR\",\n            message: \"No updateable fields provided in extension for project UPDATE.\",\n            details: {\n              artifact_type: \"project\",\n              artifact_id: existing.artifact_id,\n              allowed_fields: allowedFields,\n              hint: \"Provide at least one of: summary, operational_state, state_reason, design_spine\",\n            },\n          },\n        },\n      },\n    ];\n  }\n\n  // 6.5: Value validation for operational_state (DDL CHECK constraint)\n  // Allowed: active, paused, blocked, waiting\n  // Source: qxb_artifact_project_operational_state_check\n  if ('operational_state' in extension) {\n    const allowedStates = ['active', 'paused', 'blocked', 'waiting'];\n    if (!allowedStates.includes(extension.operational_state)) {\n      return [\n        {\n          json: {\n            ok: false,\n            _gw_route: \"error\",\n            error: {\n              code: \"VALIDATION_ERROR\",\n              message: `Invalid operational_state value: '${extension.operational_state}'`,\n              details: {\n                field: \"operational_state\",\n                provided_value: extension.operational_state,\n                allowed_values: allowedStates,\n                artifact_type: \"project\",\n                artifact_id: existing.artifact_id,\n                source: \"DDL CHECK: qxb_artifact_project_operational_state_check\",\n              },\n            },\n          },\n        },\n      ];\n    }\n  }\n}\n\n// 6.7 RULE: branch/limb/leaf â€” spine-field update only (T64)\n// execution_status is a SPINE field on qxb_artifact (DDL v2.4).\n// Route to spine PATCH instead of extension table write.\nconst executionAnatomyTypes = ['branch', 'limb', 'leaf', 'twig'];\nif (executionAnatomyTypes.includes(artifact_type)) {\n  const extension = normalizeNode.extension || {};\n  // T94: twig also allows lifecycle_status via extension (routed to spine PATCH)\n  const allowedSpineFields = artifact_type === 'twig'\n    ? ['execution_status', 'lifecycle_status']\n    : ['execution_status'];\n  const providedFields = Object.keys(extension);\n\n  // 6.7.2 Allowlist check: reject unknown fields\n  const disallowedFields = providedFields.filter(f => !allowedSpineFields.includes(f));\n  if (disallowedFields.length > 0) {\n    return [{\n      json: {\n        ok: false,\n        _gw_route: 'error',\n        error: {\n          code: 'VALIDATION_ERROR',\n          message: 'Disallowed fields in extension for ' + artifact_type + ' UPDATE: ' + disallowedFields.join(', '),\n          details: {\n            disallowed_fields: disallowedFields,\n            allowed_fields: allowedSpineFields,\n            artifact_type: artifact_type,\n            artifact_id: existing.artifact_id,\n            source: 'T64',\n            hint: 'Only execution_status is UPDATE_ALLOWED for ' + artifact_type + ' artifacts. Use tags.add/tags.remove for tag updates.'\n          }\n        }\n      }\n    }];\n  }\n\n  // 6.7.3 Must provide at least one updateable field\n  if (providedFields.length === 0) {\n    return [{\n      json: {\n        ok: false,\n        _gw_route: 'error',\n        error: {\n          code: 'VALIDATION_ERROR',\n          message: 'No updateable fields provided in extension for ' + artifact_type + ' UPDATE.',\n          details: {\n            artifact_type: artifact_type,\n            artifact_id: existing.artifact_id,\n            allowed_fields: allowedSpineFields,\n            hint: 'Provide execution_status in extension object.'\n          }\n        }\n      }\n    }];\n  }\n\n  // 6.7.4 Validate execution_status value against CHECK constraint\n  const execStatus = extension.execution_status;\n  const validStatuses = ['not_started', 'in_progress', 'blocked', 'complete'];\n  if (execStatus !== null && execStatus !== undefined && !validStatuses.includes(execStatus)) {\n    return [{\n      json: {\n        ok: false,\n        _gw_route: 'error',\n        error: {\n          code: 'VALIDATION_ERROR',\n          message: \"Invalid execution_status value: '\" + execStatus + \"'\",\n          details: {\n            field: 'execution_status',\n            provided_value: execStatus,\n            allowed_values: validStatuses,\n            artifact_type: artifact_type,\n            artifact_id: existing.artifact_id,\n            hint: 'execution_status must be one of: not_started, in_progress, blocked, complete'\n          }\n        }\n      }\n    }];\n  }\n\n  // 6.7.4a T94: twig lifecycle_status transition validation (via extension path)\n  if (artifact_type === 'twig' && extension.lifecycle_status !== undefined) {\n    const currentLifecycle = existing.lifecycle_status ?? null;\n    const requestedLifecycle = extension.lifecycle_status ?? null;\n\n    // Terminal states\n    if (currentLifecycle === 'promoted' || currentLifecycle === 'pruned') {\n      return [{\n        json: {\n          ok: false,\n          _gw_route: 'error',\n          error: {\n            code: 'ARCHIVE_TERMINAL',\n            message: 'Cannot update lifecycle_status on ' + currentLifecycle + ' twig. Terminal state.',\n            details: {\n              artifact_id: existing.artifact_id,\n              artifact_type: 'twig',\n              lifecycle_status: currentLifecycle,\n              hint: 'Twigs in promoted or pruned state are terminal. Archive the twig and create a new artifact if needed.',\n            },\n          },\n        },\n      }];\n    }\n\n    // Transition matrix: proposed -> active -> promoted | pruned\n    const twigTransitions = {\n      'null': ['proposed'],\n      'proposed': ['active', 'pruned'],\n      'active': ['promoted', 'pruned'],\n    };\n    const fromKey = currentLifecycle === null ? 'null' : currentLifecycle;\n    const allowed = twigTransitions[fromKey] || [];\n\n    if (requestedLifecycle !== null && !allowed.includes(requestedLifecycle)) {\n      return [{\n        json: {\n          ok: false,\n          _gw_route: 'error',\n          error: {\n            code: 'INVALID_TRANSITION',\n            message: \"lifecycle_status transition not allowed: '\" + (currentLifecycle ?? 'NULL') + \"' → '\" + requestedLifecycle + \"'\",\n            details: {\n              field: 'lifecycle_status',\n              from_status: currentLifecycle,\n              to_status: requestedLifecycle,\n              artifact_type: 'twig',\n              artifact_id: existing.artifact_id,\n              allowed_from_current: allowed,\n              hint: \"Allowed from '\" + (currentLifecycle ?? 'NULL') + \"': \" + (allowed.length > 0 ? allowed.join(', ') : '(none -- terminal state)') + '.',\n            },\n          },\n        },\n      }];\n    }\n\n    // No-op\n    if (currentLifecycle === requestedLifecycle) {\n      return [{\n        json: {\n          ok: true,\n          _gw_route: 'ok',\n          _update_mode: 'noop',\n          gw_action: normalizeNode.gw_action ?? 'artifact.update',\n          gw_workspace_id: normalizeNode.gw_workspace_id ?? null,\n          artifact_id: existing.artifact_id,\n          workspace_id: existing.workspace_id,\n          artifact_type: artifact_type,\n          lifecycle_status: currentLifecycle,\n          version: existing.version,\n        }\n      }];\n    }\n\n    // Valid lifecycle transition -- route to spine PATCH (skip execution_status pipeline)\n    return [{\n      json: {\n        ok: true,\n        _gw_route: 'ok',\n        _update_mode: 'spine_fields',\n        gw_action: normalizeNode.gw_action ?? 'artifact.update',\n        gw_workspace_id: normalizeNode.gw_workspace_id ?? null,\n        artifact_id: existing.artifact_id,\n        workspace_id: existing.workspace_id,\n        artifact_type: artifact_type,\n        _normalized_request: normalizeNode,\n        _existing_artifact: existing,\n        _spine_update: {\n          lifecycle_status: requestedLifecycle,\n        },\n        _needs_parent_check: false,\n        _needs_dependency_check: false,\n        _gw_debug: {\n          ...(normalizeNode._gw_debug ?? {}),\n          mutability: 'twig_lifecycle_transition',\n          operation: 'UPDATE',\n          transition: (currentLifecycle ?? 'NULL') + ' → ' + requestedLifecycle,\n        }\n      }\n    }];\n  }\n\n  // 6.7.5 Archive guard: lifecycle_status = 'archive' rejects all mutations\n  if (existing.lifecycle_status === 'archive') {\n    return [{\n      json: {\n        ok: false,\n        _gw_route: 'error',\n        error: {\n          code: 'ARCHIVE_TERMINAL',\n          message: 'Cannot mutate execution_status on archived artifact',\n          details: {\n            artifact_id: existing.artifact_id,\n            artifact_type: artifact_type,\n            lifecycle_status: 'archive',\n            hint: 'Archived artifacts are read-only. No mutations are permitted.'\n          }\n        }\n      }\n    }];\n  }\n\n  // 6.7.6 No-op detection: same state â†’ no write\n  const currentStatus = existing.execution_status ?? null;\n  const requestedStatus = execStatus ?? null;\n  if (currentStatus === requestedStatus) {\n    return [{\n      json: {\n        ok: true,\n        _gw_route: 'ok',\n        _update_mode: 'noop',\n        gw_action: normalizeNode.gw_action ?? 'artifact.update',\n        gw_workspace_id: normalizeNode.gw_workspace_id ?? null,\n        artifact_id: existing.artifact_id,\n        workspace_id: existing.workspace_id,\n        artifact_type: artifact_type,\n        execution_status: currentStatus,\n        version: existing.version,\n      }\n    }];\n  }\n\n  // 6.7.7 NULL reset prohibition: cannot set back to NULL once initialized\n  if (currentStatus !== null && requestedStatus === null) {\n    return [{\n      json: {\n        ok: false,\n        _gw_route: 'error',\n        error: {\n          code: 'INVALID_TRANSITION',\n          message: 'Cannot reset execution_status to NULL once initialized',\n          details: {\n            field: 'execution_status',\n            from_status: currentStatus,\n            to_status: null,\n            artifact_type: artifact_type,\n            artifact_id: existing.artifact_id,\n            reason: 'null_reset_prohibited',\n            hint: 'execution_status cannot be set back to NULL. Once initialized, only forward transitions are allowed.'\n          }\n        }\n      }\n    }];\n  }\n\n  // 6.7.8 Transition matrix enforcement\n  const allowedTransitions = {\n    'null': ['not_started'],\n    'not_started': ['in_progress', 'blocked'],\n    'in_progress': ['blocked', 'complete'],\n    'blocked': ['in_progress'],\n    'complete': []\n  };\n\n  const fromKey = currentStatus === null ? 'null' : currentStatus;\n  const allowed = allowedTransitions[fromKey] || [];\n\n  if (!allowed.includes(requestedStatus)) {\n    // Determine reason for better error messaging\n    let reason = 'invalid_transition';\n    if (currentStatus === 'complete') {\n      reason = 'complete_is_terminal';\n    } else if (\n      (currentStatus === 'in_progress' && requestedStatus === 'not_started') ||\n      (currentStatus === 'blocked' && requestedStatus === 'not_started')\n    ) {\n      reason = 'backward_transition';\n    } else if (\n      (currentStatus === null && requestedStatus !== 'not_started') ||\n      (currentStatus === 'not_started' && requestedStatus === 'complete') ||\n      (currentStatus === 'blocked' && requestedStatus === 'complete')\n    ) {\n      reason = 'skip_transition';\n    }\n\n    const allowedMsg = allowed.length > 0 ? allowed.join(', ') : '(none â€” terminal state)';\n    return [{\n      json: {\n        ok: false,\n        _gw_route: 'error',\n        error: {\n          code: 'INVALID_TRANSITION',\n          message: \"execution_status transition not allowed: '\" + (currentStatus ?? 'NULL') + \"' \\u2192 '\" + requestedStatus + \"'\",\n          details: {\n            field: 'execution_status',\n            from_status: currentStatus,\n            to_status: requestedStatus,\n            artifact_type: artifact_type,\n            artifact_id: existing.artifact_id,\n            reason: reason,\n            allowed_from_current: allowed,\n            hint: \"Allowed from '\" + (currentStatus ?? 'NULL') + \"': \" + allowedMsg + \".\"\n          }\n        }\n      }\n    }];\n  }\n\n  // 6.7.8a Twig lifecycle terminal guard\n  // Twigs in promoted/pruned state are terminal -- no execution_status changes allowed\n  if (artifact_type === 'twig') {\n    const twigLifecycle = existing.lifecycle_status ?? null;\n    if (twigLifecycle === 'promoted' || twigLifecycle === 'pruned') {\n      return [{\n        json: {\n          ok: false,\n          _gw_route: 'error',\n          error: {\n            code: 'ARCHIVE_TERMINAL',\n            message: 'Cannot mutate execution_status on ' + twigLifecycle + ' twig',\n            details: {\n              artifact_id: existing.artifact_id,\n              artifact_type: 'twig',\n              lifecycle_status: twigLifecycle,\n              hint: 'Twigs in promoted or pruned state are terminal. No mutations are permitted.'\n            }\n          }\n        }\n      }];\n    }\n  }\n\n  // 6.7.9 Parent check flagging\n  const needsParentCheck = (requestedStatus === 'complete') &&\n                           (artifact_type === 'branch' || artifact_type === 'limb');\n\n  // 6.7.9a Dependency check flagging (T71)\n  const needsDependencyCheck = (requestedStatus === 'complete') && (artifact_type === 'leaf');\n\n  // 6.7.10 Route to spine-field update\n  return [{\n    json: {\n      ok: true,\n      _gw_route: 'ok',\n      _update_mode: 'spine_fields',\n      gw_action: normalizeNode.gw_action ?? 'artifact.update',\n      gw_workspace_id: normalizeNode.gw_workspace_id ?? null,\n      artifact_id: existing.artifact_id,\n      workspace_id: existing.workspace_id,\n      artifact_type: artifact_type,\n      _normalized_request: normalizeNode,\n      _existing_artifact: existing,\n      _spine_update: {\n        ...(execStatus !== null && execStatus !== undefined ? { execution_status: requestedStatus } : {}),\n        ...(artifact_type === 'twig' && extension.lifecycle_status !== undefined ? { lifecycle_status: extension.lifecycle_status } : {}),\n      },\n      _needs_parent_check: needsParentCheck,\n      _needs_dependency_check: needsDependencyCheck,\n      _gw_debug: {\n        ...(normalizeNode._gw_debug ?? {}),\n        mutability: 'spine_fields_allowed',\n        operation: 'UPDATE',\n        transition: (currentStatus ?? 'NULL') + ' \\u2192 ' + requestedStatus,\n        needs_parent_check: needsParentCheck,\n        needs_dependency_check: needsDependencyCheck,\n      }\n    }\n  }];\n}\n\n// 7. Mutability checks passed â€” extension update path\nreturn [\n  {\n    json: {\n      ok: true,\n      _gw_route: \"ok\",\n      _update_mode: \"extension\",\n      gw_action: normalizeNode.gw_action ?? \"artifact.update\",\n      gw_workspace_id: normalizeNode.gw_workspace_id ?? null,\n      artifact_id: existing.artifact_id,\n      workspace_id: existing.workspace_id,\n      artifact_type: existing.artifact_type,\n      _normalized_request: normalizeNode,\n      _existing_artifact: existing,\n      _gw_debug: {\n        ...(normalizeNode._gw_debug ?? {}),\n        mutability: \"passed\",\n        operation: \"UPDATE\",\n      },\n    },\n  },\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1792,
+        704
+      ],
+      "id": "8199a699-74da-417f-bd73-f58e058b81ac",
+      "name": "NQxb_Artifact_Update_v1__Check_Mutability_Rules"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.ok }}",
+                    "rightValue": false,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    },
+                    "id": "546af728-12a2-4c64-9707-208c51f7f9c3"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "864a4039-588b-44cf-baba-75ac303c78c8",
+                    "leftValue": "={{ $json.ok }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -1568,
+        688
+      ],
+      "id": "1aa4bba3-1999-4ee0-9c82-ea8d9505a7c6",
+      "name": "NQxb_Artifact_Update_v1__Switch_Mutability_Result"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json._update_mode }}",
+                    "rightValue": "tags_only",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "route-tags-only"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json._update_mode }}",
+                    "rightValue": "spine_fields",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "route-spine-fields"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json._update_mode }}",
+                    "rightValue": "noop",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "route-noop"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json._update_mode }}",
+                    "rightValue": "spine_only",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "route-spine-only"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json._update_mode }}",
+                    "rightValue": "mixed",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "route-mixed"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -1344,
+        784
+      ],
+      "id": "01d7755c-294a-4b06-830e-9bbbe8a4838a",
+      "name": "NQxb_Artifact_Update_v1__Switch_Update_Mode"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Compute_Tag_Merge\n// Merges existing spine tags with add/remove operations.\n// Rules:\n// - Deduplicate\n// - Remove explicitly removed tags (remove wins over add)\n// - Deterministic ordering (alphabetical sort)\n// - Never return null (empty array allowed)\n// - Computes next_version for spine update\n\nconst normalizeNode = $node['NQxb_Artifact_Update_v1__Normalize_Request'].json;\nconst existing = $json._existing_artifact;\n\nconst existingTags = Array.isArray(existing.tags) ? existing.tags : [];\nconst tagsToAdd = Array.isArray(normalizeNode.tags?.add) ? normalizeNode.tags.add : [];\nconst tagsToRemove = new Set(\n  Array.isArray(normalizeNode.tags?.remove) ? normalizeNode.tags.remove : []\n);\n\n// Build merged set: existing + add, then subtract remove\nconst merged = new Set(existingTags);\nfor (const tag of tagsToAdd) {\n  merged.add(tag);\n}\nfor (const tag of tagsToRemove) {\n  merged.delete(tag);\n}\n\n// Deterministic ordering (alphabetical)\nconst finalTags = [...merged].sort();\n\n// Version increment\nconst currentVersion = typeof existing.version === 'number' ? existing.version : 1;\nconst nextVersion = currentVersion + 1;\n\nreturn [{\n  json: {\n    artifact_id: existing.artifact_id,\n    workspace_id: existing.workspace_id,\n    artifact_type: existing.artifact_type,\n    final_tags: finalTags,\n    next_version: nextVersion,\n    _tag_debug: {\n      existing: existingTags,\n      added: tagsToAdd,\n      removed: [...tagsToRemove],\n      result: finalTags,\n      version_before: currentVersion,\n      version_after: nextVersion,\n    },\n  },\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        400
+      ],
+      "id": "ec6f5190-6691-410b-bccc-01cc7a3db07c",
+      "name": "NQxb_Artifact_Update_v1__Compute_Tag_Merge"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://npymhacpmxdnkqdzgxll.supabase.co/rest/v1/qxb_artifact?artifact_id=eq.{{ $json.artifact_id }}&workspace_id=eq.{{ $json.workspace_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ tags: $json.final_tags, version: $json.next_version }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        224,
+        400
+      ],
+      "id": "7a20fc93-e4fe-4ba7-bcc6-5755bdd7a8bd",
+      "name": "NQxb_Artifact_Update_v1__DB_Update_Spine_Tags",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Return_Tags_Ack\n// Terminal node for tags-only update path.\n// Uses $node[] references (HTTP Request output may be empty with return=minimal).\n\nconst normalizeNode = $node['NQxb_Artifact_Update_v1__Normalize_Request'].json;\nconst tagMergeNode = $node['NQxb_Artifact_Update_v1__Compute_Tag_Merge'].json;\n\nreturn [{\n  json: {\n    ok: true,\n    gw_action: \"artifact.update\",\n    operation: \"TAG_UPDATE\",\n    artifact_id: normalizeNode.artifact_id,\n    artifact_type: normalizeNode.artifact_type,\n    gw_workspace_id: normalizeNode.gw_workspace_id,\n    tags: tagMergeNode.final_tags,\n    version: tagMergeNode.next_version,\n    _tag_changes: {\n      added: normalizeNode.tags?.add ?? [],\n      removed: normalizeNode.tags?.remove ?? [],\n    },\n    _kgb: {\n      status: \"TAG_UPDATE_CONFIRMED\",\n      note: \"Spine-level tag update completed. Version incremented. updated_at set by trigger.\",\n    },\n  },\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        912
+      ],
+      "id": "9772e003-461c-43cd-a719-3fc060954d54",
+      "name": "NQxb_Artifact_Update_v1__Return_Tags_Ack"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Return_Noop_Ack\n// T64: Terminal for no-op execution_status updates (same state).\n// No DB write, no version increment.\n\nreturn [{\n  json: {\n    ok: true,\n    gw_action: 'artifact.update',\n    operation: 'NOOP',\n    artifact_id: $json.artifact_id,\n    artifact_type: $json.artifact_type,\n    gw_workspace_id: $json.gw_workspace_id ?? $json.workspace_id,\n    execution_status: $json.execution_status,\n    version: $json.version,\n    _kgb: {\n      status: 'NOOP_CONFIRMED',\n      note: 'Requested execution_status matches current value. No mutation performed. Version unchanged.'\n    }\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1120,
+        544
+      ],
+      "id": "6640658e-17ae-4ca8-b98b-10ae8132e6db",
+      "name": "NQxb_Artifact_Update_v1__Return_Noop_Ack"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "needs-parent-check",
+              "leftValue": "={{ $json._needs_parent_check }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1120,
+        960
+      ],
+      "id": "122cd92e-894b-4737-9c5c-4a7cac8bb191",
+      "name": "NQxb_Artifact_Update_v1__Switch_Parent_Check"
+    },
+    {
+      "parameters": {
+        "url": "=https://npymhacpmxdnkqdzgxll.supabase.co/rest/v1/qxb_artifact?parent_artifact_id=eq.{{ $json.artifact_id }}&workspace_id=eq.{{ $json.workspace_id }}&deleted_at=is.null&or=(execution_status.is.null,execution_status.neq.complete)&select=artifact_id,execution_status&limit=1",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -672,
+        736
+      ],
+      "id": "3495665c-9449-4253-b6cf-177f7373518f",
+      "name": "NQxb_Artifact_Update_v1__DB_Query_Incomplete_Children",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Guard_Children_Complete\n// T64: Check if parent completion query found any incomplete children.\n// DB_Query_Incomplete_Children returns [] (0 items) if all complete.\n// With alwaysOutputData, 0 items → {json:{}} (no artifact_id).\n\nconst queryResult = $json;\nconst parentData = $node['NQxb_Artifact_Update_v1__Switch_Parent_Check'].json;\n\nif (queryResult && queryResult.artifact_id) {\n  // Found an incomplete child — block completion\n  return [{\n    json: {\n      ok: false,\n      _gw_route: 'error',\n      error: {\n        code: 'INCOMPLETE_CHILDREN',\n        message: 'Cannot complete ' + parentData.artifact_type + ': 1 or more children have incomplete execution_status',\n        details: {\n          artifact_id: parentData.artifact_id,\n          artifact_type: parentData.artifact_type,\n          incomplete_child_sample: {\n            artifact_id: queryResult.artifact_id,\n            execution_status: queryResult.execution_status ?? null\n          },\n          hint: \"All direct children must have execution_status = 'complete' before parent can be marked complete.\"\n        }\n      }\n    }\n  }];\n}\n\n// All children complete (or no children) — pass through parent data for spine update\nreturn [{ json: parentData }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -656,
+        960
+      ],
+      "id": "a9dcdede-e8f4-4ffc-85ad-d0991df3c052",
+      "name": "NQxb_Artifact_Update_v1__Guard_Children_Complete"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.ok }}",
+                    "rightValue": false,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    },
+                    "id": "children-error"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.ok }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    },
+                    "id": "children-ok"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -224,
+        800
+      ],
+      "id": "83f21be4-53cc-49db-a133-e161a55dec67",
+      "name": "NQxb_Artifact_Update_v1__Switch_Children_Result"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Prepare_Spine_Field_Update\n// T64: Prepare spine-field PATCH payload for branch/limb/leaf/twig.\n// T94: Also handles lifecycle_status for twig.\n\nconst existing = $json._existing_artifact;\nconst spineUpdate = $json._spine_update;\n\nconst currentVersion = typeof existing.version === 'number' ? existing.version : 1;\nconst nextVersion = currentVersion + 1;\n\n// Build dynamic patch body from _spine_update\nconst patchBody = { version: nextVersion };\nconst updatedFields = [];\n\nif (spineUpdate.execution_status !== undefined) {\n  patchBody.execution_status = spineUpdate.execution_status;\n  updatedFields.push('execution_status');\n}\n\nif (spineUpdate.lifecycle_status !== undefined) {\n  patchBody.lifecycle_status = spineUpdate.lifecycle_status;\n  updatedFields.push('lifecycle_status');\n}\n\nreturn [{\n  json: {\n    artifact_id: $json.artifact_id,\n    workspace_id: $json.workspace_id,\n    artifact_type: $json.artifact_type,\n    ...patchBody,\n    current_version: currentVersion,\n    next_version: nextVersion,\n    _patch_body: patchBody,\n    _spine_debug: {\n      version_before: currentVersion,\n      version_after: nextVersion,\n      fields_updated: updatedFields,\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        976
+      ],
+      "id": "97e4fccb-8476-4265-adbc-0a6e8cb6efdc",
+      "name": "NQxb_Artifact_Update_v1__Prepare_Spine_Field_Update"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://npymhacpmxdnkqdzgxll.supabase.co/rest/v1/qxb_artifact?artifact_id=eq.{{ $json.artifact_id }}&workspace_id=eq.{{ $json.workspace_id }}&version=eq.{{ $json.current_version }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ (() => { const b = { version: $json.next_version }; if ($json.execution_status != null) b.execution_status = $json.execution_status; if ($json.lifecycle_status != null) b.lifecycle_status = $json.lifecycle_status; return JSON.stringify(b); })() }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        224,
+        976
+      ],
+      "id": "73c2d9e0-43d6-47ad-a1f5-f99fd2156a5b",
+      "name": "NQxb_Artifact_Update_v1__DB_Update_Spine_Fields",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Return_Spine_Update_Ack\n// T64: Terminal for spine-field update path.\n// T94: Now handles both execution_status and lifecycle_status.\n\nconst patchResult = $json;\nconst prepare = $node['NQxb_Artifact_Update_v1__Prepare_Spine_Field_Update'].json;\n\nif (!patchResult || !patchResult.artifact_id) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: 'error',\n      error: {\n        code: 'CONCURRENCY_CONFLICT',\n        message: 'Artifact was modified by another operation. Retry with fresh version.',\n        details: {\n          artifact_id: prepare.artifact_id,\n          artifact_type: prepare.artifact_type,\n          expected_version: prepare.current_version,\n          hint: 'Re-fetch the artifact and retry the update with the current version.'\n        }\n      }\n    }\n  }];\n}\n\nconst fieldsUpdated = prepare._spine_debug?.fields_updated || ['execution_status'];\n\nreturn [{\n  json: {\n    ok: true,\n    gw_action: 'artifact.update',\n    operation: 'SPINE_FIELD_UPDATE',\n    artifact_id: patchResult.artifact_id,\n    artifact_type: patchResult.artifact_type,\n    gw_workspace_id: patchResult.workspace_id,\n    execution_status: patchResult.execution_status,\n    lifecycle_status: patchResult.lifecycle_status,\n    version: patchResult.version,\n    _kgb: {\n      status: 'SPINE_FIELD_UPDATE_CONFIRMED',\n      note: fieldsUpdated.join(', ') + ' updated. Version incremented. updated_at set by trigger.'\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        1280
+      ],
+      "id": "cdfa1c81-e1d1-4b12-848f-ae415cd09668",
+      "name": "NQxb_Artifact_Update_v1__Return_Spine_Update_Ack"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.artifact_type }}",
+                    "rightValue": "project",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "update-project"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.artifact_type }}",
+                    "rightValue": "branch",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "update-branch"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.artifact_type }}",
+                    "rightValue": "limb",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "update-limb"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.artifact_type }}",
+                    "rightValue": "leaf",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "update-leaf"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -672,
+        1744
+      ],
+      "id": "1617332a-7637-45e6-aa99-22a0639b1a2b",
+      "name": "NQxb_Artifact_Update_v1__Switch_Type_For_Update"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Prepare_Project_Extension_Update\n// T51: Full-replace semantics — omitted fields reset to default/null\n// T87: design_spine added to project extension allowlist\n\nconst normalizeNode = $json._normalized_request;\nconst extension = normalizeNode.extension || {};\n\nconst updateFields = {\n  artifact_id: $json.artifact_id,\n  operational_state: extension.operational_state ?? 'active',\n  state_reason: extension.state_reason ?? null,\n  design_spine: extension.design_spine ?? null,\n};\n\nreturn [{ json: updateFields }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -448,
+        1648
+      ],
+      "id": "cea1a004-bee7-4699-82ec-d8f03b9b56df",
+      "name": "NQxb_Artifact_Update_v1__Prepare_Project_Extension_Update"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://npymhacpmxdnkqdzgxll.supabase.co/rest/v1/qxb_artifact_project?artifact_id=eq.{{ $json.artifact_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ operational_state: $json.operational_state, state_reason: $json.state_reason, design_spine: $json.design_spine }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -224,
+        1648
+      ],
+      "id": "ec17505e-5a3e-4a06-a82e-f61ad282472d",
+      "name": "NQxb_Artifact_Update_v1__DB_Update_Project_Extension",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Prepare_Spine_Version_Increment\n// T51: Compute _spine_patch for version increment + summary routing\n\nconst normalize = $node['NQxb_Artifact_Update_v1__Normalize_Request'].json;\nconst spine = $node['NQxb_Artifact_Update_v1__Fetch_Existing_Spine'].json;\nconst currentVersion = typeof spine.version === 'number' ? spine.version : 1;\n\nconst artifactType = spine.artifact_type?.trim();\nconst extension = normalize.extension || {};\n\nconst spinePatch = {\n  version: currentVersion + 1,\n};\n\nif (artifactType === 'project') {\n  spinePatch.summary = extension.summary ?? null;\n}\n\nreturn [{\n  json: {\n    artifact_id: normalize.artifact_id,\n    workspace_id: normalize.gw_workspace_id,\n    next_version: currentVersion + 1,\n    _spine_patch: spinePatch,\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        1648
+      ],
+      "id": "e8b82a69-b1b7-4ea6-a9cd-38bd3668c7b3",
+      "name": "NQxb_Artifact_Update_v1__Prepare_Spine_Version_Increment"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://npymhacpmxdnkqdzgxll.supabase.co/rest/v1/qxb_artifact?artifact_id=eq.{{ $json.artifact_id }}&workspace_id=eq.{{ $json.workspace_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json._spine_patch) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        224,
+        1648
+      ],
+      "id": "66da6ec7-193b-4569-be8c-d4cd24ae87e5",
+      "name": "NQxb_Artifact_Update_v1__DB_Increment_Spine_Version",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// KGB TERMINAL — UPDATE ONLY\n// Never trust Supabase UPDATE output.\n// Always return a stable acknowledgement.\n\nconst normalize = $node[\"NQxb_Artifact_Update_v1__Normalize_Request\"].json;\n\nreturn [\n  {\n    json: {\n      ok: true,\n      gw_action: \"artifact.update\",\n      operation: \"UPDATE\",\n      artifact_id: normalize.artifact_id,\n      artifact_type: normalize.artifact_type,\n      gw_workspace_id: normalize.gw_workspace_id,\n      updated_fields: Object.keys(normalize.extension || {}),\n      _kgb: {\n        status: \"UPDATE_CONFIRMED\",\n        note: \"Update completed. Query intentionally not invoked.\",\n      },\n    },\n  },\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        1696
+      ],
+      "id": "c82816bb-88b8-481d-9481-426ac32e706d",
+      "name": "NQxb_Artifact_Update_v1__Return_Update_Ack"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Return_Error_Passthrough\n// Terminal node: pass-through the incoming payload unchanged.\n// Use for any error path to guarantee the workflow returns a real JSON envelope\n// instead of dead-ending into \"\".\n\nreturn $input.all();\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        528
+      ],
+      "id": "f838a42d-8397-42ed-893b-327a148ae3db",
+      "name": "NQxb_Artifact_Update_v1__Return_Error_Passthrough"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Return_Unimplemented_Type_Error\n// T51 Resolution (Option B): Return explicit error for types without extension update implementation.\n// Fail-closed: no fake success for unimplemented types.\n// Hardening Sprint 2026-02-21\n\nconst normalize = $node['NQxb_Artifact_Update_v1__Normalize_Request'].json;\n\nreturn [{\n  json: {\n    ok: false,\n    _gw_route: 'error',\n    gw_action: 'artifact.update',\n    artifact_id: normalize.artifact_id ?? null,\n    artifact_type: normalize.artifact_type ?? null,\n    gw_workspace_id: normalize.gw_workspace_id ?? null,\n    error: {\n      code: 'UPDATE_NOT_IMPLEMENTED',\n      message: 'Extension update behavior not implemented for this artifact type. Tags-only updates are available via tags.add/tags.remove.',\n      details: {\n        artifact_type: normalize.artifact_type ?? null,\n        artifact_id: normalize.artifact_id ?? null,\n        hint: 'Use tags.add/tags.remove for metadata updates on this type.'\n      }\n    },\n    timestamp: new Date().toISOString()\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -448,
+        1840
+      ],
+      "id": "8d87c538-5668-4a31-a2fc-bb2c4f98ead8",
+      "name": "NQxb_Artifact_Update_v1__Return_Unimplemented_Type_Error"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Return_Unhandled_Type_Error\n// Switch fallback: Return deterministic error for types not matched by Switch_Type_For_Update.\n// Fail-closed enforcement — no silent drops.\n// Hardening Sprint 2026-02-21\n\nconst normalize = $node['NQxb_Artifact_Update_v1__Normalize_Request'].json;\n\nreturn [{\n  json: {\n    ok: false,\n    _gw_route: 'error',\n    gw_action: 'artifact.update',\n    artifact_id: normalize.artifact_id ?? null,\n    artifact_type: normalize.artifact_type ?? null,\n    gw_workspace_id: normalize.gw_workspace_id ?? null,\n    error: {\n      code: 'EXTENSION_ROUTING_UNHANDLED_TYPE',\n      message: 'Artifact type routing not implemented for extension update.',\n      details: {\n        artifact_type: normalize.artifact_type ?? null,\n        artifact_id: normalize.artifact_id ?? null\n      }\n    },\n    timestamp: new Date().toISOString()\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -448,
+        2032
+      ],
+      "id": "3a5eeae2-62ce-474c-af4d-5ab4afe808e4",
+      "name": "NQxb_Artifact_Update_v1__Return_Unhandled_Type_Error"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "needs-dependency-check",
+              "leftValue": "={{ $json._needs_dependency_check }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -896,
+        1184
+      ],
+      "id": "b7739034-0b66-4dbe-8c63-68f5a3b98f13",
+      "name": "NQxb_Artifact_Update_v1__Switch_Dependency_Check"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://npymhacpmxdnkqdzgxll.supabase.co/rest/v1/rpc/check_leaf_dependencies",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ p_artifact_id: $json.artifact_id, p_workspace_id: $json.workspace_id }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -672,
+        1264
+      ],
+      "id": "cc420650-d1e3-4f00-8fdf-47b1e15a528e",
+      "name": "NQxb_Artifact_Update_v1__DB_Query_Incomplete_Dependencies",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Guard_Dependencies_Complete\n// T71: Check if RPC found any incomplete dependencies.\n// check_leaf_dependencies returns [] if all complete (or no deps).\n// With alwaysOutputData, 0 rows → {json:{}} (no depends_on_artifact_id).\n\nconst queryResult = $json;\nconst parentData = $node['NQxb_Artifact_Update_v1__Switch_Dependency_Check'].json;\n\nif (queryResult && queryResult.depends_on_artifact_id) {\n  // Found an incomplete dependency — block completion\n  return [{\n    json: {\n      ok: false,\n      _gw_route: 'error',\n      error: {\n        code: 'DEPENDENCY_INCOMPLETE',\n        message: 'Dependency not complete',\n        details: {\n          artifact_id: parentData.artifact_id,\n          artifact_type: 'leaf',\n          incomplete_dependency: {\n            artifact_id: queryResult.depends_on_artifact_id,\n            execution_status: queryResult.execution_status ?? null\n          },\n          hint: \"All dependencies must have execution_status = 'complete' before this leaf can be marked complete.\"\n        }\n      }\n    }\n  }];\n}\n\n// All deps complete (or no deps) — pass through for spine update\nreturn [{ json: parentData }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -448,
+        1344
+      ],
+      "id": "e75db43e-c869-40c6-9611-e121a813cc66",
+      "name": "NQxb_Artifact_Update_v1__Guard_Dependencies_Complete"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.ok }}",
+                    "rightValue": false,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    },
+                    "id": "dependency-error"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.ok }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    },
+                    "id": "dependency-ok"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -224,
+        1328
+      ],
+      "id": "42b560ed-b2c5-4967-ae36-2cc2fecf309b",
+      "name": "NQxb_Artifact_Update_v1__Switch_Dependencies_Result"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://npymhacpmxdnkqdzgxll.supabase.co/rest/v1/rpc/update_semantic_type",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"p_artifact_id\": \"{{ $json.artifact_id }}\",\n  \"p_new_semantic_type_id\": \"{{ $json._semantic_type_update.new_semantic_type_id }}\",\n  \"p_reason\": \"{{ $json._semantic_type_update.reason }}\",\n  \"p_actor_id\": null\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2112,
+        1008
+      ],
+      "id": "e3513904-fd5f-40fc-aa52-454d52378fe4",
+      "name": "NQxb_Artifact_Update_v1__RPC_Update_Semantic_Type",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Guard_Semantic_Type_Result\n// T69: Format RPC response into Gateway response envelope\n// v2: Defensive check — treat missing ok or ok!==true as error (Contract B)\n\nconst rpcResult = $json;\nconst upstream = $node['NQxb_Artifact_Update_v1__Detect_Semantic_Route'].json;\n\n// DEFENSIVE: if RPC result is missing or ok is not explicitly true, treat as error\nif (!rpcResult || rpcResult.ok !== true) {\n  // Extract error details from RPC response if available\n  const errorPayload = rpcResult && rpcResult.error\n    ? rpcResult.error\n    : {\n        code: 'RPC_FAILURE',\n        message: 'Semantic type update failed — RPC did not return ok:true',\n        details: rpcResult ?? { hint: 'RPC returned null or undefined' }\n      };\n\n  return [{\n    json: {\n      ok: false,\n      _gw_route: 'error',\n      gw_action: upstream.gw_action ?? 'artifact.update',\n      gw_workspace_id: upstream.gw_workspace_id ?? null,\n      artifact_type: upstream.artifact_type ?? null,\n      artifact_id: upstream.artifact_id ?? null,\n      error: errorPayload,\n      timestamp: new Date().toISOString()\n    }\n  }];\n}\n\n// RPC returned noop\nif (rpcResult.noop === true) {\n  return [{\n    json: {\n      ok: true,\n      _gw_route: 'ok',\n      gw_action: upstream.gw_action ?? 'artifact.update',\n      artifact_id: upstream.artifact_id,\n      artifact_type: upstream.artifact_type,\n      operation: 'SEMANTIC_TYPE_UPDATE',\n      noop: true,\n      message: rpcResult.message ?? 'semantic_type_id unchanged',\n      timestamp: new Date().toISOString()\n    }\n  }];\n}\n\n// RPC returned success\nreturn [{\n  json: {\n    ok: true,\n    _gw_route: 'ok',\n    gw_action: upstream.gw_action ?? 'artifact.update',\n    artifact_id: rpcResult.artifact_id ?? upstream.artifact_id,\n    artifact_type: upstream.artifact_type,\n    operation: 'SEMANTIC_TYPE_UPDATE',\n    old_semantic_type_id: rpcResult.old_semantic_type_id ?? null,\n    new_semantic_type_id: rpcResult.new_semantic_type_id ?? null,\n    version: rpcResult.version ?? null,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1616,
+        1264
+      ],
+      "id": "5e4e8030-c6b4-4f0e-9058-3cb8e80990ea",
+      "name": "NQxb_Artifact_Update_v1__Guard_Semantic_Type_Result"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Detect_Semantic_Route\n// T69 Architectural Fix: Extract semantic_type routing into dedicated pre-routing layer.\n// Runs between Fetch_Existing_Spine and Check_Mutability_Rules.\n// If semantic_type_id is present in extension, validates and routes to RPC directly.\n// Otherwise, passes through to Check_Mutability_Rules unchanged.\n\nconst existing = $json;\nconst normalizeNode = $node['NQxb_Artifact_Update_v1__Normalize_Request'].json;\nconst extensionObj = normalizeNode.extension || {};\nconst normalizedTags = normalizeNode._normalized_tags ?? normalizeNode.tags ?? null;\nconst artifact_type = (existing.artifact_type ?? '').trim();\n\n// If semantic_type_id NOT in extension → passthrough\nif (!('semantic_type_id' in extensionObj)) {\n  return [{\n    json: {\n      ...existing,\n      _semantic_route: 'passthrough'\n    }\n  }];\n}\n\n// -----------------------------------------------------------------------------\n// semantic_type_id IS present — run dedicated validation\n// -----------------------------------------------------------------------------\n\n// A. deleted_at guard (CRITICAL — semantic route bypasses mutability layer)\nif (existing.deleted_at !== null && existing.deleted_at !== undefined) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: 'error',\n      error: {\n        code: 'NOT_FOUND',\n        message: 'Artifact not found',\n        details: { artifact_id: existing.artifact_id }\n      }\n    }\n  }];\n}\n\n// B. Mixed update with tags\nif (normalizedTags !== null) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: 'error',\n      error: {\n        code: 'MIXED_UPDATE_NOT_ALLOWED',\n        message: 'semantic_type_id update cannot be combined with tags update',\n        details: {\n          semantic_type_id_present: true,\n          tags_present: true,\n          hint: 'Submit semantic_type_id + reason as a standalone update, then update tags separately'\n        }\n      }\n    }\n  }];\n}\n\n// C. Mixed update with other extension fields\nconst otherExtensionKeys = Object.keys(extensionObj)\n  .filter(k => k !== 'semantic_type_id' && k !== 'reason');\n\nif (otherExtensionKeys.length > 0) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: 'error',\n      error: {\n        code: 'MIXED_UPDATE_NOT_ALLOWED',\n        message: 'semantic_type_id update cannot be combined with other extension fields',\n        details: {\n          semantic_type_id_present: true,\n          other_fields: otherExtensionKeys,\n          hint: 'Submit semantic_type_id + reason as a standalone update, then update other fields separately'\n        }\n      }\n    }\n  }];\n}\n\n// D. Mixed update with spine-level fields (T87: check spine_fields object)\nconst spineFieldsObj = normalizeNode.spine_fields || {};\nconst spinePresent = Object.keys(spineFieldsObj);\n\nif (spinePresent.length > 0) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: 'error',\n      error: {\n        code: 'MIXED_UPDATE_NOT_ALLOWED',\n        message: 'semantic_type_id update cannot be combined with spine fields',\n        details: {\n          semantic_type_id_present: true,\n          spine_fields: spinePresent,\n          hint: 'Submit semantic_type_id + reason as a standalone update, then update spine fields separately'\n        }\n      }\n    }\n  }];\n}\n\n// E. Top-level artifact check\nconst topLevelTypes = ['project', 'snapshot', 'journal', 'restart'];\n\nif (!topLevelTypes.includes(artifact_type)) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: 'error',\n      error: {\n        code: 'SEMANTIC_TYPE_NOT_APPLICABLE',\n        message: 'semantic_type_id applies only to top-level artifact types',\n        details: {\n          artifact_type: artifact_type,\n          artifact_id: existing.artifact_id,\n          allowed_types: topLevelTypes\n        }\n      }\n    }\n  }];\n}\n\n// F. Reason required\nconst reason = (extensionObj.reason ?? '').toString().trim();\n\nif (!reason) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: 'error',\n      error: {\n        code: 'VALIDATION_ERROR',\n        message: 'reason is required for semantic_type_id update',\n        details: {\n          field: 'reason',\n          hint: 'Provide extension.reason when updating semantic_type_id'\n        }\n      }\n    }\n  }];\n}\n\n// G. Success — route to dedicated semantic path\nreturn [{\n  json: {\n    ok: true,\n    _semantic_route: 'semantic_type',\n    _update_mode: 'semantic_type',\n    artifact_id: existing.artifact_id,\n    workspace_id: existing.workspace_id,\n    artifact_type: artifact_type,\n    _semantic_type_update: {\n      new_semantic_type_id: extensionObj.semantic_type_id,\n      reason: reason\n    },\n    gw_action: normalizeNode.gw_action,\n    gw_workspace_id: normalizeNode.gw_workspace_id,\n    _existing_artifact: existing,\n    _normalized_request: normalizeNode\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2240,
+        672
+      ],
+      "id": "6860641b-80b0-4082-90f6-a740a80e61f1",
+      "name": "NQxb_Artifact_Update_v1__Detect_Semantic_Route"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "semantic-route-match",
+                    "leftValue": "={{ $json._semantic_route }}",
+                    "rightValue": "semantic_type",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "id": "semantic-route-ok",
+                    "leftValue": "={{ $json.ok }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "semantic-route-error",
+                    "leftValue": "={{ $json.ok }}",
+                    "rightValue": false,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -2016,
+        656
+      ],
+      "id": "b4cdb2f2-8fa1-45e7-98e8-86b14b4574d3",
+      "name": "NQxb_Artifact_Update_v1__Switch_Semantic_Route"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Prepare_Resolver_Input\n// Extract semantic_type_id and artifact_type for resolver sub-workflow.\n// Resolver expects: { semantic_type_id, artifact_type }\n\nconst req = $json;\n\nreturn [{\n  json: {\n    semantic_type_id: req._semantic_type_update.new_semantic_type_id,\n    artifact_type: req.artifact_type\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3584,
+        1360
+      ],
+      "id": "d1fd07ba-4c8b-4592-8ae6-81d7c9357c15",
+      "name": "NQxb_Artifact_Update_v1__Prepare_Resolver_Input"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "1NAtJghJlcRdzrpj",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        -3360,
+        1360
+      ],
+      "id": "33cbe6be-3b59-4cf5-9a5b-f5acfccddb56",
+      "name": "NQxb_Artifact_Update_v1__Call_Semantic_Resolver"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Inject_Resolved_For_RPC\n// Maps resolver output back into upstream request for RPC call.\n// Upstream context: Detect_Semantic_Route output (has _semantic_type_update, artifact_id, etc.)\n// Resolver returns: { ok, resolved_semantic_type_id, resolution_mode, error? }\n\nconst resolver = $json;\nconst upstream = $node['NQxb_Artifact_Update_v1__Detect_Semantic_Route'].json;\n\n// Resolver error — forward as gateway error envelope\nif (resolver.ok === false) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: 'error',\n      error: resolver.error\n    }\n  }];\n}\n\n// Resolver success — merge resolved UUID into _semantic_type_update\nconst originalKey = upstream._semantic_type_update.new_semantic_type_id;\nconst resolvedUuid = resolver.resolved_semantic_type_id;\n\nreturn [{\n  json: {\n    ...upstream,\n    ok: true,\n    _semantic_type_update: {\n      ...upstream._semantic_type_update,\n      new_semantic_type_id: resolvedUuid,\n      _resolved_from_key: resolver.resolution_mode === 'key_to_uuid' ? originalKey : undefined\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3136,
+        1360
+      ],
+      "id": "e8dafc60-06b5-4b2e-8ef5-8f714cb4a9d7",
+      "name": "NQxb_Artifact_Update_v1__Inject_Resolved_For_RPC"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Assert_Semantic_UUID\n// T69: Last-mile defense-in-depth — assert semantic_type_id is UUID before RPC call.\n// Only top-level types reach this point (Detect_Semantic_Route filters non-top-level).\n// This guard fires ONLY if upstream resolution failed silently.\n\nconst req = $json;\n\n// Pass through upstream error envelopes unchanged (resolver errors, inject errors)\nif (req.ok === false) {\n  return [{ json: req }];\n}\nconst semanticTypeId = req._semantic_type_update?.new_semantic_type_id;\nconst artifactType = (req.artifact_type ?? '').trim();\n\nconst UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\n\nif (!semanticTypeId || !UUID_REGEX.test(semanticTypeId)) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: 'error',\n      gw_action: req.gw_action ?? 'artifact.update',\n      gw_workspace_id: req.gw_workspace_id ?? null,\n      artifact_type: artifactType,\n      error: {\n        code: 'SEMANTIC_TYPE_RESOLUTION_FAILED',\n        message: 'semantic_type_id must be a resolved UUID before RPC call',\n        details: {\n          artifact_type: artifactType,\n          semantic_type_id: semanticTypeId ?? null,\n          hint: 'Semantic type must be resolved through registry before update. This is a defense-in-depth assertion — upstream resolution may have failed silently.'\n        }\n      },\n      timestamp: new Date().toISOString()\n    }\n  }];\n}\n\n// Assertion passed — forward to RPC\nreturn [{ json: req }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2912,
+        1360
+      ],
+      "id": "1c9b4e11-bc61-4972-ac96-92ffffe455cf",
+      "name": "NQxb_Artifact_Update_v1__Assert_Semantic_UUID"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.ok }}",
+                    "rightValue": false,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    },
+                    "id": "assert-fail"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -2688,
+        1360
+      ],
+      "id": "eeafe4a7-2ac2-4889-90b3-6b3796f43c77",
+      "name": "NQxb_Artifact_Update_v1__Switch_Assert_Result"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Compute_Mixed_Spine_Update\n// T87: Build unified spine PATCH for spine_only and mixed modes\n// Handles: title, summary, priority, tags, version increment\n// Single atomic PostgREST PATCH to qxb_artifact\n\nconst item = $json;\nconst normalizeNode = item._normalized_request;\nconst existingArtifact = item._existing_artifact;\n\nconst spineFields = normalizeNode.spine_fields || {};\nconst tags = normalizeNode.tags || null;\nconst currentVersion = existingArtifact.version ?? 0;\n\n// Build the spine patch object\nconst patch = {};\n\n// Spine fields (title, summary, priority)\nif ('title' in spineFields) patch.title = spineFields.title;\nif ('summary' in spineFields) patch.summary = spineFields.summary;\nif ('priority' in spineFields) patch.priority = spineFields.priority;\nif ('parent_artifact_id' in spineFields) patch.parent_artifact_id = spineFields.parent_artifact_id;\n\n// Tag merge (if mixed mode)\nlet tagChanges = null;\nif (tags) {\n  const currentTags = existingArtifact.tags || [];\n  const addTags = tags.add || [];\n  const removeTags = tags.remove || [];\n\n  // Start with current, remove specified, add specified\n  let merged = currentTags.filter(t => !removeTags.includes(t));\n  for (const t of addTags) {\n    if (!merged.includes(t)) merged.push(t);\n  }\n\n  patch.tags = JSON.stringify(merged);\n  tagChanges = {\n    added: addTags.filter(t => !currentTags.includes(t)),\n    removed: removeTags.filter(t => currentTags.includes(t)),\n    final: merged,\n  };\n}\n\n// Version increment (always)\npatch.version = currentVersion + 1;\n\nreturn [{\n  json: {\n    artifact_id: existingArtifact.artifact_id,\n    workspace_id: existingArtifact.workspace_id,\n    artifact_type: existingArtifact.artifact_type,\n    current_version: currentVersion,\n    _spine_patch: patch,\n    _tag_changes: tagChanges,\n    _update_mode: item._update_mode,\n    _gw_debug: item._gw_debug,\n    gw_action: item.gw_action,\n    gw_workspace_id: item.gw_workspace_id,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "7bebc976-2256-4206-bc43-54d7bbddf79e",
+      "name": "NQxb_Artifact_Update_v1__Compute_Mixed_Spine_Update"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://npymhacpmxdnkqdzgxll.supabase.co/rest/v1/qxb_artifact?artifact_id=eq.{{ $json.artifact_id }}&workspace_id=eq.{{ $json.workspace_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json._spine_patch) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        224,
+        0
+      ],
+      "id": "f7196a08-052e-4301-963b-a119e4b2d469",
+      "name": "NQxb_Artifact_Update_v1__DB_Update_Mixed_Spine",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Return_Mixed_Ack\n// T87: Terminal acknowledgment for spine_only and mixed update modes\n\nconst item = $json;\n\n// PostgREST returns array with updated row via Prefer: return=representation\n// But n8n HTTP Request may unwrap it. Handle both cases.\nconst updated = Array.isArray(item) ? item[0] : item;\n\nconst result = {\n  ok: true,\n  operation: \"MIXED_UPDATE\",\n  artifact_id: updated.artifact_id ?? item.artifact_id,\n  workspace_id: updated.workspace_id ?? item.workspace_id,\n  artifact_type: updated.artifact_type ?? item.artifact_type,\n  version: updated.version ?? null,\n  _update_mode: item._update_mode ?? \"mixed\",\n};\n\n// Include tag changes if this was a mixed update\nif (item._tag_changes) {\n  result._tag_changes = item._tag_changes;\n}\n\n// Include spine fields that were updated\nif (item._spine_patch) {\n  const patchKeys = Object.keys(item._spine_patch).filter(k => k !== 'version' && k !== 'tags');\n  if (patchKeys.length > 0) {\n    result._spine_fields_updated = patchKeys;\n  }\n}\n\nreturn [{ json: result }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ],
+      "id": "a5e60b72-49d8-4f76-986a-3481d33f661d",
+      "name": "NQxb_Artifact_Update_v1__Return_Mixed_Ack"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "NQxb_Artifact_Update_v1__In": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Normalize_Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Normalize_Request": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Validate_Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Validate_Request": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Guard_Error_ShortCircuit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Guard_Error_ShortCircuit": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Error_Passthrough",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Lookup_Type_Registry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Lookup_Type_Registry": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Type_Registry_Guard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Type_Registry_Guard": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Switch_Type_Registry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Switch_Type_Registry": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Error_Passthrough",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Fetch_Existing_Spine",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Error_Passthrough",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Fetch_Existing_Spine": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Detect_Semantic_Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Check_Mutability_Rules": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Switch_Mutability_Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Switch_Mutability_Result": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Error_Passthrough",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Switch_Update_Mode",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Error_Passthrough",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Switch_Update_Mode": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Compute_Tag_Merge",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Switch_Parent_Check",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Noop_Ack",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Compute_Mixed_Spine_Update",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Compute_Mixed_Spine_Update",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Switch_Type_For_Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Compute_Tag_Merge": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__DB_Update_Spine_Tags",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__DB_Update_Spine_Tags": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Tags_Ack",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Error_Passthrough",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Switch_Parent_Check": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__DB_Query_Incomplete_Children",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Switch_Dependency_Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__DB_Query_Incomplete_Children": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Guard_Children_Complete",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Error_Passthrough",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Guard_Children_Complete": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Switch_Children_Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Switch_Children_Result": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Error_Passthrough",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Prepare_Spine_Field_Update",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Error_Passthrough",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Prepare_Spine_Field_Update": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__DB_Update_Spine_Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__DB_Update_Spine_Fields": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Spine_Update_Ack",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Error_Passthrough",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Switch_Type_For_Update": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Prepare_Project_Extension_Update",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Unimplemented_Type_Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Unimplemented_Type_Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Unimplemented_Type_Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Unhandled_Type_Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Prepare_Project_Extension_Update": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__DB_Update_Project_Extension",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__DB_Update_Project_Extension": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Prepare_Spine_Version_Increment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Prepare_Spine_Version_Increment": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__DB_Increment_Spine_Version",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__DB_Increment_Spine_Version": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Update_Ack",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Error_Passthrough",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Switch_Dependency_Check": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__DB_Query_Incomplete_Dependencies",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Prepare_Spine_Field_Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__DB_Query_Incomplete_Dependencies": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Guard_Dependencies_Complete",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Error_Passthrough",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Guard_Dependencies_Complete": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Switch_Dependencies_Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Switch_Dependencies_Result": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Error_Passthrough",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Prepare_Spine_Field_Update",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Error_Passthrough",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__RPC_Update_Semantic_Type": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Guard_Semantic_Type_Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Detect_Semantic_Route": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Switch_Semantic_Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Switch_Semantic_Route": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Prepare_Resolver_Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Error_Passthrough",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Check_Mutability_Rules",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Prepare_Resolver_Input": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Call_Semantic_Resolver",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Call_Semantic_Resolver": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Inject_Resolved_For_RPC",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Inject_Resolved_For_RPC": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Assert_Semantic_UUID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Assert_Semantic_UUID": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Switch_Assert_Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Switch_Assert_Result": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Error_Passthrough",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__RPC_Update_Semantic_Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Compute_Mixed_Spine_Update": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__DB_Update_Mixed_Spine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__DB_Update_Mixed_Spine": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Mixed_Ack",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Error_Passthrough",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "3c7aab69-7d5f-4549-bcff-188c353e61c0",
+  "meta": {
+    "instanceId": "154f6928422db881044f8d1647b40fc389c59337d14356c0ee681d50ffb55d7e"
+  },
+  "id": "FJ3FuHBEGTm8q9Ir",
+  "tags": []
+}

@@ -11,12 +11,12 @@
         -3600,
         720
       ],
-      "id": "e66d82c2-33d6-4dfd-8acc-0d6fc476f1a5",
+      "id": "6ff1b7f8-f6f5-43ab-a49b-fad0edd4dd84",
       "name": "NQxb_Artifact_Save_v1__In"
     },
     {
       "parameters": {
-        "jsCode": "// NQxb_Artifact_Save_v1__Normalize_Request\n// Canonicalize inbound save request with field presence tracking\n// Phase 3 contract: PATCH semantics for UPDATE\n// v1.2: Lifecycle alignment for project artifacts\n// v1.3: instruction_pack DB invariant — ensure content.scope is set from extension.scope (tool-safe)\n// v1.4: Convert empty string UUIDs to null (fixes Telegram empty parent_artifact_id)\n// v1.5: BUG-011 fix - tags normalization\n// v1.6: Split comma-separated strings\n// v1.7: Dual-shape tolerant (Gateway + Internal Promote/Query callers)\n// v1.8: Forward execution_status (Phase 2B Walk types)\n\nconst raw = $json ?? {};\n\nconst body =\n  raw.body && typeof raw.body === \"object\" && !Array.isArray(raw.body)\n    ? raw.body\n    : null;\n\nconst req = body ?? raw;\n\nconst asObj = (v) =>\n  v && typeof v === \"object\" && !Array.isArray(v) ? v : {};\n\nconst trimStr = (v) => (typeof v === \"string\" ? v.trim() : v);\n\n// Convert empty strings to null for UUID fields\nconst uuidOrNull = (v) =>\n  typeof v === \"string\" && v.trim() !== \"\" ? v.trim() : null;\n\n// -------------------------\n// Field Fallback Resolution\n// -------------------------\n\nconst artifact_id =\n  uuidOrNull(req.artifact_id) ??\n  uuidOrNull(req.req_artifact_id) ??\n  null;\n\nconst is_update = artifact_id !== null;\n\nconst artifact_type =\n  (req.artifact_type ??\n   req.req_artifact_type ??\n   \"\").toString().trim();\n\nconst gw_workspace_id =\n  req.gw_workspace_id ??\n  req.workspace_id ??\n  req.req_gw_workspace_id ??\n  null;\n\nconst owner_user_id =\n  req.owner_user_id ??\n  req.actor_user_id ??\n  null;\n\nconst title =\n  req.title ??\n  req.req_title ??\n  null;\n\nconst parent_artifact_id =\n  uuidOrNull(req.parent_artifact_id) ??\n  uuidOrNull(req.req_parent_artifact_id) ??\n  null;\n\n// Track PATCH semantics (what caller explicitly provided)\nconst provided_fields = {\n  title: \"title\" in req || \"req_title\" in req,\n  summary: \"summary\" in req,\n  priority: \"priority\" in req,\n  lifecycle_status: \"lifecycle_status\" in req,\n  tags: \"tags\" in req,\n  content: \"content\" in req,\n  parent_artifact_id:\n    \"parent_artifact_id\" in req || \"req_parent_artifact_id\" in req,\n  execution_status: \"execution_status\" in req,\n};\n\n// -------------------------\n// Lifecycle Alignment\n// -------------------------\n\nlet lifecycle_status = req.lifecycle_status ?? null;\n\nif (artifact_type === \"project\" && !is_update) {\n  const lifecycle_stage = req.extension?.lifecycle_stage;\n  if (lifecycle_stage && !lifecycle_status) {\n    lifecycle_status = lifecycle_stage;\n  }\n}\n\n// -------------------------\n// Tags Normalization (BUG-011)\n// -------------------------\n\nconst normalizeTags = (v) => {\n  let arr = [];\n\n  if (Array.isArray(v)) {\n    arr = v;\n  } else if (v && typeof v === \"object\") {\n    arr = Object.values(v);\n  }\n\n  const seen = new Set();\n\n  return arr\n    .flatMap(t => typeof t === \"string\" ? t.split(\",\") : [])\n    .map(t => (typeof t === \"string\" ? t.trim().toLowerCase() : \"\"))\n    .filter(t => t !== \"\" && !seen.has(t) && seen.add(t));\n};\n\nconst normalized_tags = normalizeTags(req.tags);\nconst content_obj = asObj(req.content);\nconst extension_obj = asObj(req.extension);\n\n// -------------------------\n// Canonical Output\n// -------------------------\n\nconst canonical = {\n  gw_action: req.gw_action ?? \"artifact.save\",\n  gw_workspace_id: gw_workspace_id,\n\n  artifact_type: artifact_type,\n  artifact_id: artifact_id,\n  is_update: is_update,\n\n  owner_user_id: owner_user_id,\n\n  // Spine fields\n  title: title,\n  summary: req.summary ?? null,\n  priority: req.priority ?? null,\n  lifecycle_status: lifecycle_status,\n  tags: normalized_tags,\n  content: content_obj,\n  parent_artifact_id: parent_artifact_id,\n  execution_status: req.execution_status ?? null,\n\n  // Extension\n  extension: extension_obj,\n\n  // PATCH metadata\n  _provided_fields: provided_fields,\n};\n\n// -------------------------\n// instruction_pack invariant\n// -------------------------\n\nif (canonical.artifact_type === \"instruction_pack\") {\n  const scope = (canonical.extension?.scope ?? \"\").toString().trim();\n  if (scope) {\n    if (\n      !canonical.content ||\n      typeof canonical.content !== \"object\" ||\n      Array.isArray(canonical.content)\n    ) {\n      canonical.content = {};\n    }\n    canonical.content.scope = scope;\n  }\n}\n\n// -------------------------\n// Debug (minimal + stable)\n// -------------------------\n\ncanonical._gw_debug = {\n  received_shape: body ? \"body\" : \"flat\",\n  operation: is_update ? \"UPDATE\" : \"INSERT\",\n  lifecycle_aligned:\n    artifact_type === \"project\" &&\n    !is_update &&\n    lifecycle_status !== req.lifecycle_status,\n  dual_shape_tolerant: true,\n};\n\nreturn [{ json: canonical }];\n"
+        "jsCode": "// NQxb_Artifact_Save_v1__Normalize_Request\n// Canonicalize inbound save request with field presence tracking\n// Phase 3 contract: PATCH semantics for UPDATE\n// v1.2: Lifecycle alignment for project artifacts\n// v1.3: instruction_pack DB invariant — ensure content.scope is set from extension.scope (tool-safe)\n// v1.4: Convert empty string UUIDs to null (fixes Telegram empty parent_artifact_id)\n// v1.5: BUG-011 fix - tags normalization\n// v1.6: Split comma-separated strings\n// v1.7: Dual-shape tolerant (Gateway + Internal Promote/Query callers)\n// v1.8: Forward execution_status (Phase 2B Walk types)\n\nconst raw = $json ?? {};\n\nconst body =\n  raw.body && typeof raw.body === \"object\" && !Array.isArray(raw.body)\n    ? raw.body\n    : null;\n\nconst req = body ?? raw;\n\nconst asObj = (v) =>\n  v && typeof v === \"object\" && !Array.isArray(v) ? v : {};\n\nconst trimStr = (v) => (typeof v === \"string\" ? v.trim() : v);\n\n// Convert empty strings to null for UUID fields\nconst uuidOrNull = (v) =>\n  typeof v === \"string\" && v.trim() !== \"\" ? v.trim() : null;\n\n// -------------------------\n// Field Fallback Resolution\n// -------------------------\n\nconst artifact_id =\n  uuidOrNull(req.artifact_id) ??\n  uuidOrNull(req.req_artifact_id) ??\n  null;\n\nconst is_update = artifact_id !== null;\n\nconst artifact_type =\n  (req.artifact_type ??\n   req.req_artifact_type ??\n   \"\").toString().trim();\n\nconst gw_workspace_id =\n  req.gw_workspace_id ??\n  req.workspace_id ??\n  req.req_gw_workspace_id ??\n  null;\n\nconst owner_user_id =\n  req.owner_user_id ??\n  req.actor_user_id ??\n  null;\n\nconst title =\n  req.title ??\n  req.req_title ??\n  null;\n\nconst parent_artifact_id =\n  uuidOrNull(req.parent_artifact_id) ??\n  uuidOrNull(req.req_parent_artifact_id) ??\n  null;\n\n// Track PATCH semantics (what caller explicitly provided)\nconst provided_fields = {\n  title: \"title\" in req || \"req_title\" in req,\n  summary: \"summary\" in req,\n  priority: \"priority\" in req,\n  lifecycle_status: \"lifecycle_status\" in req,\n  tags: \"tags\" in req,\n  content: \"content\" in req,\n  parent_artifact_id:\n    \"parent_artifact_id\" in req || \"req_parent_artifact_id\" in req,\n  execution_status: \"execution_status\" in req,\n};\n\n// -------------------------\n// Lifecycle Alignment\n// -------------------------\n\nlet lifecycle_status = req.lifecycle_status ?? null;\n\nif (artifact_type === \"project\" && !is_update) {\n  const lifecycle_stage = req.extension?.lifecycle_stage;\n  if (lifecycle_stage && !lifecycle_status) {\n    lifecycle_status = lifecycle_stage;\n  }\n}\n\n// -------------------------\n// Tags Normalization (BUG-011)\n// -------------------------\n\nconst normalizeTags = (v) => {\n  let arr = [];\n\n  if (Array.isArray(v)) {\n    arr = v;\n  } else if (v && typeof v === \"object\") {\n    arr = Object.values(v);\n  }\n\n  const seen = new Set();\n\n  return arr\n    .flatMap(t => typeof t === \"string\" ? t.split(\",\") : [])\n    .map(t => (typeof t === \"string\" ? t.trim().toLowerCase() : \"\"))\n    .filter(t => t !== \"\" && !seen.has(t) && seen.add(t));\n};\n\nconst normalized_tags = normalizeTags(req.tags);\nconst content_obj = asObj(req.content);\nconst extension_obj = asObj(req.extension);\n\n// -------------------------\n// Canonical Output\n// -------------------------\n\nconst canonical = {\n  gw_action: req.gw_action ?? \"artifact.save\",\n  gw_workspace_id: gw_workspace_id,\n\n  artifact_type: artifact_type,\n  artifact_id: artifact_id,\n  is_update: is_update,\n\n  owner_user_id: owner_user_id,\n\n  // Spine fields\n  title: title,\n  summary: req.summary ?? null,\n  priority: req.priority ?? 3,\n  lifecycle_status: lifecycle_status,\n  tags: normalized_tags,\n  content: content_obj,\n  parent_artifact_id: parent_artifact_id,\n  execution_status: req.execution_status ?? null,\n\n  // Extension\n  extension: extension_obj,\n\n  // PATCH metadata\n  _provided_fields: provided_fields,\n};\n\n// -------------------------\n// instruction_pack invariant\n// -------------------------\n\nif (canonical.artifact_type === \"instruction_pack\") {\n  const scope = (canonical.extension?.scope ?? \"\").toString().trim();\n  if (scope) {\n    if (\n      !canonical.content ||\n      typeof canonical.content !== \"object\" ||\n      Array.isArray(canonical.content)\n    ) {\n      canonical.content = {};\n    }\n    canonical.content.scope = scope;\n  }\n}\n\n// -------------------------\n// Debug (minimal + stable)\n// -------------------------\n\ncanonical._gw_debug = {\n  received_shape: body ? \"body\" : \"flat\",\n  operation: is_update ? \"UPDATE\" : \"INSERT\",\n  lifecycle_aligned:\n    artifact_type === \"project\" &&\n    !is_update &&\n    lifecycle_status !== req.lifecycle_status,\n  dual_shape_tolerant: true,\n};\n\nreturn [{ json: canonical }];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -24,7 +24,7 @@
         -3168,
         720
       ],
-      "id": "476fa748-0a45-4768-9ab9-f404fc1af559",
+      "id": "5527acd2-4c1a-462f-9d0e-60acf05a3926",
       "name": "NQxb_Artifact_Save_v1__Normalize_Request"
     },
     {
@@ -37,7 +37,7 @@
         -2720,
         720
       ],
-      "id": "b6c2d3f7-6935-47c2-9973-12a63526d1e0",
+      "id": "6faee1b6-1888-4254-af0a-4e95e106329d",
       "name": "NQxb_Artifact_Save_v1__Validate_Request"
     },
     {
@@ -99,7 +99,7 @@
         -1152,
         720
       ],
-      "id": "0f53c83d-f7e5-4100-ad82-f1aeac134e5c",
+      "id": "85b9f0f9-16a5-4bcd-b057-ba7fbaf1c567",
       "name": "NQxb_Artifact_Save_v1__Switch_InsertOrUpdate"
     },
     {
@@ -160,7 +160,7 @@
         -896,
         400
       ],
-      "id": "5fbc5602-cd40-4d9c-887e-44665570ec99",
+      "id": "64a38cb5-6f89-45b5-8532-864665aa23da",
       "name": "NQxb_Artifact_Save_v1__DB_Insert_Spine",
       "alwaysOutputData": false,
       "retryOnFail": true,
@@ -182,7 +182,7 @@
         -576,
         176
       ],
-      "id": "4d2365e5-856e-42a7-a1fa-aedd5c651843",
+      "id": "a0568f47-af52-45d7-ad5e-2637dab1f500",
       "name": "NQxb_Artifact_Save_v1__Normalize_Saved_ID"
     },
     {
@@ -376,7 +376,7 @@
         -224,
         528
       ],
-      "id": "c124e937-f199-4017-9a86-4293c46aa0b6",
+      "id": "cf7ee5a3-bb1b-4535-acff-42f57b197de8",
       "name": "NQxb_Artifact_Save_v1__Switch_Type_For_Insert"
     },
     {
@@ -409,7 +409,7 @@
         0,
         192
       ],
-      "id": "1902b005-9f7d-4de1-b447-37ded3811642",
+      "id": "1737cb41-d857-4ec9-876e-343e9c364633",
       "name": "NQxb_Artifact_Save_v1__DB_Insert_Project_Extension",
       "credentials": {
         "supabaseApi": {
@@ -428,7 +428,7 @@
         -928,
         1296
       ],
-      "id": "01fa7801-25f6-47dc-bc34-36d12da63dab",
+      "id": "bd4f11b8-d048-485a-8ac9-c0d58e05569c",
       "name": "NQxb_Artifact_Save_v1__Check_Immutability"
     },
     {
@@ -454,7 +454,7 @@
         -704,
         1296
       ],
-      "id": "d7c70f9a-40e7-4448-9f5d-59925cf0aaa3",
+      "id": "21ab3f09-0348-4f65-99d8-ae0a427e733c",
       "name": "NQxb_Artifact_Save_v1__Fetch_Existing_Spine",
       "alwaysOutputData": true,
       "credentials": {
@@ -474,7 +474,7 @@
         -480,
         1296
       ],
-      "id": "d8b7a4d1-fd0b-471d-9663-ad63b870fde5",
+      "id": "8b99fc12-f6ba-4fb6-9d47-e4d5794ae254",
       "name": "NQxb_Artifact_Save_v1__Merge_PATCH_Spine"
     },
     {
@@ -536,7 +536,7 @@
         -256,
         1296
       ],
-      "id": "f1939fc8-ec29-430b-9c9d-067c65c968c0",
+      "id": "039a2172-699f-47bb-879d-eb14a43279d2",
       "name": "NQxb_Artifact_Save_v1__DB_Update_Spine",
       "credentials": {
         "supabaseApi": {
@@ -669,7 +669,7 @@
         -32,
         1296
       ],
-      "id": "abe92477-6bb0-45a5-baf0-5f77adffc006",
+      "id": "44b7e766-1ac6-420a-a3a0-e994469c81ec",
       "name": "NQxb_Artifact_Save_v1__Switch_Type_For_Update"
     },
     {
@@ -691,7 +691,7 @@
         192,
         1104
       ],
-      "id": "86ddf8ce-f0bc-4bed-b594-69239481b9b8",
+      "id": "69515985-a1ec-4f91-a8e6-f31d17c6070a",
       "name": "NQxb_Artifact_Save_v1__Fetch_Existing_Project_Extension",
       "alwaysOutputData": true,
       "credentials": {
@@ -730,7 +730,7 @@
         416,
         1104
       ],
-      "id": "beb270e7-9284-40f7-844e-c00898350d66",
+      "id": "340b419b-6eec-4998-95aa-c5cb230ce13f",
       "name": "NQxb_Artifact_Save_v1__Check_Project_Extension_Exists"
     },
     {
@@ -743,7 +743,7 @@
         640,
         1008
       ],
-      "id": "012e29c1-cf7a-457c-b399-210e4cf9eab2",
+      "id": "3b59e437-c627-482d-af84-09f388030f6f",
       "name": "NQxb_Artifact_Save_v1__Merge_PATCH_Project_Extension"
     },
     {
@@ -756,7 +756,7 @@
         640,
         1200
       ],
-      "id": "b9309f0e-066e-4d39-99e8-9feeb98fd890",
+      "id": "000576b5-10af-4e8e-963f-007564db511d",
       "name": "NQxb_Artifact_Save_v1__Prepare_Insert_Missing_Project_Extension"
     },
     {
@@ -794,7 +794,7 @@
         864,
         1008
       ],
-      "id": "ad0334a8-9c98-40c0-871c-344da25f606f",
+      "id": "cce970f3-39a3-4cb3-b215-55b9c221d64f",
       "name": "NQxb_Artifact_Save_v1__DB_Update_Project_Extension",
       "credentials": {
         "supabaseApi": {
@@ -813,7 +813,7 @@
         864,
         1200
       ],
-      "id": "a7bc9ee1-f05b-4f6a-8800-0496b305f1a5",
+      "id": "bb6527a4-e71e-4db3-aeae-76f012ee674f",
       "name": "NQxb_Artifact_Save_v1__DB_Insert_Missing_Project_Extension",
       "credentials": {
         "supabaseApi": {
@@ -841,7 +841,7 @@
         192,
         1488
       ],
-      "id": "2fa16f57-b3d7-4588-b33e-b8c1caa22a7d",
+      "id": "f8af1dec-2263-4e7e-834c-f9d58163384e",
       "name": "NQxb_Artifact_Save_v1__Fetch_Existing_Journal_Extension",
       "alwaysOutputData": true,
       "credentials": {
@@ -880,7 +880,7 @@
         416,
         1488
       ],
-      "id": "5c8f1382-c14a-4479-a994-92833f5e80c8",
+      "id": "f112e1f9-633f-4bf9-8883-7d41625fda4e",
       "name": "NQxb_Artifact_Save_v1__Check_Journal_Extension_Exists"
     },
     {
@@ -893,7 +893,7 @@
         640,
         1392
       ],
-      "id": "b7789e96-1d6e-4ab4-a189-3f76d6cbb5ad",
+      "id": "2c23e3fd-92b9-4cf7-a384-858d356afb9e",
       "name": "NQxb_Artifact_Save_v1__Merge_PATCH_Journal_Extension"
     },
     {
@@ -906,7 +906,7 @@
         640,
         1584
       ],
-      "id": "8454c649-957e-498d-9ea4-053f0ba92f51",
+      "id": "0fc02760-44d5-48b5-af49-859adf188014",
       "name": "NQxb_Artifact_Save_v1__Prepare_Insert_Missing_Journal_Extension"
     },
     {
@@ -940,7 +940,7 @@
         864,
         1392
       ],
-      "id": "26efb6f1-42d5-472c-9b31-027b40bd466a",
+      "id": "7d8db57e-ec34-4b46-b7c6-74788d17ddc3",
       "name": "NQxb_Artifact_Save_v1__DB_Update_Journal_Extension",
       "credentials": {
         "supabaseApi": {
@@ -959,7 +959,7 @@
         864,
         1584
       ],
-      "id": "ec6f43e5-03a9-482f-a036-cd8eb6060826",
+      "id": "0440b3f1-80ad-4254-8812-7ab3fc322a1e",
       "name": "NQxb_Artifact_Save_v1__DB_Insert_Missing_Journal_Extension",
       "credentials": {
         "supabaseApi": {
@@ -1026,7 +1026,7 @@
         -2048,
         720
       ],
-      "id": "01305e0a-411b-4a75-a525-d8ff784b038c",
+      "id": "04da8df2-cf27-43bc-95ea-6458d2e48fa3",
       "name": "Switch"
     },
     {
@@ -1051,7 +1051,7 @@
         0,
         384
       ],
-      "id": "19b8c08f-2e45-4e03-8649-242135b97bf8",
+      "id": "46673e9f-fd1e-4bc8-bf92-c2e281a30cf6",
       "name": "NQxb_Artifact_Save_v1__DB_Insert_Journal_Extension1",
       "credentials": {
         "supabaseApi": {
@@ -1082,7 +1082,7 @@
         0,
         768
       ],
-      "id": "1607bf53-0bfb-43f1-8cde-cbb07259883b",
+      "id": "60a7853a-d11f-4896-b163-fe9f47a277c2",
       "name": "NQxb_Artifact_Save_v1__DB_Insert_Snapshot_Extension1",
       "credentials": {
         "supabaseApi": {
@@ -1113,7 +1113,7 @@
         0,
         576
       ],
-      "id": "4a98723d-e1f4-4d5c-9a12-c0b18c9ff8bc",
+      "id": "75e7e08a-e4d3-4b60-b143-6c1837d9f6f5",
       "name": "NQxb_Artifact_Save_v1__DB_Insert_Restart_Extension",
       "credentials": {
         "supabaseApi": {
@@ -1132,7 +1132,7 @@
         1088,
         1200
       ],
-      "id": "ced2a639-e942-497c-a97c-82ec2a6bbc3a",
+      "id": "d7c5b440-c721-47e5-b715-f719d65e16fc",
       "name": "NQxb_Artifact_Save_v1__Return_Response"
     },
     {
@@ -1145,7 +1145,7 @@
         -2272,
         720
       ],
-      "id": "aa4000c7-7977-4479-8961-e0409dd8a158",
+      "id": "0086497c-62af-4f89-821b-596993733f52",
       "name": "NQxb_Artifact_Save_v1__Freeze_Extension_Payload"
     },
     {
@@ -1158,7 +1158,7 @@
         -2496,
         720
       ],
-      "id": "aaefb637-d976-46d5-b78a-66f5a093c595",
+      "id": "1eabdc1e-1f26-4f0e-9960-2952ffcb50a8",
       "name": "NQxb_Artifact_Save_v1__Derive_Owner_From_Auth"
     },
     {
@@ -1171,7 +1171,7 @@
         -2944,
         720
       ],
-      "id": "d46ec5bf-8444-4e14-aaf6-a99fe9d7bc5d",
+      "id": "e5ee7d86-0c04-4b1b-848f-01b949de0aad",
       "name": "NQxb_Artifact_Save_v1__Set_Owner_User_ID_MVP"
     },
     {
@@ -1186,7 +1186,7 @@
         224,
         480
       ],
-      "id": "8dbdd988-6298-4241-bfd1-6b4c2a3b252f",
+      "id": "7f7a72b9-0f06-416e-bd6c-077c4016d78d",
       "name": "NQxb_Artifact_Save_v1__Merge_Context_For_Response"
     },
     {
@@ -1199,7 +1199,7 @@
         0,
         0
       ],
-      "id": "84987305-ea25-4605-bb62-042f671b9de2",
+      "id": "2cea10f1-78cb-4ab8-aa2a-d44ceaf7f658",
       "name": "NQxb_Artifact_Save_v1__Build_Response_Context"
     },
     {
@@ -1221,7 +1221,7 @@
         -1824,
         720
       ],
-      "id": "b298cf85-d717-41d6-adc9-0447dce97caa",
+      "id": "2e6b2722-8461-407d-8c06-b0fc04530174",
       "name": "NQxb_Artifact_Save_v1__Lookup_Type_Registry",
       "alwaysOutputData": true,
       "credentials": {
@@ -1241,7 +1241,7 @@
         -1600,
         720
       ],
-      "id": "610ce277-bf2c-4438-be51-b35a521459f2",
+      "id": "b9650b7e-353c-4af4-aa3a-c4203ad697de",
       "name": "NQxb_Artifact_Save_v1__Type_Registry_Guard"
     },
     {
@@ -1302,7 +1302,7 @@
         -1376,
         720
       ],
-      "id": "bf28251e-0cf6-4678-a053-2338b2bb557a",
+      "id": "35f69c94-4197-44ec-a73f-e02c71f6927b",
       "name": "NQxb_Artifact_Save_v1__Switch_Type_Registry"
     },
     {
@@ -1355,7 +1355,7 @@
         0,
         960
       ],
-      "id": "4c227cf6-31ed-4561-9b2f-3f60d1c47e28",
+      "id": "131647bf-ab09-4a1c-8466-14eb57c941df",
       "name": "NQxb_Artifact_Save_v1__DB_Insert_Instruction_Pack_Extension",
       "credentials": {
         "supabaseApi": {
@@ -1403,7 +1403,7 @@
         -368,
         176
       ],
-      "id": "3e35796a-3baa-4f82-be0d-b8d71de71ad2",
+      "id": "42f76a65-f3da-4f2d-9403-c91bdb60946b",
       "name": "NQxb_Artifact_Save_v1__Switch_Guard_Saved_ID"
     },
     {
@@ -1435,7 +1435,7 @@
         -2608,
         720
       ],
-      "id": "c10c2c24-8201-499c-bfee-b052fa5bfbcb",
+      "id": "415f5d71-bed4-4241-9a45-a65ff3264d4c",
       "name": "NQxb_Artifact_Save_v1__Guard_Error_ShortCircuit"
     },
     {
@@ -1448,7 +1448,7 @@
         0,
         1152
       ],
-      "id": "a1b2c3d4-0001-4000-8000-000000000001",
+      "id": "ec79ac5a-d79f-4097-9c8c-5c25141cdfcb",
       "name": "NQxb_Artifact_Save_v1__Spine_Only_Insert_Passthrough"
     },
     {
@@ -1469,7 +1469,7 @@
         0,
         1344
       ],
-      "id": "a1b2c3d4-0002-4000-8000-000000000002",
+      "id": "13c0f883-0a0a-44fe-bfc0-37edf618b1fa",
       "name": "NQxb_Artifact_Save_v1__DB_Insert_Limb_Extension",
       "credentials": {
         "supabaseApi": {
@@ -2086,10 +2086,10 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "1e94c7ac-8672-4468-8527-a24c9f8abfce",
+  "versionId": "3f9f2df9-e896-46fe-8b50-3873e6aa3f30",
   "meta": {
     "instanceId": "154f6928422db881044f8d1647b40fc389c59337d14356c0ee681d50ffb55d7e"
   },
-  "id": "n0bc7FWDBruPNWeZ",
+  "id": "fV1lV6SUWhero9nc",
   "tags": []
 }

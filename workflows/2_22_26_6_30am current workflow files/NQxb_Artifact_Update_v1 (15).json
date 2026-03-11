@@ -8,10 +8,10 @@
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
       "position": [
-        -1968,
-        224
+        -1568,
+        80
       ],
-      "id": "8a437c4f-955b-441e-954d-c70cd4d7da19",
+      "id": "960a436a-ccb7-4e71-ae05-6a5ce1bc202d",
       "name": "NQxb_Artifact_Update_v1__In"
     },
     {
@@ -21,10 +21,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1744,
-        224
+        -1344,
+        80
       ],
-      "id": "5e6ddd02-e095-4f2f-b8fd-3e9101c517a9",
+      "id": "ac27a671-5dce-49e1-ae89-eeb54787110d",
       "name": "NQxb_Artifact_Update_v1__Normalize_Request"
     },
     {
@@ -34,10 +34,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1520,
-        224
+        -1120,
+        80
       ],
-      "id": "e572dd73-c21b-4cf2-9e9d-faa67c46aee5",
+      "id": "8a7b927b-0e1c-4b40-b08f-2e8f93f14609",
       "name": "NQxb_Artifact_Update_v1__Validate_Request"
     },
     {
@@ -66,10 +66,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        -1296,
-        224
+        -896,
+        80
       ],
-      "id": "ebeedd9f-d1eb-4878-a2c5-3d900342e9d8",
+      "id": "325aa02e-2889-4152-b98f-68bd4eebe9a8",
       "name": "NQxb_Artifact_Update_v1__Guard_Error_ShortCircuit"
     },
     {
@@ -88,16 +88,16 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        -1072,
-        304
+        -672,
+        160
       ],
-      "id": "a2b971c9-084d-41b2-bbe5-8ae0bae59fe9",
+      "id": "6b8541b5-3708-4273-b04a-b1fdb34c6a6d",
       "name": "NQxb_Artifact_Update_v1__Lookup_Type_Registry",
       "alwaysOutputData": true,
       "credentials": {
         "supabaseApi": {
           "id": "n4R4JdOIV9zrCGIT",
-          "name": "Qwrk Supabase \u2013 Kernel v1"
+          "name": "Qwrk Supabase – Kernel v1"
         }
       }
     },
@@ -108,10 +108,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -848,
-        304
+        -448,
+        160
       ],
-      "id": "5074b160-fd78-44b4-a114-24c53a9cfd5d",
+      "id": "7adfe15c-fbe7-4ba1-850e-a65f70db2740",
       "name": "NQxb_Artifact_Update_v1__Type_Registry_Guard"
     },
     {
@@ -164,15 +164,17 @@
             }
           ]
         },
-        "options": {}
+        "options": {
+          "fallbackOutput": "extra"
+        }
       },
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        -624,
-        304
+        -224,
+        160
       ],
-      "id": "2335be2d-d60a-4471-8065-7b94798d750d",
+      "id": "6a7204a4-261b-49cf-8beb-16348d59b02a",
       "name": "NQxb_Artifact_Update_v1__Switch_Type_Registry"
     },
     {
@@ -195,16 +197,16 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        -400,
-        320
+        0,
+        176
       ],
-      "id": "b1c1b88c-3f36-46d4-9131-d2e368277042",
+      "id": "2a70271c-78f5-4e42-ae4c-9b82fd1b25f7",
       "name": "NQxb_Artifact_Update_v1__Fetch_Existing_Spine",
       "alwaysOutputData": true,
       "credentials": {
         "supabaseApi": {
           "id": "n4R4JdOIV9zrCGIT",
-          "name": "Qwrk Supabase \u2013 Kernel v1"
+          "name": "Qwrk Supabase – Kernel v1"
         }
       }
     },
@@ -215,10 +217,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1936,
-        672
+        -1536,
+        528
       ],
-      "id": "1209e19f-313a-4c15-8f8e-9be6e90ca0c0",
+      "id": "ba48ee6e-6c47-47a0-a1cc-5511cdd6dca9",
       "name": "NQxb_Artifact_Update_v1__Check_Mutability_Rules"
     },
     {
@@ -279,10 +281,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        -1728,
-        672
+        -1328,
+        528
       ],
-      "id": "25564f77-c3f9-4a3d-b2f6-80a22f316d4d",
+      "id": "4069f179-5f53-4463-bad6-359e41451460",
       "name": "NQxb_Artifact_Update_v1__Switch_Mutability_Result"
     },
     {
@@ -320,10 +322,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        -1504,
-        672
+        -1104,
+        528
       ],
-      "id": "c7a1d3e0-8f2b-4a1c-9e5d-b3c6f8a2d4e7",
+      "id": "2005de2f-13f7-4a1f-acf5-1e540b137679",
       "name": "NQxb_Artifact_Update_v1__Switch_Update_Mode"
     },
     {
@@ -333,10 +335,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1280,
-        480
+        -880,
+        336
       ],
-      "id": "d4e5f6a7-1b2c-3d4e-5f6a-7b8c9d0e1f2a",
+      "id": "f6fd2fc4-d5c1-4354-9100-8a1f5617f806",
       "name": "NQxb_Artifact_Update_v1__Compute_Tag_Merge"
     },
     {
@@ -348,27 +350,22 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ tags: $json.final_tags, version: $json.next_version }) }}",
-        "options": {
-          "response": {
-            "response": {
-              "neverError": true
-            }
-          }
-        }
+        "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -1056,
-        480
+        -656,
+        336
       ],
-      "id": "e5f6a7b8-2c3d-4e5f-6a7b-8c9d0e1f2a3b",
+      "id": "6942ae9d-8e25-4c24-a6d7-29ac2faac283",
       "name": "NQxb_Artifact_Update_v1__DB_Update_Spine_Tags",
+      "onError": "continueErrorOutput",
       "alwaysOutputData": true,
       "credentials": {
         "supabaseApi": {
           "id": "n4R4JdOIV9zrCGIT",
-          "name": "Qwrk Supabase \u2013 Kernel v1"
+          "name": "Qwrk Supabase – Kernel v1"
         }
       }
     },
@@ -379,10 +376,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -832,
-        480
+        -432,
+        336
       ],
-      "id": "f6a7b8c9-3d4e-5f6a-7b8c-9d0e1f2a3b4c",
+      "id": "c2190a0d-d74a-49fa-b69c-ce2966d0febe",
       "name": "NQxb_Artifact_Update_v1__Return_Tags_Ack"
     },
     {
@@ -479,15 +476,17 @@
             }
           ]
         },
-        "options": {}
+        "options": {
+          "fallbackOutput": "extra"
+        }
       },
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        -1280,
-        870
+        -880,
+        736
       ],
-      "id": "4866cabd-c593-4c73-aff3-c65e85c99d75",
+      "id": "ed5b04e6-4b8d-4726-8305-5f371fba4cf8",
       "name": "NQxb_Artifact_Update_v1__Switch_Type_For_Update"
     },
     {
@@ -497,10 +496,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1056,
-        870
+        -656,
+        736
       ],
-      "id": "b716259d-8c6b-4a5d-a3a4-12363b687f7f",
+      "id": "73bac13d-2b43-4c51-aa54-44ea405faaf8",
       "name": "NQxb_Artifact_Update_v1__Prepare_Project_Extension_Update"
     },
     {
@@ -532,16 +531,57 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        -832,
-        870
+        -432,
+        736
       ],
-      "id": "1f6376cc-aa5e-4de8-8296-e4cf4396a84e",
+      "id": "f584180c-1d48-4845-8f8a-1237605a6e98",
       "name": "NQxb_Artifact_Update_v1__DB_Update_Project_Extension",
       "alwaysOutputData": true,
       "credentials": {
         "supabaseApi": {
           "id": "n4R4JdOIV9zrCGIT",
-          "name": "Qwrk Supabase \u2013 Kernel v1"
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Prepare_Spine_Version_Increment\n// Compute next version for spine PATCH after extension update.\n// Follows same pattern as Compute_Tag_Merge for tags path.\n\nconst normalize = $node['NQxb_Artifact_Update_v1__Normalize_Request'].json;\nconst spine = $node['NQxb_Artifact_Update_v1__Fetch_Existing_Spine'].json;\nconst currentVersion = typeof spine.version === 'number' ? spine.version : 1;\n\nreturn [{\n  json: {\n    artifact_id: normalize.artifact_id,\n    workspace_id: normalize.gw_workspace_id,\n    next_version: currentVersion + 1,\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -208,
+        736
+      ],
+      "id": "b166a5ff-5d8a-49bb-acde-e87990c25190",
+      "name": "NQxb_Artifact_Update_v1__Prepare_Spine_Version_Increment"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://npymhacpmxdnkqdzgxll.supabase.co/rest/v1/qxb_artifact?artifact_id=eq.{{ $json.artifact_id }}&workspace_id=eq.{{ $json.workspace_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ version: $json.next_version }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        16,
+        736
+      ],
+      "id": "c6958a4a-69c2-4b2c-9c17-7e9c9597f04c",
+      "name": "NQxb_Artifact_Update_v1__DB_Increment_Spine_Version",
+      "onError": "continueErrorOutput",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
         }
       }
     },
@@ -552,10 +592,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -160,
-        870
+        240,
+        736
       ],
-      "id": "a831d9c8-15b8-478b-93fb-97dbb88f9b1b",
+      "id": "c64c17cb-0d0a-42e6-8ef7-1dcb482b45c4",
       "name": "NQxb_Artifact_Update_v1__Return_Update_Ack"
     },
     {
@@ -565,11 +605,37 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -400,
-        144
+        0,
+        0
       ],
-      "id": "e1b26e3a-9859-4f11-bf87-d5eddfbc6e78",
+      "id": "e9cc6cbf-46c4-42dd-b084-b82871b371a7",
       "name": "NQxb_Artifact_Update_v1__Return_Error_Passthrough"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Return_Unimplemented_Type_Error\n// T51 Resolution (Option B): Return explicit error for types without extension update implementation.\n// Fail-closed: no fake success for unimplemented types.\n// Hardening Sprint 2026-02-21\n\nconst normalize = $node['NQxb_Artifact_Update_v1__Normalize_Request'].json;\n\nreturn [{\n  json: {\n    ok: false,\n    _gw_route: 'error',\n    gw_action: 'artifact.update',\n    artifact_id: normalize.artifact_id ?? null,\n    artifact_type: normalize.artifact_type ?? null,\n    gw_workspace_id: normalize.gw_workspace_id ?? null,\n    error: {\n      code: 'UPDATE_NOT_IMPLEMENTED',\n      message: 'Extension update behavior not implemented for this artifact type. Tags-only updates are available via tags.add/tags.remove.',\n      details: {\n        artifact_type: normalize.artifact_type ?? null,\n        artifact_id: normalize.artifact_id ?? null,\n        hint: 'Use tags.add/tags.remove for metadata updates on this type.'\n      }\n    },\n    timestamp: new Date().toISOString()\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        960
+      ],
+      "id": "a1500001-b51e-4f15-8001-e7c3d2a9b6f0",
+      "name": "NQxb_Artifact_Update_v1__Return_Unimplemented_Type_Error"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Update_v1__Return_Unhandled_Type_Error\n// Switch fallback: Return deterministic error for types not matched by Switch_Type_For_Update.\n// Fail-closed enforcement — no silent drops.\n// Hardening Sprint 2026-02-21\n\nconst normalize = $node['NQxb_Artifact_Update_v1__Normalize_Request'].json;\n\nreturn [{\n  json: {\n    ok: false,\n    _gw_route: 'error',\n    gw_action: 'artifact.update',\n    artifact_id: normalize.artifact_id ?? null,\n    artifact_type: normalize.artifact_type ?? null,\n    gw_workspace_id: normalize.gw_workspace_id ?? null,\n    error: {\n      code: 'EXTENSION_ROUTING_UNHANDLED_TYPE',\n      message: 'Artifact type routing not implemented for extension update.',\n      details: {\n        artifact_type: normalize.artifact_type ?? null,\n        artifact_id: normalize.artifact_id ?? null\n      }\n    },\n    timestamp: new Date().toISOString()\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        1180
+      ],
+      "id": "a1500002-b51e-4f15-8002-f8d4e3b0c7a1",
+      "name": "NQxb_Artifact_Update_v1__Return_Unhandled_Type_Error"
     }
   ],
   "pinData": {},
@@ -662,6 +728,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Error_Passthrough",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -749,6 +822,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Error_Passthrough",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -763,21 +843,28 @@
         ],
         [
           {
-            "node": "NQxb_Artifact_Update_v1__Return_Update_Ack",
+            "node": "NQxb_Artifact_Update_v1__Return_Unimplemented_Type_Error",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "NQxb_Artifact_Update_v1__Return_Update_Ack",
+            "node": "NQxb_Artifact_Update_v1__Return_Unimplemented_Type_Error",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "NQxb_Artifact_Update_v1__Return_Update_Ack",
+            "node": "NQxb_Artifact_Update_v1__Return_Unimplemented_Type_Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Unhandled_Type_Error",
             "type": "main",
             "index": 0
           }
@@ -799,7 +886,36 @@
       "main": [
         [
           {
+            "node": "NQxb_Artifact_Update_v1__Prepare_Spine_Version_Increment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__Prepare_Spine_Version_Increment": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__DB_Increment_Spine_Version",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Update_v1__DB_Increment_Spine_Version": {
+      "main": [
+        [
+          {
             "node": "NQxb_Artifact_Update_v1__Return_Update_Ack",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Update_v1__Return_Error_Passthrough",
             "type": "main",
             "index": 0
           }
@@ -811,10 +927,9 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "versionId": "755208fc-6027-4785-b01e-03bedef50d0b",
   "meta": {
     "instanceId": "154f6928422db881044f8d1647b40fc389c59337d14356c0ee681d50ffb55d7e"
   },
-  "id": "ZMiwnwHm2AL96HhK",
   "tags": []
 }

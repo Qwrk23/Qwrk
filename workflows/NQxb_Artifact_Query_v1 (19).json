@@ -189,10 +189,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        1392,
-        -544
+        -2160,
+        336
       ],
-      "id": "4691e1db-fb3c-498e-afe6-4089b3f813a6",
+      "id": "0adba701-ed6b-47ea-ac29-dedb74c74a21",
       "name": "NQxb_Gateway_v1__Switch_ArtifactType_ForQuery"
     },
     {
@@ -253,10 +253,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        2320,
-        -512
+        -1232,
+        368
       ],
-      "id": "d78cbc3b-5cec-4059-8553-0521c3aec5ef",
+      "id": "d7887b5a-6b00-4452-9119-80a4e883aebd",
       "name": "NQxb_Gateway_v1__Switch_Spine_Found"
     },
     {
@@ -442,6 +442,29 @@
                 ],
                 "combinator": "and"
               }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "046fa691-e9f6-4468-b47a-bc778b5d6530",
+                    "leftValue": "={{$json.compare_key}}",
+                    "rightValue": "twig",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
             }
           ]
         },
@@ -452,10 +475,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        3008,
-        -544
+        -544,
+        336
       ],
-      "id": "aff6e546-d179-4558-bd98-99e0decdaa42",
+      "id": "cc6257e3-2f46-4061-a9cc-000fc157d23b",
       "name": "NQxb_Gateway_v1__Switch_SpineType_Matches_RequestType"
     },
     {
@@ -465,10 +488,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3776,
-        -304
+        224,
+        576
       ],
-      "id": "f7aaa893-1d2e-40e9-a018-17d6753d81b0",
+      "id": "ef2d51d2-7e22-4d1a-9eb9-4e425465871e",
       "name": "NQxb_Gateway_v1__Merge_Spine_And_Snapshot_Extension"
     },
     {
@@ -487,10 +510,10 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        3552,
-        -880
+        0,
+        0
       ],
-      "id": "e35c5f3f-9c46-43ad-8626-e8e7c8283cef",
+      "id": "c0ec1f9c-9fac-49ba-8b6a-63969aa0c8d5",
       "name": "NQxb_Gateway_v1__DB_Get_Project_Extension",
       "alwaysOutputData": true,
       "credentials": {
@@ -507,10 +530,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3776,
-        -880
+        224,
+        0
       ],
-      "id": "1d7ce679-87c4-4a00-b7a1-dc4d2d01bd24",
+      "id": "cb9b5e07-3080-45e9-8b5e-57ee20082545",
       "name": "NQxb_Gateway_v1__Merge_Spine_And_Project_Extension"
     },
     {
@@ -529,10 +552,10 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        1872,
-        -608
+        -1680,
+        272
       ],
-      "id": "f00210be-b11b-4c23-8d86-c16f9011bab9",
+      "id": "606c722e-f4f4-459a-a367-d838ae00114b",
       "name": "NQxb_Gateway_v1__DB_Get_Journal_Extension",
       "alwaysOutputData": true,
       "credentials": {
@@ -560,10 +583,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        2096,
-        -800
+        -1456,
+        80
       ],
-      "id": "3f5e9e1f-b569-47ba-9468-7983adf2b632",
+      "id": "86620bf1-a71c-4391-88a0-792fe143b786",
       "name": "NQxb_Gateway_v1__Set_SpineType"
     },
     {
@@ -585,10 +608,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        2576,
-        -496
+        -976,
+        384
       ],
-      "id": "19490f57-1a73-42c5-bcad-981ce75e8853",
+      "id": "e8af90c9-3922-436e-9fae-62abaa0fa745",
       "name": "NQxb_Gateway_v1__Edit_CompareKey"
     },
     {
@@ -609,10 +632,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        2096,
-        -608
+        -1456,
+        272
       ],
-      "id": "060ccf97-dcc2-4a5d-b8f5-1e00d5b167a9",
+      "id": "76120d69-4be3-4d27-a025-ccbc8ec2d5b3",
       "name": "NQxb_Gateway_v1__Set_SpineType1"
     },
     {
@@ -631,10 +654,10 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        1872,
-        -800
+        -1680,
+        80
       ],
-      "id": "8a9595d6-5ead-47a9-bcd5-3c1e5e41eaa7",
+      "id": "fbafd1b6-9fed-4716-9adb-25dd4cd8fe74",
       "name": "NQxb_Gateway_v1__DB_Get_Project_Extension1",
       "alwaysOutputData": true,
       "credentials": {
@@ -660,10 +683,10 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        3552,
-        -304
+        0,
+        576
       ],
-      "id": "0cab99dc-18ed-4002-bcd3-1ed17dd355d1",
+      "id": "56df7062-b90a-4baf-96df-05ccd4b080bb",
       "name": "Get a Snapshot row",
       "credentials": {
         "supabaseApi": {
@@ -688,10 +711,10 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        3552,
-        -688
+        0,
+        192
       ],
-      "id": "b5f40169-1222-4aa7-9766-627ebd026ca0",
+      "id": "98839538-98a0-4a20-8fa0-800373a5c6fb",
       "name": "Get a Journal row",
       "credentials": {
         "supabaseApi": {
@@ -707,10 +730,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3776,
-        -688
+        224,
+        192
       ],
-      "id": "9189ba4d-fc66-44e8-88c7-9813020bbabf",
+      "id": "a64bd0f2-f461-48ac-ad29-d65da2cc03fd",
       "name": "NQxb_Gateway_v1__Merge_Spine_And_Journal_Extension"
     },
     {
@@ -729,10 +752,10 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        3552,
-        -496
+        0,
+        384
       ],
-      "id": "32cfa382-dec5-4e01-9dbc-77ca12662f81",
+      "id": "2ced484c-e588-48f2-abf9-0045d27d1df6",
       "name": "Get a Restart row",
       "credentials": {
         "supabaseApi": {
@@ -748,10 +771,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3776,
-        -496
+        224,
+        384
       ],
-      "id": "ae6b4202-5ca7-4302-944c-fe6cb3c78056",
+      "id": "e08e52db-5f50-4b3e-9b27-ce6014df28a4",
       "name": "NQxb_Gateway_v1__Merge_Spine_And_Restart_Extension"
     },
     {
@@ -770,10 +793,10 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        1872,
-        -224
+        -1680,
+        656
       ],
-      "id": "b03641cd-4d48-42eb-bd4e-55617fcd8c2b",
+      "id": "f3e3dd91-d7f4-4c2d-b7fc-2c8fa86c4e8c",
       "name": "NQxb_Gateway_v1__DB_Get_Snapshot_Extension",
       "alwaysOutputData": true,
       "credentials": {
@@ -801,10 +824,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        2096,
-        -224
+        -1456,
+        656
       ],
-      "id": "63fddaf8-daee-4c42-83c2-48cdbc698437",
+      "id": "24cdc694-b7a3-4c77-b819-ae52995e5717",
       "name": "NQxb_Gateway_v1__Set_SpineType2"
     },
     {
@@ -823,10 +846,10 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        1872,
-        -416
+        -1680,
+        464
       ],
-      "id": "9258201a-c0c6-4df6-956c-d6726821c780",
+      "id": "7ac64870-8ef4-410f-8695-abe8aa91312a",
       "name": "NQxb_Gateway_v1__DB_Get_Restart_Extension",
       "alwaysOutputData": true,
       "credentials": {
@@ -854,10 +877,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        2096,
-        -416
+        -1456,
+        464
       ],
-      "id": "3b7fbfd7-dcc8-4261-a167-e954d97efc53",
+      "id": "97af493d-0953-4ef4-b1e8-788fb2f26e6b",
       "name": "NQxb_Gateway_v1__Set_SpineType3"
     },
     {
@@ -867,31 +890,31 @@
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
       "position": [
-        736,
-        -512
+        -2816,
+        368
       ],
-      "id": "b8aaa805-6c59-4411-9bfd-552035a6f376",
+      "id": "4a0e35ce-99a6-40e8-b65a-97f59ed14127",
       "name": "NQxb_Artifact_Query_v1__In",
       "alwaysOutputData": true
     },
     {
       "parameters": {
-        "jsCode": "// NQxb_Artifact_Query_v1__Normalize_Request\n// Canonicalize inbound request so downstream nodes always use top-level fields.\n// Output contract (stable):\n//   $json.gw_action, $json.gw_workspace_id, $json.artifact_type, $json.artifact_id, $json.selector\n// Plus \"request echoes\" that survive later DB row replacement:\n//   $json.req_artifact_type, $json.req_artifact_id\n// Non-contract debug:\n//   $json._gw_debug\n\nconst raw = $json ?? {};\n\n// In Execute Workflow Trigger calls, we usually receive a flat object,\n// but we still support body-wrapped payloads to stay compatible with Gateway/webhook callers.\nconst body =\n  raw.body && typeof raw.body === \"object\" && !Array.isArray(raw.body)\n    ? raw.body\n    : null;\n\n// Prefer parsed body when present; otherwise treat raw as already-flat\nconst req = body ?? raw;\n\n// normalize helper\nconst asObj = (v) =>\n  v && typeof v === \"object\" && !Array.isArray(v) ? v : {};\n\nconst canonical = {\n  gw_action: req.gw_action ?? null,\n  gw_workspace_id: req.gw_workspace_id ?? null,\n  artifact_type: req.artifact_type ?? null,\n  artifact_id: req.artifact_id ?? null,\n  selector: asObj(req.selector),\n\n  // IMPORTANT: freeze request intent so it survives later nodes that overwrite $json\n  // (e.g., Supabase \"Get row\" returning the artifact row)\n  req_artifact_type: req.artifact_type ?? null,\n  req_artifact_id: req.artifact_id ?? null,\n};\n\n// Minimal debug context (non-contract)\ncanonical._gw_debug = {\n  received_shape: body ? \"body\" : \"flat\",\n};\n\nreturn [{ json: canonical }];\n"
+        "jsCode": "// NQxb_Artifact_Query_v1__Normalize_Request\n// Canonicalize inbound request so downstream nodes always use top-level fields.\n// Output contract (stable):\n//   $json.gw_action, $json.gw_workspace_id, $json.artifact_type, $json.artifact_id, $json.selector\n// Plus \"request echoes\" that survive later DB row replacement:\n//   $json.req_artifact_type, $json.req_artifact_id\n// Non-contract debug:\n//   $json._gw_debug\n\nconst raw = $json ?? {};\n\n// In Execute Workflow Trigger calls, we usually receive a flat object,\n// but we still support body-wrapped payloads to stay compatible with Gateway/webhook callers.\nconst body =\n  raw.body && typeof raw.body === \"object\" && !Array.isArray(raw.body)\n    ? raw.body\n    : null;\n\n// Prefer parsed body when present; otherwise treat raw as already-flat\nconst req = body ?? raw;\n\n// normalize helper\nconst asObj = (v) =>\n  v && typeof v === \"object\" && !Array.isArray(v) ? v : {};\n\nconst canonical = {\n  gw_action: req.gw_action ?? null,\n  gw_workspace_id: req.gw_workspace_id ?? null,\n  artifact_type: req.artifact_type ?? null,\n  artifact_id: req.artifact_id ?? null,\n  selector: asObj(req.selector),\n\n  // IMPORTANT: freeze request intent so it survives later nodes that overwrite $json\n  // (e.g., Supabase \"Get row\" returning the artifact row)\n  req_artifact_type: req.artifact_type ?? null,\n  req_artifact_id: req.artifact_id ?? null,\n};\n\n// Minimal debug context (non-contract)\ncanonical._gw_debug = {\n  received_shape: body ? \"body\" : \"flat\",\n};\n\n// UUID format guard (prevents raw Supabase errors)\nconst uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\ncanonical._uuid_valid = !canonical.artifact_id || uuidRegex.test(canonical.artifact_id);\n\nreturn [{ json: canonical }];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        944,
-        -512
+        -2608,
+        368
       ],
-      "id": "f04992fa-da87-427f-8eee-e0afb83efb59",
+      "id": "571f4aa2-cf8a-4236-b337-a81e24359783",
       "name": "NQxb_Artifact_Query_v1__Normalize_Request"
     },
     {
       "parameters": {
         "mode": "combine",
         "combineBy": "combineByPosition",
-        "numberInputs": 8,
+        "numberInputs": 9,
         "options": {
           "includeUnpaired": true
         }
@@ -899,10 +922,10 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        4240,
-        -544
+        688,
+        336
       ],
-      "id": "1b3ca85d-6963-4b10-91e0-7b621224d25d",
+      "id": "700bcffa-cda0-4dea-bf03-1c3937af167c",
       "name": "NQxb_Artifact_Query_v1__Return",
       "alwaysOutputData": true
     },
@@ -926,10 +949,10 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        1152,
-        -512
+        -2400,
+        368
       ],
-      "id": "40f47662-2ce9-4659-9a34-7c2507e8eb04",
+      "id": "ef003ebc-b227-4399-a92a-6adcbd46d90b",
       "name": "NQxb_Artifact_Query_v1__DB_Get_Artifact_Spine",
       "alwaysOutputData": true,
       "credentials": {
@@ -946,23 +969,23 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3664,
-        128
+        112,
+        1008
       ],
-      "id": "f6143c0e-f3a4-45ee-8b1c-d6dc5a3f5d39",
+      "id": "99214160-c5dd-4b97-b5f9-fd5cc7fb843a",
       "name": "NQxb_Artifact_Query_v1__Return_TypeMismatch"
     },
     {
       "parameters": {
-        "jsCode": "// NQxb_Artifact_Query_v1__Shape_Return\n// Purpose: Produce deterministic errors, but on success return RAW artifact object (no envelope).\n// Input: a single merged item from NQxb_Artifact_Query_v1__Return (Merge node)\n\nconst j = $json ?? {};\n\nconst isObject = (v) => v && typeof v === \"object\" && !Array.isArray(v);\n\nconst isError =\n  j.ok === false ||\n  j._gw_route === \"error\" ||\n  isObject(j.error);\n\nif (isError) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: \"error\",\n      gw_action: j.gw_action ?? \"artifact.query\",\n      gw_workspace_id: j.gw_workspace_id ?? null,\n      artifact_id: j.artifact_id ?? null,\n      requested_artifact_type: j.requested_artifact_type ?? j.req_artifact_type ?? j.artifact_type ?? null,\n      stored_artifact_type: (typeof j.stored_artifact_type === \"string\") ? j.stored_artifact_type.trim() : (j.stored_artifact_type ?? null),\n      compare_key: j.compare_key ?? null,\n      error: j.error ?? { code: \"ERROR\", message: \"Unknown error\" },\n      timestamp: j.timestamp ?? new Date().toISOString(),\n    }\n  }];\n}\n\n// Fail-closed guard: do not return success unless we have an actual artifact spine shape.\nconst hasArtifactSpine =\n  typeof j.artifact_id === \"string\" && j.artifact_id.trim().length > 0 &&\n  typeof j.workspace_id === \"string\" && j.workspace_id.trim().length > 0 &&\n  typeof j.artifact_type === \"string\" && j.artifact_type.trim().length > 0;\n\nif (!hasArtifactSpine) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: \"error\",\n      gw_action: j.gw_action ?? \"artifact.query\",\n      gw_workspace_id: j.gw_workspace_id ?? null,\n      artifact_id: j.artifact_id ?? null,\n      requested_artifact_type: j.requested_artifact_type ?? j.req_artifact_type ?? null,\n      error: {\n        code: \"QUERY_RETURN_SHAPE_INVALID\",\n        message: \"Query did not produce a valid artifact row for shaping.\",\n        details: {\n          reason: \"missing_artifact_fields\",\n          received_keys: Object.keys(isObject(j) ? j : {}),\n        },\n      },\n      timestamp: new Date().toISOString(),\n    }\n  }];\n}\n\n// ✅ Success path: return RAW artifact object so Gateway wraps exactly once\nreturn [{\n  json: j\n}];\n\n"
+        "jsCode": "// NQxb_Artifact_Query_v1__Shape_Return\n// Purpose: Produce deterministic errors, but on success return RAW artifact object (no envelope).\n// Input: a single merged item from NQxb_Artifact_Query_v1__Return (Merge node)\n\nconst j = $json ?? {};\n\nconst isObject = (v) => v && typeof v === \"object\" && !Array.isArray(v);\n\nconst isError =\n  j.ok === false ||\n  j._gw_route === \"error\" ||\n  isObject(j.error);\n\nif (isError) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: \"error\",\n      gw_action: j.gw_action ?? \"artifact.query\",\n      gw_workspace_id: j.gw_workspace_id ?? null,\n      artifact_id: j.artifact_id ?? null,\n      requested_artifact_type: j.requested_artifact_type ?? j.req_artifact_type ?? j.artifact_type ?? null,\n      stored_artifact_type: (typeof j.stored_artifact_type === \"string\") ? j.stored_artifact_type.trim() : (j.stored_artifact_type ?? null),\n      compare_key: j.compare_key ?? null,\n      error: j.error ?? { code: \"ERROR\", message: \"Unknown error\" },\n      timestamp: j.timestamp ?? new Date().toISOString(),\n    }\n  }];\n}\n\n// T70: Pass-through for pre-wrapped rollup response\n// Rollup_Compute returns { ok, _gw_route, data: { artifact, rollup } }\nif (j.ok === true && j._gw_route === \"ok\" && isObject(j.data) && isObject(j.data.artifact) && isObject(j.data.rollup)) {\n  return [{ json: j }];\n}\n\n// Fail-closed guard: do not return success unless we have an actual artifact spine shape.\nconst hasArtifactSpine =\n  typeof j.artifact_id === \"string\" && j.artifact_id.trim().length > 0 &&\n  typeof j.workspace_id === \"string\" && j.workspace_id.trim().length > 0 &&\n  typeof j.artifact_type === \"string\" && j.artifact_type.trim().length > 0;\n\nif (!hasArtifactSpine) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: \"error\",\n      gw_action: j.gw_action ?? \"artifact.query\",\n      gw_workspace_id: j.gw_workspace_id ?? null,\n      artifact_id: j.artifact_id ?? null,\n      requested_artifact_type: j.requested_artifact_type ?? j.req_artifact_type ?? null,\n      error: {\n        code: \"QUERY_RETURN_SHAPE_INVALID\",\n        message: \"Query did not produce a valid artifact row for shaping.\",\n        details: {\n          reason: \"missing_artifact_fields\",\n          received_keys: Object.keys(isObject(j) ? j : {}),\n        },\n      },\n      timestamp: new Date().toISOString(),\n    }\n  }];\n}\n\n// ✅ Success path: return RAW artifact object so Gateway wraps exactly once\nreturn [{\n  json: j\n}];\n\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4528,
-        288
+        976,
+        1168
       ],
-      "id": "092f3532-1c30-43bc-aacd-a884085e1c1f",
+      "id": "422bdda9-a1b5-4423-a142-36bc2782032c",
       "name": "NQxb_Artifact_Query_v1__Shape_Return"
     },
     {
@@ -972,10 +995,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1760,
-        304
+        -1792,
+        1184
       ],
-      "id": "0b94dbb6-e9cd-4936-9456-6a6a254c5693",
+      "id": "4b5f37eb-05c0-4a8a-b838-5de803ed99bd",
       "name": "NQxb_Artifact_Query_v1__Return_NotFound"
     },
     {
@@ -994,10 +1017,10 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        3552,
-        -112
+        0,
+        768
       ],
-      "id": "85b636c3-2eb7-49a2-b8fb-f745f3d707ff",
+      "id": "b97962ee-fd47-4735-9cc1-c130914778f9",
       "name": "Get an instruction_pack row1",
       "alwaysOutputData": true,
       "credentials": {
@@ -1014,10 +1037,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3776,
-        -112
+        224,
+        768
       ],
-      "id": "ac3ab6c1-9262-4bc7-8bee-9fa26bbffe25",
+      "id": "83827511-1570-4878-b61c-13b8e7887344",
       "name": "NQxb_Gateway_v1__Merge_Spine_And_Instruction_Pack_Extension1"
     },
     {
@@ -1036,10 +1059,10 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        1872,
-        -16
+        -1680,
+        864
       ],
-      "id": "dcca1169-0953-4551-ad80-941a18f1a698",
+      "id": "07ea91fa-94bf-415d-aa65-ad5a4af6ff65",
       "name": "NQxb_Gateway_v1__DB_Get_Instruction_Pack_Extension1",
       "alwaysOutputData": true,
       "credentials": {
@@ -1067,10 +1090,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        2096,
-        -16
+        -1456,
+        864
       ],
-      "id": "47e144a6-afdc-479e-bbf6-27694d213fd9",
+      "id": "70dcd4a9-abb3-4e67-9943-9f5d7485bf7c",
       "name": "NQxb_Gateway_v1__Set_SpineType4"
     },
     {
@@ -1091,10 +1114,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        2096,
-        192
+        -1456,
+        1072
       ],
-      "id": "b1c2d3e4-1001-4000-8000-queryset00001",
+      "id": "484c7c89-81cf-4273-9bea-f0e89385e730",
       "name": "NQxb_Gateway_v1__Set_SpineType_Walk"
     },
     {
@@ -1113,10 +1136,10 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        1872,
-        384
+        -1680,
+        1264
       ],
-      "id": "b1c2d3e4-1002-4000-8000-queryget00001",
+      "id": "9a61965a-6523-49f3-ab20-9e475173fa76",
       "name": "NQxb_Gateway_v1__DB_Get_Limb_Extension_Early",
       "alwaysOutputData": true,
       "credentials": {
@@ -1144,10 +1167,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        2096,
-        384
+        -1456,
+        1264
       ],
-      "id": "b1c2d3e4-1003-4000-8000-queryset00002",
+      "id": "3fb1404f-b8e3-4975-85a2-fe40cb2538f1",
       "name": "NQxb_Gateway_v1__Set_SpineType_Limb"
     },
     {
@@ -1157,10 +1180,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3776,
-        192
+        496,
+        1008
       ],
-      "id": "b1c2d3e4-1004-4000-8000-querymerge001",
+      "id": "c1020344-fd89-485d-8f95-fc1485836ec2",
       "name": "NQxb_Gateway_v1__Spine_Only_Query_Merge"
     },
     {
@@ -1179,10 +1202,10 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        3552,
-        384
+        0,
+        1264
       ],
-      "id": "b1c2d3e4-1005-4000-8000-queryget00002",
+      "id": "dc378315-12f9-4e1c-b558-1ea64bfe9d31",
       "name": "Get a Limb row",
       "alwaysOutputData": true,
       "credentials": {
@@ -1199,11 +1222,152 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3776,
-        384
+        224,
+        1264
       ],
-      "id": "b1c2d3e4-1006-4000-8000-querymerge002",
+      "id": "aed2129c-f035-42b3-a8cd-921814f0a9ff",
       "name": "NQxb_Gateway_v1__Merge_Spine_And_Limb_Extension"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "t70-rollup-selector",
+                    "leftValue": "={{ $node[\"NQxb_Artifact_Query_v1__Normalize_Request\"].json.selector.rollup }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  },
+                  {
+                    "id": "t70-rollup-type-eligible",
+                    "leftValue": "={{ ($json.artifact_type ?? '').trim() }}",
+                    "rightValue": "^(project|branch|limb)$",
+                    "operator": {
+                      "type": "string",
+                      "operation": "regex"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "rollup"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        800,
+        336
+      ],
+      "id": "97b1cf25-4280-4737-9e08-059f30aedc33",
+      "name": "NQxb_Artifact_Query_v1__Switch_Rollup"
+    },
+    {
+      "parameters": {
+        "url": "=https://npymhacpmxdnkqdzgxll.supabase.co/rest/v1/qxb_artifact_rollup_view?artifact_id=eq.{{ $json.artifact_id }}&workspace_id=eq.{{ $json.workspace_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        112
+      ],
+      "id": "173ab1a4-262f-42f2-af98-a5cd41e3b4bc",
+      "name": "NQxb_Artifact_Query_v1__Rollup_Fetch_View",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_Query_v1__Rollup_Compute (T70 v2 — VIEW-based)\n// Input: VIEW row from Rollup_Fetch_View (or empty {} if no data)\n// Artifact data: from Switch_Rollup node (pass-through of Return Merge)\n// Output: pre-wrapped envelope { ok, _gw_route, data: { artifact, rollup } }\n\nconst artifact = { ...$node[\"NQxb_Artifact_Query_v1__Switch_Rollup\"].json };\n\n// VIEW data from HTTP Request\nconst viewRow = $json ?? {};\nconst hasViewData = viewRow.total_active_children_count != null;\n\nconst rollup = hasViewData ? {\n  completion_ratio: viewRow.completion_ratio,\n  completed_children_count: viewRow.completed_children_count,\n  total_active_children_count: viewRow.total_active_children_count,\n} : {\n  completion_ratio: null,\n  completed_children_count: 0,\n  total_active_children_count: 0,\n};\n\nreturn [{\n  json: {\n    ok: true,\n    _gw_route: \"ok\",\n    data: {\n      artifact: artifact,\n      rollup: rollup,\n    },\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        112
+      ],
+      "id": "c1991dc9-1426-46b5-9e06-55e99c235545",
+      "name": "NQxb_Artifact_Query_v1__Rollup_Compute"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json._uuid_valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              },
+              "id": "uuid-guard-condition-1"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2512,
+        368
+      ],
+      "id": "4ced6414-61e4-4bef-a6f4-809580390174",
+      "name": "NQxb_Artifact_Query_v1__Guard_UUID"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Return deterministic error for invalid UUID format\nconst input = $json;\nreturn [{\n  json: {\n    ok: false,\n    _gw_route: \"error\",\n    gw_action: input.gw_action ?? \"artifact.query\",\n    gw_workspace_id: input.gw_workspace_id ?? null,\n    artifact_id: input.artifact_id ?? null,\n    error: {\n      code: \"VALIDATION_ERROR\",\n      message: \"Invalid UUID format\",\n      details: { artifact_id: input.artifact_id }\n    },\n    timestamp: new Date().toISOString()\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2512,
+        176
+      ],
+      "id": "0b45b1f7-9db8-49ef-8728-68d355bc631a",
+      "name": "NQxb_Artifact_Query_v1__Return_InvalidUUID"
     }
   ],
   "pinData": {
@@ -1349,6 +1513,13 @@
         [
           {
             "node": "Get a Limb row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Gateway_v1__Spine_Only_Query_Merge",
             "type": "main",
             "index": 0
           }
@@ -1571,7 +1742,36 @@
       "main": [
         [
           {
+            "node": "NQxb_Artifact_Query_v1__Guard_UUID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Query_v1__Guard_UUID": {
+      "main": [
+        [
+          {
             "node": "NQxb_Artifact_Query_v1__DB_Get_Artifact_Spine",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Query_v1__Return_InvalidUUID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Query_v1__Return_InvalidUUID": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Query_v1__Shape_Return",
             "type": "main",
             "index": 0
           }
@@ -1609,7 +1809,7 @@
       "main": [
         [
           {
-            "node": "NQxb_Artifact_Query_v1__Shape_Return",
+            "node": "NQxb_Artifact_Query_v1__Switch_Rollup",
             "type": "main",
             "index": 0
           }
@@ -1736,17 +1936,56 @@
           }
         ]
       ]
+    },
+    "NQxb_Artifact_Query_v1__Switch_Rollup": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Query_v1__Rollup_Fetch_View",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_Query_v1__Shape_Return",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Query_v1__Rollup_Fetch_View": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Query_v1__Rollup_Compute",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_Query_v1__Rollup_Compute": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_Query_v1__Shape_Return",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "5de07aef-3a10-4106-aeb6-2a60dd90516a",
+  "versionId": "72255206-80c5-466a-94cd-aeaef1f94db7",
   "meta": {
-    "templateCredsSetupCompleted": true,
     "instanceId": "154f6928422db881044f8d1647b40fc389c59337d14356c0ee681d50ffb55d7e"
   },
-  "id": "IsLBYjXJ5R2Djfrv",
+  "id": "27efKlNfdyu89YGD",
   "tags": []
 }

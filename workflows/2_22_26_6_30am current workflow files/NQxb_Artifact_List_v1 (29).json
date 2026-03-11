@@ -11,7 +11,7 @@
         -1904,
         336
       ],
-      "id": "3903f0af-0c85-4e2b-b156-764b9d724443",
+      "id": "c33289d2-51dc-45a4-a4ee-f91807adfbaa",
       "name": "NQxb_Artifact_List_v1__In"
     },
     {
@@ -24,7 +24,7 @@
         -1680,
         336
       ],
-      "id": "6bddae52-aba8-4e4c-8a7c-3adcec5ab6e8",
+      "id": "df0436fc-a677-46b7-88e7-d136cd7bcf8d",
       "name": "NQxb_Artifact_List_v1__Normalize_Request"
     },
     {
@@ -37,7 +37,7 @@
         -1456,
         336
       ],
-      "id": "9e247605-beb6-4513-8fab-7714f81f8903",
+      "id": "e4a54626-412c-48d3-900c-9d377ae0fcd3",
       "name": "NQxb_Artifact_List_v1__Validate_Request"
     },
     {
@@ -50,7 +50,7 @@
         -1008,
         336
       ],
-      "id": "47191696-20db-4966-8845-5c16201381cc",
+      "id": "005ac68f-2a3d-427a-bc99-0eb5acba7a19",
       "name": "NQxb_Artifact_List_v1__Build_PostgREST_Request"
     },
     {
@@ -72,7 +72,7 @@
         -784,
         336
       ],
-      "id": "1720068b-ea19-4cce-b3b3-19b4d4662b87",
+      "id": "6c61d02b-c56d-497a-bad0-7b9d1a439f81",
       "name": "NQxb_Artifact_List_v1__HTTP_Request_List",
       "credentials": {
         "supabaseApi": {
@@ -91,7 +91,7 @@
         -560,
         336
       ],
-      "id": "aa30e214-f5af-4efc-9eff-17bb442a2bd4",
+      "id": "c1f62134-5675-4ebd-9b34-cd32d088e889",
       "name": "NQxb_Artifact_List_v1__Apply_Filters_And_Pagination"
     },
     {
@@ -124,7 +124,7 @@
         -336,
         336
       ],
-      "id": "8fa65bf2-9c0f-428f-bdea-12ed4c364a8c",
+      "id": "8f8d2820-4c34-40ce-860a-d68c6346e29a",
       "name": "NQxb_Artifact_List_v1__If_Hydrate"
     },
     {
@@ -137,7 +137,7 @@
         0,
         0
       ],
-      "id": "0707edd4-0ae6-4210-b09e-2c71154d98f7",
+      "id": "b9aff9b7-8c69-40bc-ba1a-fb26bed06de2",
       "name": "NQxb_Artifact_List_v1__Format_Base_Response"
     },
     {
@@ -254,6 +254,72 @@
                 ],
                 "combinator": "and"
               }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "b1c2d3e4-2001-4000-8000-list00000001",
+                    "leftValue": "={{ ($json.artifact_type || $node[\"NQxb_Artifact_List_v1__Validate_Request\"].json.artifact_type || \"\").trim() }}",
+                    "rightValue": "branch",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "b1c2d3e4-2002-4000-8000-list00000002",
+                    "leftValue": "={{ ($json.artifact_type || $node[\"NQxb_Artifact_List_v1__Validate_Request\"].json.artifact_type || \"\").trim() }}",
+                    "rightValue": "limb",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "b1c2d3e4-2003-4000-8000-list00000003",
+                    "leftValue": "={{ ($json.artifact_type || $node[\"NQxb_Artifact_List_v1__Validate_Request\"].json.artifact_type || \"\").trim() }}",
+                    "rightValue": "leaf",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
             }
           ]
         },
@@ -265,7 +331,7 @@
         -112,
         512
       ],
-      "id": "d1d860da-767f-4d68-8b3a-8d6ab66cff77",
+      "id": "1fd589bd-2499-4cca-8eb2-bae4814b8c20",
       "name": "NQxb_Artifact_List_v1__Switch_ArtifactType"
     },
     {
@@ -279,7 +345,7 @@
         0,
         224
       ],
-      "id": "727c4ce2-5cb6-4659-8216-c75c4952b140",
+      "id": "e3b5fbd2-12f6-44f8-881a-20330d77a997",
       "name": "NQxb_Artifact_List_v1__Explode_Project_Page"
     },
     {
@@ -301,7 +367,7 @@
         112,
         224
       ],
-      "id": "8067c721-780b-4b04-ac1f-5a2b76f179f5",
+      "id": "41bf44a6-c4da-4edf-9aa3-893bcaf01b2e",
       "name": "NQxb_Artifact_List_v1__DB_Get_Project_Extension",
       "alwaysOutputData": true,
       "credentials": {
@@ -321,7 +387,7 @@
         336,
         224
       ],
-      "id": "49d4d14d-2e29-4468-901f-be0aa333ba99",
+      "id": "4487a615-aaa0-4b0f-aa6e-3cbf092f9901",
       "name": "NQxb_Artifact_List_v1__Merge_Project"
     },
     {
@@ -335,7 +401,7 @@
         0,
         416
       ],
-      "id": "b0f1cd22-d011-49de-a508-a6d2b8a52c5f",
+      "id": "2a8faa76-94f6-4d5b-a772-1ddd471e820f",
       "name": "NQxb_Artifact_List_v1__Explode_Journal_Page"
     },
     {
@@ -357,7 +423,7 @@
         112,
         416
       ],
-      "id": "a3607076-b7c4-4c66-971e-e1b09a8179f3",
+      "id": "a16994ea-b6c2-4ce9-b151-a7787bd85e7a",
       "name": "NQxb_Artifact_List_v1__DB_Get_Journal_Extension",
       "alwaysOutputData": true,
       "credentials": {
@@ -377,7 +443,7 @@
         336,
         416
       ],
-      "id": "f9c2c320-f1e2-4f4f-ac22-56987e7a0440",
+      "id": "3a2b0095-a5a0-4556-bc20-93201a359492",
       "name": "NQxb_Artifact_List_v1__Merge_Journal"
     },
     {
@@ -391,7 +457,7 @@
         0,
         608
       ],
-      "id": "da9c76bf-6eb7-4998-8f50-39012a9d22a0",
+      "id": "55b692e1-c01c-4097-8571-3d048f49ec97",
       "name": "NQxb_Artifact_List_v1__Explode_Restart_Page"
     },
     {
@@ -413,7 +479,7 @@
         112,
         608
       ],
-      "id": "bc4f9462-cf0b-405c-9ae9-7736e3291302",
+      "id": "38a2aa1f-fce7-4f6c-b592-2f4ce85d20e6",
       "name": "NQxb_Artifact_List_v1__DB_Get_Restart_Extension",
       "alwaysOutputData": true,
       "credentials": {
@@ -433,7 +499,7 @@
         336,
         608
       ],
-      "id": "63fb8a0c-acb7-4b35-9940-cbda0f22c7b5",
+      "id": "5955a97a-8b46-4e9c-82fb-5e394cf12809",
       "name": "NQxb_Artifact_List_v1__Merge_Restart"
     },
     {
@@ -457,7 +523,7 @@
         112,
         800
       ],
-      "id": "db3f99d3-2e93-4a0b-ba84-a53f59200894",
+      "id": "b94296e9-569e-4646-a6e4-cdc6f383c6e3",
       "name": "NQxb_Artifact_List_v1__DB_Get_Snapshot_Extension",
       "alwaysOutputData": true,
       "credentials": {
@@ -477,14 +543,14 @@
         336,
         800
       ],
-      "id": "45689481-b749-45a5-9cc8-284f836ce59b",
+      "id": "e0b4144d-6735-4e5b-994c-4cfad320fd21",
       "name": "NQxb_Artifact_List_v1__Merge_Snapshot"
     },
     {
       "parameters": {
         "mode": "combine",
         "combineBy": "combineByPosition",
-        "numberInputs": 5,
+        "numberInputs": 7,
         "options": {
           "includeUnpaired": true
         }
@@ -495,7 +561,7 @@
         560,
         480
       ],
-      "id": "aca9a882-e51a-47d7-8549-d0174da63839",
+      "id": "4c7e479f-e69d-4cf0-bd65-4ba3fcf4efc5",
       "name": "NQxb_Artifact_List_v1__Combine_Hydrated_Results",
       "alwaysOutputData": true
     },
@@ -509,7 +575,7 @@
         784,
         336
       ],
-      "id": "e126c3fa-24a4-4df6-9cdd-fc41c01a9f98",
+      "id": "2230542f-d499-4d30-860d-fa6c5efa0c1d",
       "name": "NQxb_Artifact_List_v1__Format_Hydrated_Response"
     },
     {
@@ -523,7 +589,7 @@
         -112,
         800
       ],
-      "id": "5ca3908b-d8f4-40dd-9abe-b8ff9d7b8f1a",
+      "id": "2833aca4-9171-48b3-97f3-e329f03c9457",
       "name": "NQxb_Artifact_List_v1__Explode_Snapshot_Page"
     },
     {
@@ -547,7 +613,7 @@
         80,
         1200
       ],
-      "id": "ed10df09-8a8d-4b1b-b913-adbb5a5b4924",
+      "id": "4e3b0314-daa3-41cc-8bb0-35aa4b57a5f7",
       "name": "NQxb_Artifact_List_v1__DB_Get_Instruction_Pack_Extension1",
       "alwaysOutputData": true,
       "executeOnce": false,
@@ -568,7 +634,7 @@
         464,
         1056
       ],
-      "id": "0120ce51-e7cb-473d-ab78-a277d21e7b89",
+      "id": "9c1181ee-136d-4f23-876f-96e5fb2a7cc0",
       "name": "NQxb_Artifact_List_v1__Merge_Instruction_Pack"
     },
     {
@@ -582,8 +648,77 @@
         -352,
         1088
       ],
-      "id": "d0f243b1-3fee-400d-8c90-1cabcd883cd9",
+      "id": "dde019df-4636-4950-8958-c74a21ca73af",
       "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Phase 2B Walk: Spine-only list merge for branch/leaf (no extension table)\n// Returns spine items with extension: null for shape symmetry with Query.\n// Shared by branch and leaf — both are spine-only types.\nconst items = ($json._page_items || []);\nreturn items.map(item => ({ json: { ...item, extension: null } }));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        1312
+      ],
+      "id": "d5acad16-e460-487b-93f4-c25178b8c783",
+      "name": "NQxb_Artifact_List_v1__Spine_Only_List_Merge"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "_page_items",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        0,
+        1504
+      ],
+      "id": "15fc047c-e176-4913-a454-f97cf8badd67",
+      "name": "NQxb_Artifact_List_v1__Explode_Limb_Page"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "qxb_artifact_limb",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "artifact_id",
+              "keyValue": "={{ $json.artifact_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        112,
+        1504
+      ],
+      "id": "ff829604-6b8c-401f-8af7-d896128991b7",
+      "name": "NQxb_Artifact_List_v1__DB_Get_Limb_Extension",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Artifact_List_v1__Merge_Limb\n// Phase 2B Walk: Merge spine + limb extension for list hydration.\n// Shell table: artifact_id, created_at, updated_at.\n// Only artifact_id stripped; created_at/updated_at preserved in extension.\n\nconst allExtItems = $input.all();\nconst allSpineItems = $items(\"NQxb_Artifact_List_v1__Explode_Limb_Page\");\n\nconst spineById = new Map();\nfor (const item of allSpineItems) {\n  const id = item.json?.artifact_id;\n  if (id) spineById.set(id, item.json);\n}\n\nconst results = [];\n\nfor (const extItem of allExtItems) {\n  const extRaw = extItem.json ?? {};\n  const artifact_id = extRaw.artifact_id;\n\n  const spine = spineById.get(artifact_id) ?? {};\n\n  if (!spine.artifact_id) {\n    results.push({\n      json: {\n        ...extRaw,\n        _merge_error: \"No matching spine found\",\n        _searched_artifact_id: artifact_id,\n      }\n    });\n    continue;\n  }\n\n  const { artifact_id: _aid, ...rest } = extRaw;\n  const extension = Object.keys(rest).length ? rest : null;\n\n  results.push({ json: { ...spine, extension } });\n}\n\nreturn results;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        1504
+      ],
+      "id": "1c9fc526-0521-42f1-92d4-671c40c13a1e",
+      "name": "NQxb_Artifact_List_v1__Merge_Limb"
     }
   ],
   "pinData": {
@@ -719,6 +854,27 @@
         [
           {
             "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__Spine_Only_List_Merge",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__Explode_Limb_Page",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__Spine_Only_List_Merge",
             "type": "main",
             "index": 0
           }
@@ -911,16 +1067,60 @@
           }
         ]
       ]
+    },
+    "NQxb_Artifact_List_v1__Spine_Only_List_Merge": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__Combine_Hydrated_Results",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_List_v1__Explode_Limb_Page": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__DB_Get_Limb_Extension",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_List_v1__DB_Get_Limb_Extension": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__Merge_Limb",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Artifact_List_v1__Merge_Limb": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__Combine_Hydrated_Results",
+            "type": "main",
+            "index": 6
+          }
+        ]
+      ]
     }
   },
   "active": true,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "a25da1fb-dba5-4de2-a04b-5a3f66882ec0",
+  "versionId": "a30812dc-e006-4857-ba54-be0e655f6e1e",
   "meta": {
     "instanceId": "154f6928422db881044f8d1647b40fc389c59337d14356c0ee681d50ffb55d7e"
   },
-  "id": "fcsqazTSzPG7CIyw",
+  "id": "RKDyfV4mdHCBDkmK",
   "tags": []
 }

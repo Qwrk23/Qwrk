@@ -11,12 +11,12 @@
         -1904,
         336
       ],
-      "id": "3903f0af-0c85-4e2b-b156-764b9d724443",
+      "id": "c33289d2-51dc-45a4-a4ee-f91807adfbaa",
       "name": "NQxb_Artifact_List_v1__In"
     },
     {
       "parameters": {
-        "jsCode": "// NQxb_Artifact_List_v1__Normalize_Request\n// Canonicalize inbound request for artifact.list operation.\n// Accept artifact_type from EITHER:\n//   - selector.artifact_type (preferred when present), OR\n//   - top-level artifact_type (as sent by Gateway Build_List_Request)\n//\n// Policy: response-size hardening (Option 2A Clamp)\n// - default_limit = 50\n// - max_limit = 200\n// - missing/invalid/non-positive limit => 50\n// - limit > 200 => clamp to 200 (no error)\n\nconst raw = $json ?? {};\n\n// Support body-wrapped payloads\nconst body =\n  raw.body && typeof raw.body === \"object\" && !Array.isArray(raw.body)\n    ? raw.body\n    : null;\n\nconst req = body ?? raw;\n\n// Helper to ensure object\nconst asObj = (v) =>\n  v && typeof v === \"object\" && !Array.isArray(v) ? v : {};\n\nconst selector = asObj(req.selector);\n\n// Extract artifact_type from selector OR top-level\nconst selectorArtifactType = (selector.artifact_type ?? \"\").trim();\nconst topLevelArtifactType = (req.artifact_type ?? \"\").toString().trim();\n\nconst artifact_type =\n  selectorArtifactType !== \"\" ? selectorArtifactType\n  : topLevelArtifactType !== \"\" ? topLevelArtifactType\n  : \"\";\n\n// Other selector fields\nconst parent_artifact_id = selector.parent_artifact_id ?? null;\n\n// BUG-011: Extract tags_any filter (selector.filters.tags_any)\nconst filters = selector.filters && typeof selector.filters === \"object\" ? selector.filters : {};\nconst tags_any_raw = filters.tags_any ?? filters.tags ?? null;\n\nconst DEFAULT_LIMIT = 50;\nconst MAX_LIMIT = 200;\n\n// Normalize limit with clamp\nconst rawLimit = selector.limit;\nconst parsedLimit = parseInt(rawLimit, 10);\n\nconst requested_limit =\n  Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : null;\n\nconst applied_limit = Math.min(\n  Math.max(requested_limit ?? DEFAULT_LIMIT, 1),\n  MAX_LIMIT\n);\n\nconst was_clamped =\n  requested_limit !== null && requested_limit > MAX_LIMIT;\n\nconst limit = applied_limit;\n\nconst offset = Math.max(parseInt(selector.offset, 10) || 0, 0);\nconst hydrate = selector.hydrate === true;\n\nconst canonical = {\n  gw_action: req.gw_action ?? \"artifact.list\",\n  gw_workspace_id: req.gw_workspace_id ?? null,\n\n  // Flattened for easier access downstream\n  artifact_type,\n  parent_artifact_id,\n  limit,\n  offset,\n  hydrate,\n  tags_any: tags_any_raw,\n\n  // Preserve selector (unchanged)\n  selector,\n\n  // Optional: receipts for deterministic tests / debugging\n  meta: {\n    requested_limit,\n    applied_limit,\n    was_clamped,\n    default_limit: DEFAULT_LIMIT,\n    max_limit: MAX_LIMIT,\n  },\n};\n\n// Debug context\ncanonical._gw_debug = {\n  received_shape: body ? \"body\" : \"flat\",\n  operation: \"list\",\n  hydrate_requested: hydrate,\n  artifact_type_source:\n    selectorArtifactType !== \"\" ? \"selector.artifact_type\"\n    : topLevelArtifactType !== \"\" ? \"top_level.artifact_type\"\n    : \"empty\",\n};\n\nreturn [{ json: canonical }];\n"
+        "jsCode": "// NQxb_Artifact_List_v1__Normalize_Request\n// Canonicalize inbound request for artifact.list operation.\n// Accept artifact_type from EITHER:\n//   - selector.artifact_type (preferred when present), OR\n//   - top-level artifact_type (as sent by Gateway Build_List_Request)\n//\n// Policy: response-size hardening (Option 2A Clamp)\n// - default_limit = 50\n// - max_limit = 200\n// - missing/invalid/non-positive limit => 50\n// - limit > 200 => clamp to 200 (no error)\n\nconst raw = $json ?? {};\n\n// Support body-wrapped payloads\nconst body =\n  raw.body && typeof raw.body === \"object\" && !Array.isArray(raw.body)\n    ? raw.body\n    : null;\n\nconst req = body ?? raw;\n\n// Helper to ensure object\nconst asObj = (v) =>\n  v && typeof v === \"object\" && !Array.isArray(v) ? v : {};\n\nconst selector = asObj(req.selector);\n\n// Extract artifact_type from selector OR top-level\nconst selectorArtifactType = (selector.artifact_type ?? \"\").trim();\nconst topLevelArtifactType = (req.artifact_type ?? \"\").toString().trim();\n\nconst artifact_type =\n  selectorArtifactType !== \"\" ? selectorArtifactType\n  : topLevelArtifactType !== \"\" ? topLevelArtifactType\n  : \"\";\n\n// Other selector fields\nconst parent_artifact_id = selector.parent_artifact_id ?? null;\n\n// BUG-011: Extract tags_any filter (selector.filters.tags_any)\nconst filters = selector.filters && typeof selector.filters === \"object\" ? selector.filters : {};\nconst tags_any_raw = filters.tags_any ?? filters.tags ?? null;\n\n// T112: Extract lifecycle_status and execution_status filters\nconst lifecycle_status_raw = filters.lifecycle_status ?? null;\nconst execution_status_raw = filters.execution_status ?? null;\n\nconst DEFAULT_LIMIT = 50;\nconst MAX_LIMIT = 200;\n\n// Normalize limit with clamp\nconst rawLimit = selector.limit;\nconst parsedLimit = parseInt(rawLimit, 10);\n\nconst requested_limit =\n  Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : null;\n\nconst applied_limit = Math.min(\n  Math.max(requested_limit ?? DEFAULT_LIMIT, 1),\n  MAX_LIMIT\n);\n\nconst was_clamped =\n  requested_limit !== null && requested_limit > MAX_LIMIT;\n\nconst limit = applied_limit;\n\nconst offset = Math.max(parseInt(selector.offset, 10) || 0, 0);\nconst hydrate = selector.hydrate === true;\n\nconst canonical = {\n  gw_action: req.gw_action ?? \"artifact.list\",\n  gw_workspace_id: req.gw_workspace_id ?? null,\n\n  // Flattened for easier access downstream\n  artifact_type,\n  parent_artifact_id,\n  limit,\n  offset,\n  hydrate,\n  tags_any: tags_any_raw,\n  lifecycle_status: lifecycle_status_raw,\n  execution_status: execution_status_raw,\n\n  // Preserve selector (unchanged)\n  selector,\n\n  // Optional: receipts for deterministic tests / debugging\n  meta: {\n    requested_limit,\n    applied_limit,\n    was_clamped,\n    default_limit: DEFAULT_LIMIT,\n    max_limit: MAX_LIMIT,\n  },\n};\n\n// Debug context\ncanonical._gw_debug = {\n  received_shape: body ? \"body\" : \"flat\",\n  operation: \"list\",\n  hydrate_requested: hydrate,\n  artifact_type_source:\n    selectorArtifactType !== \"\" ? \"selector.artifact_type\"\n    : topLevelArtifactType !== \"\" ? \"top_level.artifact_type\"\n    : \"empty\",\n};\n\nreturn [{ json: canonical }];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -24,12 +24,12 @@
         -1680,
         336
       ],
-      "id": "6bddae52-aba8-4e4c-8a7c-3adcec5ab6e8",
+      "id": "df0436fc-a677-46b7-88e7-d136cd7bcf8d",
       "name": "NQxb_Artifact_List_v1__Normalize_Request"
     },
     {
       "parameters": {
-        "jsCode": "// NQxb_Artifact_List_v1__Validate_Request\n// Purpose: Validate required fields + enforce deterministic window cap + establish paging anchor (as_of).\n// KGB rules:\n// - No silent empty outputs\n// - Deterministic pagination (within fetch cap)\n// - Stable paging across multiple calls via selector.as_of (created_at <= as_of)\n//\n// Policy update (Option 2A Clamp):\n// - Do NOT reject solely because limit > max.\n// - Normalize_Request is the enforcement point (default + clamp).\n// - Validate_Request confirms shape/sanity + enforces deterministic window cap.\n\nconst j = $json ?? {};\n\nconst gw_workspace_id = j.gw_workspace_id ?? null;\nconst artifact_type = j.artifact_type ?? null;\n\nconst selector_in =\n  (j.selector && typeof j.selector === \"object\" && !Array.isArray(j.selector))\n    ? j.selector\n    : {};\n\nconst limit_in = selector_in.limit ?? j.limit ?? 50;\nconst offset_in = selector_in.offset ?? j.offset ?? 0;\nconst hydrate_in = selector_in.hydrate ?? j.hydrate ?? false;\nconst include_fields_in = selector_in.include_fields ?? j.include_fields ?? null;\nconst as_of_in = selector_in.as_of ?? j.as_of ?? null;\n\n// BUG-011: Extract tags_any from flattened or selector.filters\nconst filters_obj = (selector_in.filters && typeof selector_in.filters === \"object\") ? selector_in.filters : {};\nconst tags_any_in = j.tags_any ?? filters_obj.tags_any ?? filters_obj.tags ?? null;\n\nconst toInt = (v) => {\n  const n = Number(v);\n  return Number.isFinite(n) ? Math.trunc(n) : NaN;\n};\n\nconst limit = toInt(limit_in);\nconst offset = toInt(offset_in);\n\n// ---- required: workspace ----\nif (!gw_workspace_id || String(gw_workspace_id).trim() === \"\") {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"VALIDATION_ERROR\",\n        message: \"gw_workspace_id is required for artifact.list operation\",\n        details: { missing_field: \"gw_workspace_id\", received_value: gw_workspace_id },\n      },\n    },\n  }];\n}\n\n// ---- required: artifact_type ----\nif (!artifact_type || String(artifact_type).trim() === \"\") {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"VALIDATION_ERROR\",\n        message: \"artifact_type is required for artifact.list operation\",\n        details: { missing_field: \"artifact_type\", received_value: artifact_type },\n      },\n    },\n  }];\n}\n\n// ---- selector numeric sanity ----\nif (!Number.isFinite(limit) || !Number.isFinite(offset)) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"VALIDATION_ERROR\",\n        message: \"selector.limit and selector.offset must be numeric\",\n        details: { received_limit: limit_in, received_offset: offset_in },\n      },\n    },\n  }];\n}\n\n// NOTE: limit upper-bound is enforced upstream (Normalize_Request) via clamp.\n// Here we only ensure it's positive.\nif (limit < 1) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"VALIDATION_ERROR\",\n        message: \"selector.limit must be >= 1\",\n        details: { received_limit: limit },\n      },\n    },\n  }];\n}\n\nif (offset < 0) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"VALIDATION_ERROR\",\n        message: \"selector.offset must be >= 0\",\n        details: { received_offset: offset },\n      },\n    },\n  }];\n}\n\n// ---- BUG-011: tags_any validation ----\nlet tags_any_validated = null;\nif (tags_any_in !== null && tags_any_in !== undefined) {\n  if (!Array.isArray(tags_any_in)) {\n    return [{\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"VALIDATION_ERROR\",\n          message: \"selector.filters.tags_any must be an array of strings\",\n          details: { received_type: typeof tags_any_in, received_value: tags_any_in },\n        },\n      },\n    }];\n  }\n  // Normalize: trim, lowercase, dedupe, filter empty\n  const seen = new Set();\n  tags_any_validated = tags_any_in\n    .map(t => (typeof t === \"string\" ? t.trim().toLowerCase() : \"\"))\n    .filter(t => t !== \"\" && !seen.has(t) && seen.add(t));\n  if (tags_any_validated.length === 0) tags_any_validated = null;\n}\n\n// ---- deterministic window cap ----\n// IMPORTANT: FETCH_CAP must be >= max_limit (+1 for has_more).\n// Keep this as an internal deterministic safety window, independent of client limit.\nconst FETCH_CAP = 500;\nconst endExclusive = offset + limit + 1; // +1 supports meta.has_more truthfully\n\nif (endExclusive > FETCH_CAP) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"PAGINATION_WINDOW_EXCEEDED\",\n        message: `Requested pagination window exceeds deterministic cap (${FETCH_CAP}). Reduce offset/limit.`,\n        details: { fetch_cap: FETCH_CAP, requested_offset: offset, requested_limit: limit },\n      },\n    },\n  }];\n}\n\n// ---- paging anchor (as_of) ----\n// If not provided, establish it once per request (client must pass it back for subsequent pages)\nlet as_of = null;\nif (as_of_in && typeof as_of_in === \"string\" && as_of_in.trim() !== \"\") {\n  const t = Date.parse(as_of_in);\n  if (!Number.isFinite(t)) {\n    return [{\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"VALIDATION_ERROR\",\n          message: \"selector.as_of must be a valid ISO datetime string\",\n          details: { received_as_of: as_of_in },\n        },\n      },\n    }];\n  }\n  as_of = new Date(t).toISOString();\n} else {\n  as_of = new Date().toISOString();\n}\n\n// Build a resolved selector we will carry forward\nconst selector_resolved = {\n  ...selector_in,\n  limit,\n  offset,\n  hydrate: hydrate_in === true,\n  as_of,\n};\n\nif (Array.isArray(include_fields_in)) selector_resolved.include_fields = include_fields_in;\nif (tags_any_validated) {\n  const existingFilters = (selector_resolved.filters && typeof selector_resolved.filters === \"object\") ? selector_resolved.filters : {};\n  selector_resolved.filters = { ...existingFilters, tags_any: tags_any_validated };\n}\n\nreturn [{\n  json: {\n    ...j,\n    gw_workspace_id,\n    artifact_type,\n    selector: selector_resolved,\n    limit,\n    offset,\n    hydrate: selector_resolved.hydrate,\n    as_of,\n    tags_any: tags_any_validated,\n  },\n}];\n\n"
+        "jsCode": "// NQxb_Artifact_List_v1__Validate_Request\n// Purpose: Validate required fields + enforce deterministic window cap + establish paging anchor (as_of).\n// KGB rules:\n// - No silent empty outputs\n// - Deterministic pagination (within fetch cap)\n// - Stable paging across multiple calls via selector.as_of (created_at <= as_of)\n//\n// Policy update (Option 2A Clamp):\n// - Do NOT reject solely because limit > max.\n// - Normalize_Request is the enforcement point (default + clamp).\n// - Validate_Request confirms shape/sanity + enforces deterministic window cap.\n\nconst j = $json ?? {};\n\nconst gw_workspace_id = j.gw_workspace_id ?? null;\nconst artifact_type = j.artifact_type ?? null;\n\nconst selector_in =\n  (j.selector && typeof j.selector === \"object\" && !Array.isArray(j.selector))\n    ? j.selector\n    : {};\n\nconst limit_in = selector_in.limit ?? j.limit ?? 50;\nconst offset_in = selector_in.offset ?? j.offset ?? 0;\nconst hydrate_in = selector_in.hydrate ?? j.hydrate ?? false;\nconst include_fields_in = selector_in.include_fields ?? j.include_fields ?? null;\nconst as_of_in = selector_in.as_of ?? j.as_of ?? null;\n\n// BUG-011: Extract tags_any from flattened or selector.filters\nconst filters_obj = (selector_in.filters && typeof selector_in.filters === \"object\") ? selector_in.filters : {};\nconst tags_any_in = j.tags_any ?? filters_obj.tags_any ?? filters_obj.tags ?? null;\n\n// T112: Extract lifecycle_status filter from flattened canonical\nconst lifecycle_status_in = j.lifecycle_status ?? filters_obj.lifecycle_status ?? null;\n\n// T112: Extract execution_status filter from flattened canonical\nconst execution_status_in = j.execution_status ?? filters_obj.execution_status ?? null;\n\nconst toInt = (v) => {\n  const n = Number(v);\n  return Number.isFinite(n) ? Math.trunc(n) : NaN;\n};\n\nconst limit = toInt(limit_in);\nconst offset = toInt(offset_in);\n\n// ---- required: workspace ----\nif (!gw_workspace_id || String(gw_workspace_id).trim() === \"\") {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"VALIDATION_ERROR\",\n        message: \"gw_workspace_id is required for artifact.list operation\",\n        details: { missing_field: \"gw_workspace_id\", received_value: gw_workspace_id },\n      },\n    },\n  }];\n}\n\n// ---- required: artifact_type ----\nif (!artifact_type || String(artifact_type).trim() === \"\") {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"VALIDATION_ERROR\",\n        message: \"artifact_type is required for artifact.list operation\",\n        details: { missing_field: \"artifact_type\", received_value: artifact_type },\n      },\n    },\n  }];\n}\n\n// ---- selector numeric sanity ----\nif (!Number.isFinite(limit) || !Number.isFinite(offset)) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"VALIDATION_ERROR\",\n        message: \"selector.limit and selector.offset must be numeric\",\n        details: { received_limit: limit_in, received_offset: offset_in },\n      },\n    },\n  }];\n}\n\n// NOTE: limit upper-bound is enforced upstream (Normalize_Request) via clamp.\n// Here we only ensure it's positive.\nif (limit < 1) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"VALIDATION_ERROR\",\n        message: \"selector.limit must be >= 1\",\n        details: { received_limit: limit },\n      },\n    },\n  }];\n}\n\nif (offset < 0) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"VALIDATION_ERROR\",\n        message: \"selector.offset must be >= 0\",\n        details: { received_offset: offset },\n      },\n    },\n  }];\n}\n\n// ---- BUG-011: tags_any validation ----\nlet tags_any_validated = null;\nif (tags_any_in !== null && tags_any_in !== undefined) {\n  if (!Array.isArray(tags_any_in)) {\n    return [{\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"VALIDATION_ERROR\",\n          message: \"selector.filters.tags_any must be an array of strings\",\n          details: { received_type: typeof tags_any_in, received_value: tags_any_in },\n        },\n      },\n    }];\n  }\n  // Normalize: trim, lowercase, dedupe, filter empty\n  const seen = new Set();\n  tags_any_validated = tags_any_in\n    .map(t => (typeof t === \"string\" ? t.trim().toLowerCase() : \"\"))\n    .filter(t => t !== \"\" && !seen.has(t) && seen.add(t));\n  if (tags_any_validated.length === 0) tags_any_validated = null;\n}\n\n// ---- T112: lifecycle_status validation ----\nconst ALLOWED_LIFECYCLE = [\"seed\", \"sapling\", \"tree\", \"archive\"];\nlet lifecycle_status_validated = null;\nif (lifecycle_status_in !== null && lifecycle_status_in !== undefined) {\n  // Accept string or array\n  const lifecycle_arr = Array.isArray(lifecycle_status_in)\n    ? lifecycle_status_in\n    : [lifecycle_status_in];\n  const invalid = lifecycle_arr.filter(\n    (v) => typeof v !== \"string\" || !ALLOWED_LIFECYCLE.includes(v.trim().toLowerCase())\n  );\n  if (invalid.length > 0) {\n    return [{\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"VALIDATION_ERROR\",\n          message: \"selector.filters.lifecycle_status must be one of: \" + ALLOWED_LIFECYCLE.join(\", \"),\n          details: {\n            allowed: ALLOWED_LIFECYCLE,\n            received: lifecycle_status_in,\n            invalid_values: invalid,\n          },\n        },\n      },\n    }];\n  }\n  // Normalize: trim, lowercase, dedupe\n  const seen = new Set();\n  lifecycle_status_validated = lifecycle_arr\n    .map((v) => String(v).trim().toLowerCase())\n    .filter((v) => v !== \"\" && !seen.has(v) && seen.add(v));\n  if (lifecycle_status_validated.length === 0) lifecycle_status_validated = null;\n}\n\n// ---- T112: execution_status validation ----\nconst ALLOWED_EXECUTION = [\"not_started\", \"in_progress\", \"blocked\", \"complete\"];\nlet execution_status_validated = null;\nif (execution_status_in !== null && execution_status_in !== undefined) {\n  // Accept string or array\n  const execution_arr = Array.isArray(execution_status_in)\n    ? execution_status_in\n    : [execution_status_in];\n  const invalid = execution_arr.filter(\n    (v) => typeof v !== \"string\" || !ALLOWED_EXECUTION.includes(v.trim().toLowerCase())\n  );\n  if (invalid.length > 0) {\n    return [{\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"VALIDATION_ERROR\",\n          message: \"selector.filters.execution_status must be one of: \" + ALLOWED_EXECUTION.join(\", \"),\n          details: {\n            allowed: ALLOWED_EXECUTION,\n            received: execution_status_in,\n            invalid_values: invalid,\n          },\n        },\n      },\n    }];\n  }\n  // Normalize: trim, lowercase, dedupe\n  const seen = new Set();\n  execution_status_validated = execution_arr\n    .map((v) => String(v).trim().toLowerCase())\n    .filter((v) => v !== \"\" && !seen.has(v) && seen.add(v));\n  if (execution_status_validated.length === 0) execution_status_validated = null;\n}\n\n// ---- deterministic window cap ----\n// IMPORTANT: FETCH_CAP must be >= max_limit (+1 for has_more).\n// Keep this as an internal deterministic safety window, independent of client limit.\nconst FETCH_CAP = 500;\nconst endExclusive = offset + limit + 1; // +1 supports meta.has_more truthfully\n\nif (endExclusive > FETCH_CAP) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"PAGINATION_WINDOW_EXCEEDED\",\n        message: `Requested pagination window exceeds deterministic cap (${FETCH_CAP}). Reduce offset/limit.`,\n        details: { fetch_cap: FETCH_CAP, requested_offset: offset, requested_limit: limit },\n      },\n    },\n  }];\n}\n\n// ---- paging anchor (as_of) ----\n// If not provided, establish it once per request (client must pass it back for subsequent pages)\nlet as_of = null;\nif (as_of_in && typeof as_of_in === \"string\" && as_of_in.trim() !== \"\") {\n  const t = Date.parse(as_of_in);\n  if (!Number.isFinite(t)) {\n    return [{\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"VALIDATION_ERROR\",\n          message: \"selector.as_of must be a valid ISO datetime string\",\n          details: { received_as_of: as_of_in },\n        },\n      },\n    }];\n  }\n  as_of = new Date(t).toISOString();\n} else {\n  as_of = new Date().toISOString();\n}\n\n// Build a resolved selector we will carry forward\nconst selector_resolved = {\n  ...selector_in,\n  limit,\n  offset,\n  hydrate: hydrate_in === true,\n  as_of,\n};\n\nif (Array.isArray(include_fields_in)) selector_resolved.include_fields = include_fields_in;\nif (tags_any_validated || lifecycle_status_validated || execution_status_validated) {\n  const existingFilters = (selector_resolved.filters && typeof selector_resolved.filters === \"object\") ? selector_resolved.filters : {};\n  const mergedFilters = { ...existingFilters };\n  if (tags_any_validated) mergedFilters.tags_any = tags_any_validated;\n  if (lifecycle_status_validated) mergedFilters.lifecycle_status = lifecycle_status_validated;\n  if (execution_status_validated) mergedFilters.execution_status = execution_status_validated;\n  selector_resolved.filters = mergedFilters;\n}\n\nreturn [{\n  json: {\n    ...j,\n    gw_workspace_id,\n    artifact_type,\n    selector: selector_resolved,\n    limit,\n    offset,\n    hydrate: selector_resolved.hydrate,\n    as_of,\n    tags_any: tags_any_validated,\n    lifecycle_status: lifecycle_status_validated,\n    execution_status: execution_status_validated,\n  },\n}];\n\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -37,12 +37,12 @@
         -1456,
         336
       ],
-      "id": "9e247605-beb6-4513-8fab-7714f81f8903",
+      "id": "e4a54626-412c-48d3-900c-9d377ae0fcd3",
       "name": "NQxb_Artifact_List_v1__Validate_Request"
     },
     {
       "parameters": {
-        "jsCode": "// NQxb_Artifact_List_v1__Build_PostgREST_Request\n// BUG-001 FIX: Build PostgREST URL with proper ORDER BY, OFFSET, LIMIT\n// This replaces the broken Supabase \"Get many rows\" node\n//\n// PostgREST query structure:\n// - workspace_id=eq.{uuid}\n// - artifact_type=eq.{type}\n// - deleted_at=is.null\n// - created_at=lte.{as_of}\n// - order=created_at.desc,artifact_id.desc\n// - limit={limit+1}  (for has_more detection)\n// - offset={offset}\n\n// NOTE: n8n sandbox disallows Node core modules (e.g., require('url')).\n// So we build the query string manually (encodeURIComponent) instead of URLSearchParams.\n\nconst j = $json ?? {};\n\nconst workspace_id = j.gw_workspace_id;\nconst artifact_type = j.artifact_type;\nconst limit = j.limit ?? 50;\nconst offset = j.offset ?? 0;\nconst as_of = j.as_of ?? new Date().toISOString();\nconst parent_artifact_id = j.parent_artifact_id ?? null;\n\n// BUG-011: Extract tags_any filter\nconst tags_any = Array.isArray(j.tags_any) ? j.tags_any : null;\n\n// --- Safe query builder (no URLSearchParams / no require) ---\nconst esc = (v) => encodeURIComponent(String(v));\nconst pairs = [];\n\n// Filters\npairs.push(`workspace_id=${esc(`eq.${workspace_id}`)}`);\npairs.push(`artifact_type=${esc(`eq.${artifact_type}`)}`);\npairs.push(`deleted_at=${esc('is.null')}`);\npairs.push(`created_at=${esc(`lte.${as_of}`)}`);\n\n// Optional parent filter\nif (parent_artifact_id) {\n  pairs.push(`parent_artifact_id=${esc(`eq.${parent_artifact_id}`)}`);\n}\n\n// BUG-011: Optional tags_any filter (JSONB array contains)\n// PostgREST: tags=cs.[\"tag1\"] means tags array contains this subset\n// For \"any of\" semantics, we check if tags contains ANY of the requested tags\nif (tags_any && tags_any.length > 0) {\n  const tagsJson = JSON.stringify(tags_any);\n  pairs.push(`tags=${esc(`cs.${tagsJson}`)}`);\n}\n\n// Deterministic ordering (critical for pagination)\npairs.push(`order=${esc('created_at.desc,artifact_id.desc')}`);\n\n// Pagination: fetch limit+1 for has_more detection\npairs.push(`limit=${esc(limit + 1)}`);\npairs.push(`offset=${esc(offset)}`);\n\nconst queryString = pairs.join('&');\n// --- end safe query builder ---\n\nreturn [{\n  json: {\n    ...j,\n    _postgrest: {\n      path: `/rest/v1/qxb_artifact?${queryString}`,\n      method: 'GET',\n      limit_requested: limit,\n      offset_requested: offset,\n      as_of_used: as_of,\n    }\n  }\n}];\n"
+        "jsCode": "// NQxb_Artifact_List_v1__Build_PostgREST_Request\n// BUG-001 FIX: Build PostgREST URL with proper ORDER BY, OFFSET, LIMIT\n// This replaces the broken Supabase \"Get many rows\" node\n//\n// PostgREST query structure:\n// - workspace_id=eq.{uuid}\n// - artifact_type=eq.{type}\n// - deleted_at=is.null\n// - created_at=lte.{as_of}\n// - order=created_at.desc,artifact_id.desc\n// - limit={limit+1}  (for has_more detection)\n// - offset={offset}\n\n// NOTE: n8n sandbox disallows Node core modules (e.g., require('url')).\n// So we build the query string manually (encodeURIComponent) instead of URLSearchParams.\n\nconst j = $json ?? {};\n\nconst workspace_id = j.gw_workspace_id;\nconst artifact_type = j.artifact_type;\nconst limit = j.limit ?? 50;\nconst offset = j.offset ?? 0;\nconst as_of = j.as_of ?? new Date().toISOString();\nconst parent_artifact_id = j.parent_artifact_id ?? null;\n\n// BUG-011: Extract tags_any filter\nconst tags_any = Array.isArray(j.tags_any) ? j.tags_any : null;\n\n// T112: Extract lifecycle_status and execution_status filters\nconst lifecycle_status = Array.isArray(j.lifecycle_status) ? j.lifecycle_status : null;\nconst execution_status = Array.isArray(j.execution_status) ? j.execution_status : null;\n\n// --- Safe query builder (no URLSearchParams / no require) ---\nconst esc = (v) => encodeURIComponent(String(v));\nconst pairs = [];\n\n// Filters\npairs.push(`workspace_id=${esc(`eq.${workspace_id}`)}`);\npairs.push(`artifact_type=${esc(`eq.${artifact_type}`)}`);\npairs.push(`deleted_at=${esc('is.null')}`);\npairs.push(`created_at=${esc(`lte.${as_of}`)}`);\n\n// Optional parent filter\nif (parent_artifact_id) {\n  pairs.push(`parent_artifact_id=${esc(`eq.${parent_artifact_id}`)}`);\n}\n\n// BUG-011: Optional tags_any filter (JSONB array contains)\n// PostgREST: tags=cs.[\"tag1\"] means tags array contains this subset\n// For \"any of\" semantics, we check if tags contains ANY of the requested tags\nif (tags_any && tags_any.length > 0) {\n  const tagsJson = JSON.stringify(tags_any);\n  pairs.push(`tags=${esc(`cs.${tagsJson}`)}`);\n}\n\n// T112: Optional lifecycle_status filter\n// Single value: eq.{value}, multiple: in.({values})\nif (lifecycle_status && lifecycle_status.length > 0) {\n  if (lifecycle_status.length === 1) {\n    pairs.push(`lifecycle_status=${esc(`eq.${lifecycle_status[0]}`)}`);\n  } else {\n    pairs.push(`lifecycle_status=${esc(`in.(${lifecycle_status.join(\",\")})`)}`);\n  }\n}\n\n// T112: Optional execution_status filter\n// Single value: eq.{value}, multiple: in.({values})\n// NOTE: NULL rows (uninitialized) are NOT matched by eq/in filters.\n// To query uninitialized leaves, omit this filter or use direct SQL.\nif (execution_status && execution_status.length > 0) {\n  if (execution_status.length === 1) {\n    pairs.push(`execution_status=${esc(`eq.${execution_status[0]}`)}`);\n  } else {\n    pairs.push(`execution_status=${esc(`in.(${execution_status.join(\",\")})`)}`);\n  }\n}\n\n// Deterministic ordering (critical for pagination)\npairs.push(`order=${esc('created_at.desc,artifact_id.desc')}`);\n\n// Pagination: fetch limit+1 for has_more detection\npairs.push(`limit=${esc(limit + 1)}`);\npairs.push(`offset=${esc(offset)}`);\n\nconst queryString = pairs.join('&');\n// --- end safe query builder ---\n\nreturn [{\n  json: {\n    ...j,\n    _postgrest: {\n      path: `/rest/v1/qxb_artifact?${queryString}`,\n      method: 'GET',\n      limit_requested: limit,\n      offset_requested: offset,\n      as_of_used: as_of,\n    }\n  }\n}];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -50,7 +50,7 @@
         -1008,
         336
       ],
-      "id": "47191696-20db-4966-8845-5c16201381cc",
+      "id": "005ac68f-2a3d-427a-bc99-0eb5acba7a19",
       "name": "NQxb_Artifact_List_v1__Build_PostgREST_Request"
     },
     {
@@ -72,7 +72,7 @@
         -784,
         336
       ],
-      "id": "1720068b-ea19-4cce-b3b3-19b4d4662b87",
+      "id": "6c61d02b-c56d-497a-bad0-7b9d1a439f81",
       "name": "NQxb_Artifact_List_v1__HTTP_Request_List",
       "credentials": {
         "supabaseApi": {
@@ -91,7 +91,7 @@
         -560,
         336
       ],
-      "id": "aa30e214-f5af-4efc-9eff-17bb442a2bd4",
+      "id": "c1f62134-5675-4ebd-9b34-cd32d088e889",
       "name": "NQxb_Artifact_List_v1__Apply_Filters_And_Pagination"
     },
     {
@@ -124,7 +124,7 @@
         -336,
         336
       ],
-      "id": "8fa65bf2-9c0f-428f-bdea-12ed4c364a8c",
+      "id": "8f8d2820-4c34-40ce-860a-d68c6346e29a",
       "name": "NQxb_Artifact_List_v1__If_Hydrate"
     },
     {
@@ -137,7 +137,7 @@
         0,
         0
       ],
-      "id": "0707edd4-0ae6-4210-b09e-2c71154d98f7",
+      "id": "b9aff9b7-8c69-40bc-ba1a-fb26bed06de2",
       "name": "NQxb_Artifact_List_v1__Format_Base_Response"
     },
     {
@@ -331,7 +331,7 @@
         -112,
         512
       ],
-      "id": "d1d860da-767f-4d68-8b3a-8d6ab66cff77",
+      "id": "1fd589bd-2499-4cca-8eb2-bae4814b8c20",
       "name": "NQxb_Artifact_List_v1__Switch_ArtifactType"
     },
     {
@@ -345,7 +345,7 @@
         0,
         224
       ],
-      "id": "727c4ce2-5cb6-4659-8216-c75c4952b140",
+      "id": "e3b5fbd2-12f6-44f8-881a-20330d77a997",
       "name": "NQxb_Artifact_List_v1__Explode_Project_Page"
     },
     {
@@ -367,7 +367,7 @@
         112,
         224
       ],
-      "id": "8067c721-780b-4b04-ac1f-5a2b76f179f5",
+      "id": "41bf44a6-c4da-4edf-9aa3-893bcaf01b2e",
       "name": "NQxb_Artifact_List_v1__DB_Get_Project_Extension",
       "alwaysOutputData": true,
       "credentials": {
@@ -387,7 +387,7 @@
         336,
         224
       ],
-      "id": "49d4d14d-2e29-4468-901f-be0aa333ba99",
+      "id": "4487a615-aaa0-4b0f-aa6e-3cbf092f9901",
       "name": "NQxb_Artifact_List_v1__Merge_Project"
     },
     {
@@ -401,7 +401,7 @@
         0,
         416
       ],
-      "id": "b0f1cd22-d011-49de-a508-a6d2b8a52c5f",
+      "id": "2a8faa76-94f6-4d5b-a772-1ddd471e820f",
       "name": "NQxb_Artifact_List_v1__Explode_Journal_Page"
     },
     {
@@ -423,7 +423,7 @@
         112,
         416
       ],
-      "id": "a3607076-b7c4-4c66-971e-e1b09a8179f3",
+      "id": "a16994ea-b6c2-4ce9-b151-a7787bd85e7a",
       "name": "NQxb_Artifact_List_v1__DB_Get_Journal_Extension",
       "alwaysOutputData": true,
       "credentials": {
@@ -443,7 +443,7 @@
         336,
         416
       ],
-      "id": "f9c2c320-f1e2-4f4f-ac22-56987e7a0440",
+      "id": "3a2b0095-a5a0-4556-bc20-93201a359492",
       "name": "NQxb_Artifact_List_v1__Merge_Journal"
     },
     {
@@ -457,7 +457,7 @@
         0,
         608
       ],
-      "id": "da9c76bf-6eb7-4998-8f50-39012a9d22a0",
+      "id": "55b692e1-c01c-4097-8571-3d048f49ec97",
       "name": "NQxb_Artifact_List_v1__Explode_Restart_Page"
     },
     {
@@ -479,7 +479,7 @@
         112,
         608
       ],
-      "id": "bc4f9462-cf0b-405c-9ae9-7736e3291302",
+      "id": "38a2aa1f-fce7-4f6c-b592-2f4ce85d20e6",
       "name": "NQxb_Artifact_List_v1__DB_Get_Restart_Extension",
       "alwaysOutputData": true,
       "credentials": {
@@ -499,7 +499,7 @@
         336,
         608
       ],
-      "id": "63fb8a0c-acb7-4b35-9940-cbda0f22c7b5",
+      "id": "5955a97a-8b46-4e9c-82fb-5e394cf12809",
       "name": "NQxb_Artifact_List_v1__Merge_Restart"
     },
     {
@@ -523,7 +523,7 @@
         112,
         800
       ],
-      "id": "db3f99d3-2e93-4a0b-ba84-a53f59200894",
+      "id": "b94296e9-569e-4646-a6e4-cdc6f383c6e3",
       "name": "NQxb_Artifact_List_v1__DB_Get_Snapshot_Extension",
       "alwaysOutputData": true,
       "credentials": {
@@ -543,7 +543,7 @@
         336,
         800
       ],
-      "id": "45689481-b749-45a5-9cc8-284f836ce59b",
+      "id": "e0b4144d-6735-4e5b-994c-4cfad320fd21",
       "name": "NQxb_Artifact_List_v1__Merge_Snapshot"
     },
     {
@@ -561,13 +561,13 @@
         560,
         480
       ],
-      "id": "aca9a882-e51a-47d7-8549-d0174da63839",
+      "id": "4c7e479f-e69d-4cf0-bd65-4ba3fcf4efc5",
       "name": "NQxb_Artifact_List_v1__Combine_Hydrated_Results",
       "alwaysOutputData": true
     },
     {
       "parameters": {
-        "jsCode": "// NQxb_Artifact_List_v1__Format_Hydrated_Response\n// Purpose: Shape a stable hydrated list response using the SAME canonical envelope as base.\n// KGB v1 requirements:\n// - Stable shape: { ok, gw_action, gw_workspace_id, artifact_type, selector, data:{artifacts}, meta, timestamp }\n// - meta.count is page count (not total)\n// - meta.has_more + meta.as_of are preserved (computed upstream)\n// - Never return \"items\" at top-level (must be data.artifacts)\n// - No silent empty outputs: always return ONE item\n//\n// FIX: If upstream combine/hydrate yields zero items, return a valid empty envelope.\n// This prevents n8n from completing the webhook with 200 + empty body.\n\nconst req =\n  $node[\"NQxb_Artifact_List_v1__Validate_Request\"]?.json ??\n  $node[\"NQxb_Artifact_List_v1__Normalize_Request\"]?.json ??\n  {};\n\nconst selector = req.selector ?? { hydrate: true, offset: 0, limit: 25 };\n\n// Gather hydrated items (may be empty if combine/hydrate produced none)\nconst items = $input.all().map(i => i.json).filter(Boolean);\n\n// --- HARD GUARD: No silent empty outputs ---\n// If no hydrated items exist, we still return a canonical envelope with artifacts: []\nif (items.length === 0) {\n  return [{\n    json: {\n      ok: true,\n      gw_action: req.gw_action ?? \"artifact.list\",\n      gw_workspace_id: req.gw_workspace_id ?? req.workspace_id ?? null,\n      artifact_type: req.artifact_type ?? null,\n      selector,\n      data: { artifacts: [] },\n      meta: {\n        count: 0,\n        limit: (selector.limit ?? null),\n        offset: (selector.offset ?? null),\n        has_more: false,\n        as_of: selector.as_of ?? null,\n      },\n      timestamp: new Date().toISOString(),\n    }\n  }];\n}\n\n// Remove internal metadata fields from hydrated artifacts\nconst cleanedArtifacts = items.map(item => {\n  const { _list_meta, _gw_debug, _meta, _page_items, _merge_error, _searched_artifact_id, _spine_count, ...rest } = item;\n  return rest;\n});\n\n// Prefer authoritative pagination/meta from upstream (_meta), with fallback to legacy _list_meta\nconst meta_in =\n  (items[0]?._meta && typeof items[0]._meta === \"object\" ? items[0]._meta : null) ??\n  (items[0]?._list_meta && typeof items[0]._list_meta === \"object\" ? items[0]._list_meta : {}) ??\n  {};\n\n// Build canonical response envelope\nconst response = {\n  ok: true,\n  gw_action: req.gw_action ?? \"artifact.list\",\n  gw_workspace_id: req.gw_workspace_id ?? req.workspace_id ?? null,\n  artifact_type: req.artifact_type ?? null,\n  selector,\n  data: { artifacts: cleanedArtifacts },\n  meta: {\n    count: Number.isInteger(meta_in.count) ? meta_in.count : cleanedArtifacts.length,\n    limit: Number.isInteger(meta_in.limit) ? meta_in.limit : (selector.limit ?? null),\n    offset: Number.isInteger(meta_in.offset) ? meta_in.offset : (selector.offset ?? null),\n    has_more: meta_in.has_more === true,\n    as_of: meta_in.as_of ?? selector.as_of ?? null,\n  },\n  timestamp: new Date().toISOString(),\n};\n\nreturn [{ json: response }];\n"
+        "jsCode": "// NQxb_Artifact_List_v1__Format_Hydrated_Response\n// Purpose: Shape a stable hydrated list response using the SAME canonical envelope as base.\n// KGB v1 requirements:\n// - Stable shape: { ok, gw_action, gw_workspace_id, artifact_type, selector, data:{artifacts}, meta, timestamp }\n// - meta.count is page count (not total)\n// - meta.has_more + meta.as_of are preserved (computed upstream)\n// - Never return \"items\" at top-level (must be data.artifacts)\n// - No silent empty outputs: always return ONE item\n//\n// FIX: If upstream combine/hydrate yields zero items, return a valid empty envelope.\n// This prevents n8n from completing the webhook with 200 + empty body.\n\nconst req =\n  $node[\"NQxb_Artifact_List_v1__Validate_Request\"]?.json ??\n  $node[\"NQxb_Artifact_List_v1__Normalize_Request\"]?.json ??\n  {};\n\n// T112: If upstream validation returned an error, pass it through untouched\nif (req._gw_route === \"error\" || req.ok === false) {\n  return [{ json: req }];\n}\n\n// Also check if any input item is an error passthrough\nconst firstInput = $input.first()?.json ?? {};\nif (firstInput._gw_route === \"error\" || firstInput.ok === false) {\n  return [{ json: firstInput }];\n}\n\nconst selector = req.selector ?? { hydrate: true, offset: 0, limit: 25 };\n\n// Gather hydrated items (may be empty if combine/hydrate produced none)\nconst items = $input.all().map(i => i.json).filter(Boolean);\n\n// --- HARD GUARD: No silent empty outputs ---\n// If no hydrated items exist, we still return a canonical envelope with artifacts: []\nif (items.length === 0) {\n  return [{\n    json: {\n      ok: true,\n      gw_action: req.gw_action ?? \"artifact.list\",\n      gw_workspace_id: req.gw_workspace_id ?? req.workspace_id ?? null,\n      artifact_type: req.artifact_type ?? null,\n      selector,\n      data: { artifacts: [] },\n      meta: {\n        count: 0,\n        limit: (selector.limit ?? null),\n        offset: (selector.offset ?? null),\n        has_more: false,\n        as_of: selector.as_of ?? null,\n      },\n      timestamp: new Date().toISOString(),\n    }\n  }];\n}\n\n// Remove internal metadata fields from hydrated artifacts\nconst cleanedArtifacts = items.map(item => {\n  const { _list_meta, _gw_debug, _meta, _page_items, _merge_error, _searched_artifact_id, _spine_count, ...rest } = item;\n  return rest;\n});\n\n// Prefer authoritative pagination/meta from upstream (_meta), with fallback to legacy _list_meta\nconst meta_in =\n  (items[0]?._meta && typeof items[0]._meta === \"object\" ? items[0]._meta : null) ??\n  (items[0]?._list_meta && typeof items[0]._list_meta === \"object\" ? items[0]._list_meta : {}) ??\n  {};\n\n// Build canonical response envelope\nconst response = {\n  ok: true,\n  gw_action: req.gw_action ?? \"artifact.list\",\n  gw_workspace_id: req.gw_workspace_id ?? req.workspace_id ?? null,\n  artifact_type: req.artifact_type ?? null,\n  selector,\n  data: { artifacts: cleanedArtifacts },\n  meta: {\n    count: Number.isInteger(meta_in.count) ? meta_in.count : cleanedArtifacts.length,\n    limit: Number.isInteger(meta_in.limit) ? meta_in.limit : (selector.limit ?? null),\n    offset: Number.isInteger(meta_in.offset) ? meta_in.offset : (selector.offset ?? null),\n    has_more: meta_in.has_more === true,\n    as_of: meta_in.as_of ?? selector.as_of ?? null,\n  },\n  timestamp: new Date().toISOString(),\n};\n\nreturn [{ json: response }];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -575,7 +575,7 @@
         784,
         336
       ],
-      "id": "e126c3fa-24a4-4df6-9cdd-fc41c01a9f98",
+      "id": "2230542f-d499-4d30-860d-fa6c5efa0c1d",
       "name": "NQxb_Artifact_List_v1__Format_Hydrated_Response"
     },
     {
@@ -589,7 +589,7 @@
         -112,
         800
       ],
-      "id": "5ca3908b-d8f4-40dd-9abe-b8ff9d7b8f1a",
+      "id": "2833aca4-9171-48b3-97f3-e329f03c9457",
       "name": "NQxb_Artifact_List_v1__Explode_Snapshot_Page"
     },
     {
@@ -613,7 +613,7 @@
         80,
         1200
       ],
-      "id": "ed10df09-8a8d-4b1b-b913-adbb5a5b4924",
+      "id": "4e3b0314-daa3-41cc-8bb0-35aa4b57a5f7",
       "name": "NQxb_Artifact_List_v1__DB_Get_Instruction_Pack_Extension1",
       "alwaysOutputData": true,
       "executeOnce": false,
@@ -634,7 +634,7 @@
         464,
         1056
       ],
-      "id": "0120ce51-e7cb-473d-ab78-a277d21e7b89",
+      "id": "9c1181ee-136d-4f23-876f-96e5fb2a7cc0",
       "name": "NQxb_Artifact_List_v1__Merge_Instruction_Pack"
     },
     {
@@ -648,20 +648,20 @@
         -352,
         1088
       ],
-      "id": "d0f243b1-3fee-400d-8c90-1cabcd883cd9",
+      "id": "dde019df-4636-4950-8958-c74a21ca73af",
       "name": "Split Out"
     },
     {
       "parameters": {
-        "jsCode": "// Phase 2B Walk: Spine-only list merge for branch/leaf (no extension table)\n// Returns spine items directly with no extension lookup.\n// Shared by branch and leaf — both are spine-only types.\nconst items = ($json._page_items || []);\nreturn items.map(item => ({ json: item }));\n"
+        "jsCode": "// Phase 2B Walk: Spine-only list merge for branch/leaf (no extension table)\n// Returns spine items with extension: null for shape symmetry with Query.\n// Shared by branch and leaf — both are spine-only types.\nconst items = ($json._page_items || []);\nreturn items.map(item => ({ json: { ...item, extension: null } }));\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         336,
-        1300
+        1312
       ],
-      "id": "b1c2d3e4-2004-4000-8000-listmerge001",
+      "id": "d5acad16-e460-487b-93f4-c25178b8c783",
       "name": "NQxb_Artifact_List_v1__Spine_Only_List_Merge"
     },
     {
@@ -673,9 +673,9 @@
       "typeVersion": 1,
       "position": [
         0,
-        1500
+        1504
       ],
-      "id": "b1c2d3e4-2005-4000-8000-listsplit001",
+      "id": "15fc047c-e176-4913-a454-f97cf8badd67",
       "name": "NQxb_Artifact_List_v1__Explode_Limb_Page"
     },
     {
@@ -695,9 +695,9 @@
       "typeVersion": 1,
       "position": [
         112,
-        1500
+        1504
       ],
-      "id": "b1c2d3e4-2006-4000-8000-listget00001",
+      "id": "ff829604-6b8c-401f-8af7-d896128991b7",
       "name": "NQxb_Artifact_List_v1__DB_Get_Limb_Extension",
       "alwaysOutputData": true,
       "credentials": {
@@ -709,16 +709,47 @@
     },
     {
       "parameters": {
-        "jsCode": "// NQxb_Artifact_List_v1__Merge_Limb\n// Phase 2B Walk: Merge spine + limb extension for list hydration.\n// Shell table: artifact_id, created_at, updated_at.\n\nconst allExtItems = $input.all();\nconst allSpineItems = $items(\"NQxb_Artifact_List_v1__Explode_Limb_Page\");\n\nconst spineById = new Map();\nfor (const item of allSpineItems) {\n  const id = item.json?.artifact_id;\n  if (id) spineById.set(id, item.json);\n}\n\nconst results = [];\n\nfor (const extItem of allExtItems) {\n  const extRaw = extItem.json ?? {};\n  const artifact_id = extRaw.artifact_id;\n  \n  const spine = spineById.get(artifact_id) ?? {};\n  \n  if (!spine.artifact_id) {\n    results.push({\n      json: {\n        ...extRaw,\n        _merge_error: \"No matching spine found\",\n        _searched_artifact_id: artifact_id,\n      }\n    });\n    continue;\n  }\n  \n  const {\n    artifact_id: _aid,\n    artifact_type: _atype,\n    created_at: _cat,\n    updated_at: _uat,\n    ...extFields\n  } = extRaw;\n  \n  const merged = {\n    ...spine,\n    ...extFields,\n  };\n  \n  results.push({ json: merged });\n}\n\nreturn results;\n"
+        "jsCode": "// NQxb_Artifact_List_v1__Merge_Limb\n// Phase 2B Walk: Merge spine + limb extension for list hydration.\n// Shell table: artifact_id, created_at, updated_at.\n// Only artifact_id stripped; created_at/updated_at preserved in extension.\n\nconst allExtItems = $input.all();\nconst allSpineItems = $items(\"NQxb_Artifact_List_v1__Explode_Limb_Page\");\n\nconst spineById = new Map();\nfor (const item of allSpineItems) {\n  const id = item.json?.artifact_id;\n  if (id) spineById.set(id, item.json);\n}\n\nconst results = [];\n\nfor (const extItem of allExtItems) {\n  const extRaw = extItem.json ?? {};\n  const artifact_id = extRaw.artifact_id;\n\n  const spine = spineById.get(artifact_id) ?? {};\n\n  if (!spine.artifact_id) {\n    results.push({\n      json: {\n        ...extRaw,\n        _merge_error: \"No matching spine found\",\n        _searched_artifact_id: artifact_id,\n      }\n    });\n    continue;\n  }\n\n  const { artifact_id: _aid, ...rest } = extRaw;\n  const extension = Object.keys(rest).length ? rest : null;\n\n  results.push({ json: { ...spine, extension } });\n}\n\nreturn results;\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         336,
-        1500
+        1504
       ],
-      "id": "b1c2d3e4-2007-4000-8000-listmerge002",
+      "id": "1c9fc526-0521-42f1-92d4-671c40c13a1e",
       "name": "NQxb_Artifact_List_v1__Merge_Limb"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "18795749-9557-4ceb-a40d-1ee32306203e",
+              "leftValue": "={{ $json._gw_route }}",
+              "rightValue": "error",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1232,
+        336
+      ],
+      "id": "acd165ab-9e4d-43ec-8fa0-1fed0644bb00",
+      "name": "NQxb_Artifact_List_v1__Check_Validation"
     }
   ],
   "pinData": {
@@ -763,7 +794,7 @@
       "main": [
         [
           {
-            "node": "NQxb_Artifact_List_v1__Build_PostgREST_Request",
+            "node": "NQxb_Artifact_List_v1__Check_Validation",
             "type": "main",
             "index": 0
           }
@@ -1111,16 +1142,34 @@
           }
         ]
       ]
+    },
+    "NQxb_Artifact_List_v1__Check_Validation": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__Format_Hydrated_Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Artifact_List_v1__Build_PostgREST_Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "a25da1fb-dba5-4de2-a04b-5a3f66882ec0",
+  "versionId": "a30812dc-e006-4857-ba54-be0e655f6e1e",
   "meta": {
     "instanceId": "154f6928422db881044f8d1647b40fc389c59337d14356c0ee681d50ffb55d7e"
   },
-  "id": "fcsqazTSzPG7CIyw",
+  "id": "RKDyfV4mdHCBDkmK",
   "tags": []
 }

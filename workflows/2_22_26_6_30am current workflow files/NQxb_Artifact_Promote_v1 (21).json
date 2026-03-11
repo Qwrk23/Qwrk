@@ -8,10 +8,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1792,
+        -2448,
         192
       ],
-      "id": "82b3c46c-dd16-47ce-a1dd-a261eaeb3d68",
+      "id": "39ec0179-652c-4ddc-bc93-5f9b36ddfdbc",
       "name": "Normalize_request"
     },
     {
@@ -47,23 +47,23 @@
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
       "position": [
-        -2016,
+        -2672,
         192
       ],
-      "id": "806339b4-7140-4cc2-b019-57dc3b1f2b16",
+      "id": "2f5984de-119a-444e-adfa-4adff189f978",
       "name": "NQxb_Artifact_Promote_v1__In"
     },
     {
       "parameters": {
-        "jsCode": "// NQxb_Artifact_Promote_v1__Resolve_Transition\n// Purpose: Map a locked transition allow-list -> from_state/to_state, or reject.\n//\n// QPM PHASE 2 UPDATE (2026-02-01):\n// - REMOVED retired_to_tree: Retired is now terminal (irreversible)\n// - Only forward transitions allowed: seed->sapling->tree->retired\n//\n// IMPORTANT (n8n): Do NOT emit top-level reserved keys like `error`.\n// Always wrap output under `{ json: ... }`.\n\nconst input = $json;\n\n// FIX: Contract-safe fallback — transition may arrive inside artifact_payload\nconst transition = (\n  input.transition ??\n  input.artifact_payload?.transition ??\n  \"\"\n).toString().trim();\n\n// QPM Phase 2: Only forward transitions allowed\n// REMOVED: retired_to_tree (retired is terminal)\nconst map = {\n  seed_to_sapling: { from_state: \"seed\", to_state: \"sapling\" },\n  sapling_to_tree: { from_state: \"sapling\", to_state: \"tree\" },\n  tree_to_retired: { from_state: \"tree\", to_state: \"retired\" },\n};\n\nconst resolved = map[transition];\n\nif (!resolved) {\n  return [\n    {\n      json: {\n        ...input,\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"LIFECYCLE_TRANSITION_NOT_ALLOWED\",\n          message: `Transition not allowed: '${transition || \"(empty)\"}'`,\n          details: {\n            transition: transition || null,\n            allowed: Object.keys(map),\n          },\n        },\n      },\n    },\n  ];\n}\n\nreturn [\n  {\n    json: {\n      ...input,\n      ok: true,\n      _gw_route: input._gw_route ?? \"ok\",\n      from_state: resolved.from_state,\n      to_state: resolved.to_state,\n    },\n  },\n];\n\n\n"
+        "jsCode": "// NQxb_Artifact_Promote_v1__Resolve_Transition\n// Purpose: Map a locked transition allow-list -> from_state/to_state, or reject.\n//\n// QPM PHASE 2 UPDATE (2026-02-01):\n// - REMOVED archive_to_tree: Archive is now terminal (irreversible)\n// - Only forward transitions allowed: seed->sapling->tree->archive\n//\n// IMPORTANT (n8n): Do NOT emit top-level reserved keys like `error`.\n// Always wrap output under `{ json: ... }`.\n\nconst input = $json;\n\n// FIX: Contract-safe fallback — transition may arrive inside artifact_payload\nconst transition = (\n  input.transition ??\n  input.artifact_payload?.transition ??\n  \"\"\n).toString().trim();\n\n// QPM Phase 2: Only forward transitions allowed\n// REMOVED: archive_to_tree (archive is terminal)\nconst map = {\n  seed_to_sapling: { from_state: \"seed\", to_state: \"sapling\" },\n  sapling_to_tree: { from_state: \"sapling\", to_state: \"tree\" },\n  tree_to_archive: { from_state: \"tree\", to_state: \"archive\" },\n};\n\nconst resolved = map[transition];\n\nif (!resolved) {\n  return [\n    {\n      json: {\n        ...input,\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"LIFECYCLE_TRANSITION_NOT_ALLOWED\",\n          message: `Transition not allowed: '${transition || \"(empty)\"}'`,\n          details: {\n            transition: transition || null,\n            allowed: Object.keys(map),\n          },\n        },\n      },\n    },\n  ];\n}\n\nreturn [\n  {\n    json: {\n      ...input,\n      ok: true,\n      _gw_route: input._gw_route ?? \"ok\",\n      from_state: resolved.from_state,\n      to_state: resolved.to_state,\n    },\n  },\n];\n\n\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -464,
+        -1120,
         192
       ],
-      "id": "5a0bfd2d-28f1-4ac6-81bc-1b5acaec4fa3",
+      "id": "9ddf7516-50e7-4962-be6e-18f25eff21a4",
       "name": "NQxb_Artifact_Promote_v1__Resolve_Transition"
     },
     {
@@ -87,10 +87,10 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        -240,
+        -896,
         272
       ],
-      "id": "a92595f8-3efc-4083-999b-7efd8a131163",
+      "id": "f2f1cf87-0507-42ab-94df-6b9144080560",
       "name": "NQxb_Artifact_Promote_v1__Verify_Current_State",
       "credentials": {
         "supabaseApi": {
@@ -106,10 +106,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        208,
+        -448,
         192
       ],
-      "id": "fb7b811a-3eb2-4d39-9d05-562216b8638b",
+      "id": "9ad0b11b-d500-40d7-92f5-732a910b5ac5",
       "name": "NQxb_Artifact_Promote_v1__Enforce_Verified_State"
     },
     {
@@ -121,10 +121,10 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        -16,
+        -672,
         192
       ],
-      "id": "82d9740e-d8bc-456b-83a2-130404cf1624",
+      "id": "6b8d5a63-9e67-4873-b1c7-2604330b705d",
       "name": "Merge"
     },
     {
@@ -155,6 +155,10 @@
             {
               "fieldId": "updated_at",
               "fieldValue": "now()"
+            },
+            {
+              "fieldId": "version",
+              "fieldValue": "={{ ($json.version ?? 1) + 1 }}"
             }
           ]
         }
@@ -162,10 +166,10 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        1200,
+        544,
         0
       ],
-      "id": "34c1ba5b-38c2-459e-aea7-39ae499cdc7b",
+      "id": "e92086b3-d72b-4710-8854-1c5bcad558a6",
       "name": "NQxb_Artifact_Promote_v1__DB_Update_Lifecycle",
       "alwaysOutputData": true,
       "credentials": {
@@ -214,10 +218,10 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        1424,
+        768,
         384
       ],
-      "id": "ca888f50-6732-4b59-b14f-59beceb4fec1",
+      "id": "dfaa2bfa-242e-42ca-9912-7227db21b839",
       "name": "NQxb_Artifact_Promote_v1__DB_Insert_Event",
       "credentials": {
         "supabaseApi": {
@@ -233,37 +237,11 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1568,
+        -2224,
         192
       ],
-      "id": "7593b557-c4a0-473b-ab3d-ab273017fac9",
+      "id": "50aad12d-947d-4557-8bc3-4712a0763a84",
       "name": "Pass_Actor"
-    },
-    {
-      "parameters": {
-        "jsCode": "// NQxb_Artifact_Promote_v1__Build_Query_Request\n// Build artifact.query request from promote payload (NOT from event output)\n\nconst j = $json ?? {};\n\nconst out = {\n  gw_action: \"artifact.query\",\n  gw_workspace_id: j.gw_workspace_id ?? j.workspace_id ?? null,\n  artifact_type: j.artifact_type ?? null,\n  artifact_id: j.artifact_id ?? null,\n  selector: { hydrate: true },\n};\n\nif (!out.gw_workspace_id || !out.artifact_type || !out.artifact_id) {\n  return [{\n    json: {\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"VALIDATION_ERROR\",\n        message: \"Cannot call artifact.query: missing required fields from promote payload.\",\n        details: {\n          gw_workspace_id: out.gw_workspace_id,\n          artifact_type: out.artifact_type,\n          artifact_id: out.artifact_id,\n        }\n      }\n    }\n  }];\n}\n\nreturn [{ json: out }];\n"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1648,
-        0
-      ],
-      "id": "32d91f7c-5e1f-4a4f-92dd-4ce9bb92d27c",
-      "name": "NQxb_Artifact_Promote_v1__Build_Query_Request"
-    },
-    {
-      "parameters": {
-        "jsCode": "// NQxb_Artifact_Promote_v1__Merge_Verify\n// Purpose: Merge two incoming inputs safely (Resolve path + DB_Update path)\n//\n// n8n Code node receives all incoming items in `items`.\n// When there are two incoming connections, n8n concatenates them.\n// We'll merge the first two items (Run Once for All Items assumption).\n\nconst a = items?.[0]?.json ?? {};\nconst b = items?.[1]?.json ?? {};\n\nreturn [\n  {\n    json: {\n      ...a,\n      ...b,\n    },\n  },\n];\n\n"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1424,
-        0
-      ],
-      "id": "f0317319-2a5c-4539-9790-8f12bc86a5f5",
-      "name": "NQxb_Artifact_Promote_v1__Merge_Verify"
     },
     {
       "parameters": {
@@ -272,10 +250,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1200,
+        544,
         384
       ],
-      "id": "35a8b5ae-05f8-411e-bffe-429a8d697011",
+      "id": "824b2a95-e745-4b14-9f59-fcbf80ed0a51",
       "name": "NQxb_Artifact_Promote_v1__Freeze_Event_Payload"
     },
     {
@@ -335,10 +313,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        432,
+        -224,
         192
       ],
-      "id": "7d982de4-63e5-4081-aae1-14b7bb6d6ded",
+      "id": "2f8d8ba9-5a98-4f57-b2b3-50f6046ff59d",
       "name": "NQxb_Artifact_Promote_v1__Switch_OK"
     },
     {
@@ -348,10 +326,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1200,
+        544,
         192
       ],
-      "id": "e254e714-790c-4c0a-b422-fd7a3574eb75",
+      "id": "1b04956a-86f2-4269-93c8-669bc804c610",
       "name": "NQxb_Artifact_Promote_v1__Return_Error_Item"
     },
     {
@@ -370,10 +348,10 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        -1344,
+        -2000,
         192
       ],
-      "id": "5553d6a9-5968-4f76-95e5-3f4670a5bd21",
+      "id": "c861cfa4-112c-4f9c-b8b3-e3eae576e8a3",
       "name": "Lookup_Type_Registry",
       "alwaysOutputData": true,
       "credentials": {
@@ -390,10 +368,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1120,
+        -1776,
         192
       ],
-      "id": "6b8e4e5f-ecf2-4940-929b-3532c6c59325",
+      "id": "be81b365-44a8-4ca7-baae-ea0a43d9129f",
       "name": "Type_Registry_Guard"
     },
     {
@@ -457,10 +435,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        -896,
+        -1552,
         192
       ],
-      "id": "8d0f0a41-fdb1-49e7-b579-9b79fa740510",
+      "id": "03563eb9-9ffe-43cd-a3f5-0f2e28625f1e",
       "name": "Switch_Type_Registry"
     },
     {
@@ -470,41 +448,11 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1680,
+        1024,
         384
       ],
-      "id": "3d7cc24a-29a1-4884-bebe-cedb3115a0c1",
+      "id": "5f7998b8-8336-45c6-afb9-f2b284895cd9",
       "name": "NQxb_Artifact_Promote_v1__Shape_Response"
-    },
-    {
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "IsLBYjXJ5R2Djfrv",
-          "mode": "list",
-          "cachedResultUrl": "/workflow/IsLBYjXJ5R2Djfrv",
-          "cachedResultName": "NQxb_Artifact_Query_v1"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {},
-          "matchingColumns": [],
-          "schema": [],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {
-          "waitForSubWorkflow": true
-        }
-      },
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.3,
-      "position": [
-        1888,
-        0
-      ],
-      "id": "45a6ae41-fab1-4b71-9a74-687cc1408e9c",
-      "name": "Call 'NQxb_Artifact_Query_v1'"
     },
     {
       "parameters": {
@@ -513,69 +461,99 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        656,
+        0,
         0
       ],
-      "id": "qpm-prep-children-query",
+      "id": "5f588970-452e-40da-8540-20f3f9da503f",
       "name": "NQxb_Artifact_Promote_v1__QPM_Prepare_Child_Queries"
     },
     {
       "parameters": {
-        "resource": "row",
-        "operation": "executeQuery",
-        "tableId": "qxb_artifact",
-        "query": "SELECT COUNT(*)::int as journal_count\nFROM qxb_artifact\nWHERE parent_artifact_id = '{{ $json.artifact_id }}'\n  AND workspace_id = '{{ $json.gw_workspace_id }}'\n  AND artifact_type = 'journal'\n  AND deleted_at IS NULL"
+        "url": "=https://npymhacpmxdnkqdzgxll.supabase.co/rest/v1/qxb_artifact?select=artifact_id&parent_artifact_id=eq.{{ $json.artifact_id }}&workspace_id=eq.{{ $json.gw_workspace_id }}&artifact_type=eq.journal&deleted_at=is.null",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "count=exact"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
       },
-      "type": "n8n-nodes-base.supabase",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
-        656,
+        0,
         192
       ],
-      "id": "qpm-query-journal-children",
+      "id": "0dc05fb9-bfdb-4a46-92d0-d3851f318e11",
       "name": "NQxb_Artifact_Promote_v1__QPM_Query_Journal_Children",
+      "alwaysOutputData": true,
       "credentials": {
         "supabaseApi": {
           "id": "n4R4JdOIV9zrCGIT",
           "name": "Qwrk Supabase – Kernel v1"
         }
-      },
-      "alwaysOutputData": true
+      }
     },
     {
       "parameters": {
-        "resource": "row",
-        "operation": "executeQuery",
-        "tableId": "qxb_artifact",
-        "query": "SELECT COUNT(*)::int as execution_count\nFROM qxb_artifact\nWHERE parent_artifact_id = '{{ $json.artifact_id }}'\n  AND workspace_id = '{{ $json.gw_workspace_id }}'\n  AND artifact_type IN ('branch', 'leaf')\n  AND deleted_at IS NULL"
+        "url": "=https://npymhacpmxdnkqdzgxll.supabase.co/rest/v1/qxb_artifact?select=artifact_id&parent_artifact_id=eq.{{ $json.artifact_id }}&workspace_id=eq.{{ $json.gw_workspace_id }}&artifact_type=in.(branch,leaf)&deleted_at=is.null",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "count=exact"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
       },
-      "type": "n8n-nodes-base.supabase",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
-        656,
+        0,
         384
       ],
-      "id": "qpm-query-execution-children",
+      "id": "26a22cca-b8a1-41ee-b4a8-6367ad070776",
       "name": "NQxb_Artifact_Promote_v1__QPM_Query_Execution_Children",
+      "alwaysOutputData": true,
       "credentials": {
         "supabaseApi": {
           "id": "n4R4JdOIV9zrCGIT",
           "name": "Qwrk Supabase – Kernel v1"
         }
-      },
-      "alwaysOutputData": true
+      }
     },
     {
       "parameters": {
-        "jsCode": "// NQxb_Artifact_Promote_v1__QPM_Validate_Rules\n// Purpose: Enforce QPM lifecycle transition validation rules\n//\n// QPM PHASE 2 RULES (2026-02-01):\n// 1. seed_to_sapling: Requires summary (non-empty, trimmed) OR linked journal child\n// 2. sapling_to_tree: Requires execution anatomy (branch or leaf child)\n// 3. tree_to_retired: No validation (always pass)\n//\n// v18 FIX: Reads counts from $json (sequential deterministic chain).\n// No $node[] references. No try/catch default-to-0.\n//\n// Error codes:\n// - PROMOTION_BLOCKED_SEED_NOT_READY\n// - PROMOTION_BLOCKED_NO_ANATOMY\n// - JOURNAL_COUNT_UNAVAILABLE\n// - EXECUTION_COUNT_UNAVAILABLE\n\nconst input = $json;\n\nconst transition = (input.transition ?? \"\").toString().trim();\nconst summary = input._spine_summary ?? null;\nconst summaryTrimmed = (typeof summary === \"string\") ? summary.trim() : \"\";\n\nconst journalCount = input.journal_count;\nconst executionCount = input.execution_count;\n\n// --- Explicit availability checks (no silent defaults) ---\n\nif (typeof journalCount !== 'number') {\n  return [{\n    json: {\n      ...input,\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"JOURNAL_COUNT_UNAVAILABLE\",\n        message: \"journal_count missing from upstream chain.\",\n        details: { journal_count: journalCount }\n      }\n    }\n  }];\n}\n\nif (typeof executionCount !== 'number') {\n  return [{\n    json: {\n      ...input,\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"EXECUTION_COUNT_UNAVAILABLE\",\n        message: \"execution_count missing from upstream chain.\",\n        details: { execution_count: executionCount }\n      }\n    }\n  }];\n}\n\n// --- QPM Validation ---\n\nif (transition === \"seed_to_sapling\") {\n  const hasSummary = summaryTrimmed.length > 0;\n  const hasJournalChild = journalCount > 0;\n\n  if (!hasSummary && !hasJournalChild) {\n    return [{\n      json: {\n        ...input,\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"PROMOTION_BLOCKED_SEED_NOT_READY\",\n          message: \"Seed \\u2192 Sapling requires summary or linked journal\",\n          details: {\n            artifact_id: input.artifact_id,\n            has_summary: hasSummary,\n            journal_child_count: journalCount,\n            rule: \"summary OR journal child required\"\n          }\n        }\n      }\n    }];\n  }\n}\n\nif (transition === \"sapling_to_tree\") {\n  const hasExecutionAnatomy = executionCount > 0;\n\n  if (!hasExecutionAnatomy) {\n    return [{\n      json: {\n        ...input,\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"PROMOTION_BLOCKED_NO_ANATOMY\",\n          message: \"Sapling \\u2192 Tree requires execution anatomy (branch or leaf)\",\n          details: {\n            artifact_id: input.artifact_id,\n            execution_child_count: executionCount,\n            rule: \"branch or leaf child required\"\n          }\n        }\n      }\n    }];\n  }\n}\n\n// tree_to_retired: No validation beyond state check (already handled)\n\nreturn [{\n  json: {\n    ...input,\n    ok: true,\n    _gw_route: input._gw_route ?? \"ok\",\n    _qpm_validated: {\n      transition,\n      summary_present: summaryTrimmed.length > 0,\n      journal_child_count: journalCount,\n      execution_child_count: executionCount\n    }\n  }\n}];\n"
+        "jsCode": "// NQxb_Artifact_Promote_v1__QPM_Validate_Rules\n// Purpose: Enforce QPM lifecycle transition validation rules\n//\n// QPM PHASE 2 RULES (2026-02-01):\n// 1. seed_to_sapling: Requires summary (non-empty, trimmed) OR linked journal child\n// 2. sapling_to_tree: Requires execution anatomy (branch or leaf child)\n// 3. tree_to_archive: No validation (always pass)\n//\n// v18 FIX: Reads counts from $json (sequential deterministic chain).\n// No $node[] references. No try/catch default-to-0.\n//\n// Error codes:\n// - PROMOTION_BLOCKED_SEED_NOT_READY\n// - PROMOTION_BLOCKED_NO_ANATOMY\n// - JOURNAL_COUNT_UNAVAILABLE\n// - EXECUTION_COUNT_UNAVAILABLE\n\nconst input = $json;\n\nconst transition = (input.transition ?? \"\").toString().trim();\nconst summary = input._spine_summary ?? null;\nconst summaryTrimmed = (typeof summary === \"string\") ? summary.trim() : \"\";\n\nconst journalCount = input.journal_count;\nconst executionCount = input.execution_count;\n\n// --- Explicit availability checks (no silent defaults) ---\n\nif (typeof journalCount !== 'number') {\n  return [{\n    json: {\n      ...input,\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"JOURNAL_COUNT_UNAVAILABLE\",\n        message: \"journal_count missing from upstream chain.\",\n        details: { journal_count: journalCount }\n      }\n    }\n  }];\n}\n\nif (typeof executionCount !== 'number') {\n  return [{\n    json: {\n      ...input,\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"EXECUTION_COUNT_UNAVAILABLE\",\n        message: \"execution_count missing from upstream chain.\",\n        details: { execution_count: executionCount }\n      }\n    }\n  }];\n}\n\n// --- QPM Validation ---\n\nif (transition === \"seed_to_sapling\") {\n  const hasSummary = summaryTrimmed.length > 0;\n  const hasJournalChild = journalCount > 0;\n\n  if (!hasSummary && !hasJournalChild) {\n    return [{\n      json: {\n        ...input,\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"PROMOTION_BLOCKED_SEED_NOT_READY\",\n          message: \"Seed \\u2192 Sapling requires summary or linked journal\",\n          details: {\n            artifact_id: input.artifact_id,\n            has_summary: hasSummary,\n            journal_child_count: journalCount,\n            rule: \"summary OR journal child required\"\n          }\n        }\n      }\n    }];\n  }\n}\n\nif (transition === \"sapling_to_tree\") {\n  const hasExecutionAnatomy = executionCount > 0;\n\n  if (!hasExecutionAnatomy) {\n    return [{\n      json: {\n        ...input,\n        ok: false,\n        _gw_route: \"error\",\n        error: {\n          code: \"PROMOTION_BLOCKED_NO_ANATOMY\",\n          message: \"Sapling \\u2192 Tree requires execution anatomy (branch or leaf)\",\n          details: {\n            artifact_id: input.artifact_id,\n            execution_child_count: executionCount,\n            rule: \"branch or leaf child required\"\n          }\n        }\n      }\n    }];\n  }\n}\n\n// tree_to_archive: No validation beyond state check (already handled)\n\nreturn [{\n  json: {\n    ...input,\n    ok: true,\n    _gw_route: input._gw_route ?? \"ok\",\n    _qpm_validated: {\n      transition,\n      summary_present: summaryTrimmed.length > 0,\n      journal_child_count: journalCount,\n      execution_child_count: executionCount\n    }\n  }\n}];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        976,
+        320,
         0
       ],
-      "id": "qpm-validate-rules",
+      "id": "67291682-7a6a-4f4b-841a-7af9e040b0c0",
       "name": "NQxb_Artifact_Promote_v1__QPM_Validate_Rules"
     },
     {
@@ -639,36 +617,36 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        976,
+        320,
         192
       ],
-      "id": "qpm-switch-validation",
+      "id": "be1e6455-c02c-4888-825b-dec35c9f6e47",
       "name": "NQxb_Artifact_Promote_v1__QPM_Switch"
     },
     {
       "parameters": {
-        "jsCode": "// NQxb_Artifact_Promote_v1__QPM_Attach_Journal_Count\n// Merge journal query result with upstream context from Prepare node.\n// Sequential chain: Prepare → JournalQuery → this → ExecQuery → ...\n\nconst context = $node[\"NQxb_Artifact_Promote_v1__QPM_Prepare_Child_Queries\"].json;\nconst queryResult = $json;\n\nconst journal_count = queryResult?.journal_count;\n\nif (typeof journal_count !== 'number') {\n  return [{\n    json: {\n      ...context,\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"JOURNAL_COUNT_UNAVAILABLE\",\n        message: \"Journal child count query did not return a numeric result.\",\n        details: { raw_result: queryResult }\n      }\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    ...context,\n    journal_count\n  }\n}];\n"
+        "jsCode": "// NQxb_Artifact_Promote_v1__QPM_Attach_Journal_Count\n// Counts journal children from HTTP Request response items.\n// Sequential chain: Prepare \\u2192 JournalHTTP \\u2192 this \\u2192 ExecHTTP \\u2192 ...\n//\n// HTTP Request returns N items (one per matching artifact).\n// alwaysOutputData guarantees at least 1 item on empty result.\n// Count = items with valid artifact_id.\n\nconst context = $node[\"NQxb_Artifact_Promote_v1__QPM_Prepare_Child_Queries\"].json;\nconst items = $input.all();\nconst journal_count = items.filter(i => i.json?.artifact_id).length;\n\nif (typeof journal_count !== 'number' || !Number.isFinite(journal_count)) {\n  return [{\n    json: {\n      ...context,\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"JOURNAL_COUNT_UNAVAILABLE\",\n        message: \"Could not determine journal child count from HTTP response.\",\n        details: { item_count: items.length }\n      }\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    ...context,\n    journal_count\n  }\n}];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        776,
+        128,
         192
       ],
-      "id": "qpm-attach-journal-count",
+      "id": "bb03bfd9-e8bf-4f6e-bb78-adfd6dbbead5",
       "name": "NQxb_Artifact_Promote_v1__QPM_Attach_Journal_Count"
     },
     {
       "parameters": {
-        "jsCode": "// NQxb_Artifact_Promote_v1__QPM_Attach_Execution_Count\n// Merge execution query result with upstream context (includes journal_count).\n// Sequential chain: ... → AttachJournal → ExecQuery → this → Validate\n\nconst context = $node[\"NQxb_Artifact_Promote_v1__QPM_Attach_Journal_Count\"].json;\nconst queryResult = $json;\n\nconst execution_count = queryResult?.execution_count;\n\nif (typeof execution_count !== 'number') {\n  return [{\n    json: {\n      ...context,\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"EXECUTION_COUNT_UNAVAILABLE\",\n        message: \"Execution child count query did not return a numeric result.\",\n        details: { raw_result: queryResult }\n      }\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    ...context,\n    execution_count\n  }\n}];\n"
+        "jsCode": "// NQxb_Artifact_Promote_v1__QPM_Attach_Execution_Count\n// Counts execution children from HTTP Request response items.\n// Sequential chain: ... \\u2192 AttachJournal \\u2192 ExecHTTP \\u2192 this \\u2192 Validate\n//\n// HTTP Request returns N items (one per matching artifact).\n// alwaysOutputData guarantees at least 1 item on empty result.\n// Count = items with valid artifact_id.\n\nconst context = $node[\"NQxb_Artifact_Promote_v1__QPM_Attach_Journal_Count\"].json;\nconst items = $input.all();\nconst execution_count = items.filter(i => i.json?.artifact_id).length;\n\nif (typeof execution_count !== 'number' || !Number.isFinite(execution_count)) {\n  return [{\n    json: {\n      ...context,\n      ok: false,\n      _gw_route: \"error\",\n      error: {\n        code: \"EXECUTION_COUNT_UNAVAILABLE\",\n        message: \"Could not determine execution child count from HTTP response.\",\n        details: { item_count: items.length }\n      }\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    ...context,\n    execution_count\n  }\n}];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        776,
+        128,
         384
       ],
-      "id": "qpm-attach-execution-count",
+      "id": "66a96f49-4384-4e2c-a9d9-93dfe4412593",
       "name": "NQxb_Artifact_Promote_v1__QPM_Attach_Execution_Count"
     }
   ],
@@ -764,33 +742,11 @@
         ]
       ]
     },
-    "NQxb_Artifact_Promote_v1__DB_Update_Lifecycle": {
-      "main": [
-        [
-          {
-            "node": "NQxb_Artifact_Promote_v1__Merge_Verify",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Pass_Actor": {
       "main": [
         [
           {
             "node": "Lookup_Type_Registry",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "NQxb_Artifact_Promote_v1__Merge_Verify": {
-      "main": [
-        [
-          {
-            "node": "NQxb_Artifact_Promote_v1__Build_Query_Request",
             "type": "main",
             "index": 0
           }
@@ -864,22 +820,6 @@
             "index": 0
           }
         ]
-      ]
-    },
-    "NQxb_Artifact_Promote_v1__Build_Query_Request": {
-      "main": [
-        [
-          {
-            "node": "Call 'NQxb_Artifact_Query_v1'",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Call 'NQxb_Artifact_Query_v1'": {
-      "main": [
-        []
       ]
     },
     "NQxb_Artifact_Promote_v1__DB_Insert_Event": {
@@ -987,10 +927,10 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "5b61f9e9-1f02-415f-9af1-0e02fbe50e9c",
+  "versionId": "e37e035b-47dc-41b7-b984-cea9b84f36e9",
   "meta": {
     "instanceId": "154f6928422db881044f8d1647b40fc389c59337d14356c0ee681d50ffb55d7e"
   },
-  "id": "OXxickY3S5Fxtv5F",
+  "id": "EK6u4DkQB45mcDiV",
   "tags": []
 }

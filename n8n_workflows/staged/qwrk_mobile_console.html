@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Qwrk Mobile Console</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; background: #0d1117; color: #c9d1d9; padding: 12px; min-height: 100vh; }
+  h1 { font-size: 18px; color: #58a6ff; margin-bottom: 8px; }
+  .meta { font-size: 12px; color: #8b949e; margin-bottom: 12px; }
+  .meta span { color: #58a6ff; }
+  textarea { width: 100%; height: 200px; background: #161b22; color: #c9d1d9; border: 1px solid #30363d; border-radius: 6px; padding: 10px; font-family: Consolas, monospace; font-size: 13px; resize: vertical; }
+  textarea:focus { outline: none; border-color: #58a6ff; }
+  .btn-row { display: flex; gap: 8px; margin: 10px 0; }
+  button { flex: 1; padding: 12px 16px; border: none; border-radius: 6px; font-size: 15px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+  button:active { opacity: 0.7; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-execute { background: #238636; color: #fff; }
+  .btn-ping { background: #30363d; color: #c9d1d9; flex: 0 0 auto; padding: 12px 20px; }
+  .btn-copy { background: #1f6feb; color: #fff; }
+  .btn-clear { background: #30363d; color: #c9d1d9; flex: 0 0 auto; padding: 12px 20px; }
+  .detected { font-size: 12px; color: #8b949e; margin-bottom: 8px; display: flex; gap: 12px; flex-wrap: wrap; }
+  .detected .val { color: #d2a8ff; font-family: monospace; }
+  .response-container { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 10px; min-height: 80px; max-height: 50vh; overflow-y: auto; margin-bottom: 8px; }
+  .response-container pre { font-family: Consolas, monospace; font-size: 12px; white-space: pre-wrap; word-break: break-word; color: #c9d1d9; margin: 0; }
+  .response-container.error pre { color: #f85149; }
+  .response-container.success pre { color: #7ee787; }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #238636; color: #fff; padding: 8px 20px; border-radius: 20px; font-size: 14px; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .status-bar { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #484f58; margin-top: 8px; }
+</style>
+</head>
+<body>
+<h1>Qwrk Mobile Console</h1>
+<div class="meta">Transport Layer</div>
+<textarea id="payload" placeholder='{"gw_action":"artifact.list","gw_workspace_id":"...","artifact_type":"project","selector":{"limit":3}}' spellcheck="false"></textarea>
+<div class="detected" id="detected"></div>
+<div class="btn-row">
+  <button class="btn-execute" id="btnExecute" onclick="execute()">Execute</button>
+  <button class="btn-ping" id="btnPing" onclick="ping()">Ping</button>
+</div>
+<div class="response-container" id="responseContainer"><pre id="responseDisplay">Ready.</pre></div>
+<div class="btn-row">
+  <button class="btn-copy" id="btnCopy" onclick="copyResponse()" disabled>Copy Response</button>
+  <button class="btn-clear" onclick="clearResponse()">Clear</button>
+</div>
+<div class="status-bar"><span id="statusTime"></span><span id="statusDuration"></span></div>
+<div class="toast" id="toast"></div>
+<script>
+var QWRK_KEY = "%%QWRK_KEY%%";
+var EXECUTE_URL = window.location.origin + "/webhook/qwrk-mobile/execute";
+var LS_KEY = "qwrk_mobile_last_payload";
+var rawResponse = null;
+var isExecuting = false;
+
+(function init() {
+  var saved = localStorage.getItem(LS_KEY);
+  if (saved) document.getElementById("payload").value = saved;
+  updateDetected();
+  document.getElementById("payload").addEventListener("input", function() {
+    localStorage.setItem(LS_KEY, this.value);
+    updateDetected();
+  });
+})();
+
+function updateDetected() {
+  var el = document.getElementById("detected");
+  var text = document.getElementById("payload").value.trim();
+  if (!text) { el.innerHTML = ""; return; }
+  try {
+    var obj = JSON.parse(text);
+    var parts = [];
+    if (obj.gw_action) parts.push("action: <span class=val>" + escHtml(obj.gw_action) + "</span>");
+    if (obj.gw_workspace_id) parts.push("workspace: <span class=val>" + escHtml(obj.gw_workspace_id.substring(0, 8)) + "...</span>");
+    el.innerHTML = parts.join("");
+  } catch(e) {
+    el.innerHTML = "<span style=color:#f85149>Invalid JSON</span>";
+  }
+}
+
+async function execute() {
+  var text = document.getElementById("payload").value.trim();
+  if (!text) return showError("Payload is empty.");
+  var parsed;
+  try { parsed = JSON.parse(text); } catch(e) { return showError("Invalid JSON: " + e.message); }
+  await send(parsed);
+}
+
+async function ping() { await send({ gw_action: "system.ping" }); }
+
+async function send(payload) {
+  if (isExecuting) return;
+  setExecuting(true);
+  rawResponse = null;
+  document.getElementById("btnCopy").disabled = true;
+  var container = document.getElementById("responseContainer");
+  var display = document.getElementById("responseDisplay");
+  container.className = "response-container";
+  display.textContent = "Executing...";
+  var start = performance.now();
+  try {
+    var res = await fetch(EXECUTE_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-QWRK-KEY": QWRK_KEY },
+      body: JSON.stringify(payload)
+    });
+    var duration = Math.round(performance.now() - start);
+    var body = await res.text();
+    rawResponse = body;
+    var pretty;
+    try { pretty = JSON.stringify(JSON.parse(body), null, 2); } catch(e) { pretty = body; }
+    display.textContent = pretty;
+    container.className = "response-container " + (res.ok ? "success" : "error");
+    document.getElementById("btnCopy").disabled = false;
+    document.getElementById("statusTime").textContent = new Date().toLocaleTimeString();
+    document.getElementById("statusDuration").textContent = duration + "ms";
+  } catch(e) {
+    display.textContent = "Network error: " + e.message;
+    container.className = "response-container error";
+    document.getElementById("statusDuration").textContent = "";
+  }
+  setExecuting(false);
+}
+
+async function copyResponse() {
+  if (!rawResponse) return;
+  try { await navigator.clipboard.writeText(rawResponse); showToast("Copied"); }
+  catch(e) { showToast("Copy failed"); }
+}
+
+function clearResponse() {
+  rawResponse = null;
+  document.getElementById("responseDisplay").textContent = "Ready.";
+  document.getElementById("responseContainer").className = "response-container";
+  document.getElementById("btnCopy").disabled = true;
+  document.getElementById("statusTime").textContent = "";
+  document.getElementById("statusDuration").textContent = "";
+}
+
+function setExecuting(state) {
+  isExecuting = state;
+  document.getElementById("btnExecute").disabled = state;
+  document.getElementById("btnPing").disabled = state;
+  document.getElementById("btnExecute").innerHTML = state ? "<span class=spinner></span>Executing..." : "Execute";
+}
+
+function showError(msg) {
+  document.getElementById("responseContainer").className = "response-container error";
+  document.getElementById("responseDisplay").textContent = msg;
+}
+
+function showToast(msg) {
+  var t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  setTimeout(function() { t.classList.remove("show"); }, 1500);
+}
+
+function escHtml(s) {
+  var d = document.createElement("div"); d.textContent = s; return d.innerHTML;
+}
+</script>
+</body>
+</html>

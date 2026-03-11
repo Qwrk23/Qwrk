@@ -3,12 +3,18 @@
   "nodes": [
     {
       "parameters": {
-        "updates": ["message"]
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
       },
       "type": "n8n-nodes-base.telegramTrigger",
       "typeVersion": 1.1,
-      "position": [0, 0],
-      "id": "telegram-trigger-001",
+      "position": [
+        -288,
+        320
+      ],
+      "id": "47a10976-ebec-430e-983a-f947d6202c51",
       "name": "Telegram Trigger",
       "webhookId": "qwrk-telegram-gateway-pipe",
       "credentials": {
@@ -24,8 +30,11 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [220, 0],
-      "id": "parse-json-001",
+      "position": [
+        -80,
+        320
+      ],
+      "id": "a03c64ab-7f6e-48da-bd38-8523fa2ddcd1",
       "name": "Parse JSON"
     },
     {
@@ -82,8 +91,11 @@
       },
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
-      "position": [440, 0],
-      "id": "switch-valid-001",
+      "position": [
+        160,
+        320
+      ],
+      "id": "2227c5a6-7514-40d9-a948-683b9a04ae71",
       "name": "Valid JSON?"
     },
     {
@@ -97,16 +109,17 @@
         "jsonBody": "={{ JSON.stringify($json.payload) }}",
         "options": {
           "response": {
-            "response": {
-              "fullResponse": false
-            }
+            "response": {}
           }
         }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [660, -100],
-      "id": "post-gateway-001",
+      "position": [
+        368,
+        208
+      ],
+      "id": "5e1aa093-11a3-4466-a137-fef891de9eb7",
       "name": "POST to Gateway",
       "credentials": {
         "httpBasicAuth": {
@@ -121,8 +134,11 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [880, -100],
-      "id": "shape-response-001",
+      "position": [
+        592,
+        208
+      ],
+      "id": "d720a605-1e0f-4f58-be21-4c0aafba8485",
       "name": "Shape Response"
     },
     {
@@ -131,22 +147,28 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [660, 100],
-      "id": "shape-error-001",
+      "position": [
+        368,
+        416
+      ],
+      "id": "c45812b6-6bf1-4d0a-b861-d2bcc0e9e077",
       "name": "Shape Error"
     },
     {
       "parameters": {
-        "operation": "sendMessage",
         "chatId": "={{ $json.chat_id }}",
         "text": "={{ $json.text }}",
         "additionalFields": {}
       },
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [1100, 0],
-      "id": "send-response-001",
+      "position": [
+        816,
+        320
+      ],
+      "id": "d55f7829-76df-4604-aadc-8bd1d6c9abef",
       "name": "Send Response",
+      "webhookId": "4bda76d6-d6bf-4a19-89bf-9f97ccba7e1d",
       "credentials": {
         "telegramApi": {
           "id": "VTIn4SmsgbApQNj2",
@@ -155,6 +177,7 @@
       }
     }
   ],
+  "pinData": {},
   "connections": {
     "Telegram Trigger": {
       "main": [
@@ -230,14 +253,15 @@
       ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "",
+  "versionId": "9eb6fa03-7034-4f2d-889f-888874706fdc",
   "meta": {
-    "instanceId": ""
+    "templateCredsSetupCompleted": true,
+    "instanceId": "154f6928422db881044f8d1647b40fc389c59337d14356c0ee681d50ffb55d7e"
   },
-  "id": "",
+  "id": "78ZdWg4a2q3VD66d",
   "tags": []
 }
