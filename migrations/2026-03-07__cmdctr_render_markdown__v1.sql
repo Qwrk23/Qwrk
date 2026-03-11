@@ -1,0 +1,5 @@
+-- See Supabase migration: cmdctr_render_session_markdown_v1
+-- Deployed via MCP apply_migration on 2026-03-07
+-- Thread: T100
+-- Function: cmdctr_render_session_markdown()
+-- Source: inline in apply_migration call

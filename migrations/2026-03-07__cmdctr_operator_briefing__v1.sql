@@ -1,0 +1,7 @@
+-- See Supabase migration: cmdctr_operator_briefing_v1
+-- Deployed via MCP apply_migration on 2026-03-07
+-- Thread: T100
+-- Function: cmdctr_operator_briefing()
+-- Orchestrates: crawl -> context -> save snapshot -> render markdown
+-- Returns: TEXT (markdown briefing)
+-- Source: inline in apply_migration call
