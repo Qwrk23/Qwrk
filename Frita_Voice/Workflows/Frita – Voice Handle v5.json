@@ -11,10 +11,10 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        -896,
-        400
+        -1136,
+        480
       ],
-      "id": "1047a1c1-fbf4-407e-8536-79da05bbb5fc",
+      "id": "09a8f054-c2a9-4926-b3ad-2f1d5e89e61a",
       "name": "Webhook",
       "webhookId": "e5000001-wh01-4aaa-b001-000000000001"
     },
@@ -51,6 +51,24 @@
               "name": "caller_last_name",
               "value": "={{$json.query.lname || ''}}",
               "type": "string"
+            },
+            {
+              "id": "e5000001-a006-4aaa-b001-000000000001",
+              "name": "caller_email",
+              "value": "={{$json.query.email || ''}}",
+              "type": "string"
+            },
+            {
+              "id": "e5000001-a007-4aaa-b001-000000000001",
+              "name": "caller_phone",
+              "value": "={{$json.body.From || ''}}",
+              "type": "string"
+            },
+            {
+              "id": "e5000001-a008-4aaa-b001-000000000001",
+              "name": "step",
+              "value": "={{$json.query.step || 'initial'}}",
+              "type": "string"
             }
           ]
         },
@@ -59,11 +77,44 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -688,
-        400
+        -928,
+        480
       ],
-      "id": "06e3b435-73e3-4121-9ef5-f6d6abc0a6d6",
+      "id": "c514f576-196c-4347-8161-9ede76fd82f4",
       "name": "Extract State"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e5000001-step-4aaa-b001-000000000001",
+              "leftValue": "={{$json.step}}",
+              "rightValue": "empid_collected",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -824,
+        480
+      ],
+      "id": "a1b2c3d4-step-4aaa-b001-000000000001",
+      "name": "Step Check?"
     },
     {
       "parameters": {
@@ -271,33 +322,9 @@
                 },
                 "conditions": [
                   {
-                    "id": "e5000001-s009-4aaa-b001-000000000001",
-                    "leftValue": "={{$json.normalized_text}}",
-                    "rightValue": "benefits",
-                    "operator": {
-                      "type": "string",
-                      "operation": "contains"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "benefits_contact"
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 3
-                },
-                "conditions": [
-                  {
                     "id": "e5000001-s010-4aaa-b001-000000000001",
                     "leftValue": "={{$json.normalized_text}}",
-                    "rightValue": "insurance",
+                    "rightValue": "add",
                     "operator": {
                       "type": "string",
                       "operation": "contains"
@@ -307,7 +334,7 @@
                 "combinator": "and"
               },
               "renameOutput": true,
-              "outputKey": "benefits_contact"
+              "outputKey": "Distro_list"
             },
             {
               "conditions": {
@@ -321,7 +348,7 @@
                   {
                     "id": "e5000001-s011-4aaa-b001-000000000001",
                     "leftValue": "={{$json.normalized_text}}",
-                    "rightValue": "medical",
+                    "rightValue": "Distribution",
                     "operator": {
                       "type": "string",
                       "operation": "contains"
@@ -331,7 +358,7 @@
                 "combinator": "and"
               },
               "renameOutput": true,
-              "outputKey": "benefits_contact"
+              "outputKey": "Distro_list"
             },
             {
               "conditions": {
@@ -345,7 +372,7 @@
                   {
                     "id": "e5000001-s012-4aaa-b001-000000000001",
                     "leftValue": "={{$json.normalized_text}}",
-                    "rightValue": "health",
+                    "rightValue": "distro",
                     "operator": {
                       "type": "string",
                       "operation": "contains"
@@ -355,7 +382,7 @@
                 "combinator": "and"
               },
               "renameOutput": true,
-              "outputKey": "benefits_contact"
+              "outputKey": "Distro_list"
             }
           ]
         },
@@ -366,10 +393,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        -480,
-        400
+        -720,
+        480
       ],
-      "id": "7907c618-6c73-4941-b8d8-9c178c20d016",
+      "id": "3400de63-1c1b-4997-b60c-076309d3ce61",
       "name": "Switch"
     },
     {
@@ -399,10 +426,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        -240,
-        112
+        -480,
+        192
       ],
-      "id": "813bff5d-3818-4213-a481-eace2bedba97",
+      "id": "f622be92-5414-40e7-890e-4080e8999223",
       "name": "Identity Confirmed?"
     },
     {
@@ -418,7 +445,7 @@
             {
               "id": "e5000001-r002-4aaa-b001-000000000001",
               "name": "response_text",
-              "value": "=I can help with that. I recognize this phone number as {{$json.caller_first_name}} {{$json.caller_last_name}}. I'll unlock your account and text you the next steps shortly.",
+              "value": "=I can help with that. As I have already confirmed your identity, I'll unlock your account and text you the temporary password shortly.  Have a great day.  Goodbye.",
               "type": "string"
             }
           ]
@@ -429,10 +456,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        0,
-        0
+        -240,
+        80
       ],
-      "id": "b9f8b9e2-9d87-40d2-bbbc-e76eeb46b87a",
+      "id": "7213c4cc-b2e9-4057-8dd8-1a0e98b36c50",
       "name": "Set Recognized"
     },
     {
@@ -459,10 +486,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        0,
-        208
+        -240,
+        288
       ],
-      "id": "8a925e93-e084-4118-a4fe-33527fe73a42",
+      "id": "6e0914ff-b5d9-44f1-8823-78a891556230",
       "name": "Set Not Recognized"
     },
     {
@@ -478,7 +505,7 @@
             {
               "id": "e5000001-r006-4aaa-b001-000000000001",
               "name": "response_text",
-              "value": "I'll text you the guest Wi-Fi information now.",
+              "value": "The guest wifi SSID is resolve underscore guest.  The password is resolve one two three pound.  I will also text you this information.  Have a great day.  Goodbye",
               "type": "string"
             }
           ]
@@ -489,41 +516,11 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -240,
-        512
+        80,
+        528
       ],
-      "id": "f37374ec-7cfa-41c7-b8e8-21b7db7e4b03",
+      "id": "6292be3b-4159-490f-a8a9-c4cf11d0387b",
       "name": "Set guest_wifi"
-    },
-    {
-      "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "id": "e5000001-r007-4aaa-b001-000000000001",
-              "name": "intent",
-              "value": "benefits_contact",
-              "type": "string"
-            },
-            {
-              "id": "e5000001-r008-4aaa-b001-000000000001",
-              "name": "response_text",
-              "value": "I'll text you the benefits help desk information.",
-              "type": "string"
-            }
-          ]
-        },
-        "includeOtherFields": true,
-        "options": {}
-      },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        -240,
-        704
-      ],
-      "id": "c90cfc53-7f8d-456d-b04f-ec5e321b202d",
-      "name": "Set benefits_contact"
     },
     {
       "parameters": {
@@ -538,7 +535,7 @@
             {
               "id": "e5000001-r010-4aaa-b001-000000000001",
               "name": "response_text",
-              "value": "I'm sorry - I didn't catch a supported request. I'll create a ticket and have someone follow up.",
+              "value": "I'm sorry - I didn't catch a supported request. I'll create a ticket and have someone from the service desk follow up soon.",
               "type": "string"
             }
           ]
@@ -549,16 +546,16 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -240,
-        912
+        -480,
+        992
       ],
-      "id": "4aaeddb4-1e60-4ab2-9d1b-d8573b64f60a",
+      "id": "492f6478-bde4-4468-9345-80d83d7fb5cf",
       "name": "Set unknown"
     },
     {
       "parameters": {
         "respondWith": "text",
-        "responseBody": "=<Response>\n  <Say>{{$json.response_text}}</Say>\n</Response>",
+        "responseBody": "=<Response>\n  <Say voice=\"Polly.Joanna-Neural\">{{$json.response_text}}</Say>\n</Response>",
         "options": {
           "responseCode": 200,
           "responseHeaders": {
@@ -574,11 +571,214 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        224,
+        -240,
+        784
+      ],
+      "id": "e8961e61-bd73-40e9-9fe6-ef62e10191ef",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "frita-email-c001",
+              "leftValue": "={{$json.caller_email}}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        784
+      ],
+      "id": "d0ef3aa3-fa16-4891-a8cb-97001c21c7b8",
+      "name": "Has Email?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://sedemoexp2.resolve.io:7775/AppDynamics/",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"auth\": \"123456789\",\n  \"sessionid\": \"0\",\n  \"action\": \"send_teams_message\",\n  \"teams_recipient\": \"{{ $json.caller_email }}\"\n}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        704
+      ],
+      "id": "8ad2ddf8-29b7-495b-90b2-c6559bd3ec6d",
+      "name": "Call Resolve Actions",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.twilio.com/2010-04-01/Accounts/ACc2692e133b350375e95eecedcef59a06/Messages.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "To",
+              "value": "={{ $json.caller_phone }}"
+            },
+            {
+              "name": "From",
+              "value": "+12312591770"
+            },
+            {
+              "name": "Body",
+              "value": "=IT Service Desk: Hi {{ $json.caller_first_name }}, your account has been unlocked. Your temporary password is: TempPass2026! Please change it upon your next login."
+            }
+          ]
+        },
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ],
+      "id": "bbb84270-245e-4b01-b008-e1dddc58726e",
+      "name": "Send Password Reset SMS",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "x86pJoXVIyZzG1wj",
+          "name": "Twilio2 basic auth"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "=<Response>\n  <Say voice=\"Polly.Joanna-Neural\">{{$json.response_text}}</Say>\n</Response>",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/xml"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        0,
+        0
+      ],
+      "id": "7566c82b-bc4b-432a-8712-b915eef57774",
+      "name": "TwiML Password Reset"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "=<Response>\n  <Gather input=\"speech dtmf\" timeout=\"5\" action=\"/webhook/twilio/voice/walk/handle?step=empid_collected&amp;fname={{$json.caller_first_name}}&amp;lname={{$json.caller_last_name}}&amp;idstatus=confirmed&amp;email={{$json.caller_email}}\" method=\"POST\">\n    <Say voice=\"Polly.Joanna-Neural\">For verification, please say or enter your employee I.D. number.</Say>\n  </Gather>\n  <Say voice=\"Polly.Joanna-Neural\">I didn't catch that. Let me transfer you to the service desk.</Say>\n</Response>",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/xml"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -240,
+        -80
+      ],
+      "id": "b5e6f7a8-empid-4aaa-b001-000000000001",
+      "name": "TwiML Ask Employee ID"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e5000001-r007-4aaa-b001-000000000001",
+              "name": "intent",
+              "value": "distro_list",
+              "type": "string"
+            },
+            {
+              "id": "e5000001-r008-4aaa-b001-000000000001",
+              "name": "response_text",
+              "value": "I'm happy to help you manage your distro list by walking you through it in Teams.  Please check there now for a message from me.  Have a great day.  Goodbye.",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -480,
+        784
+      ],
+      "id": "31763509-e711-4d80-894b-b0f6b1785f40",
+      "name": "Set_Distro_List"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "=<Response>\n  <Say voice=\"Polly.Joanna-Neural\">{{$json.response_text}}</Say>\n</Response>",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/xml"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        368,
         512
       ],
-      "id": "39ffae69-8bcd-4ebf-93b3-38ac319ecf44",
-      "name": "Respond to Webhook"
+      "id": "e450c030-102d-4b8f-8b87-8c25becae0eb",
+      "name": "Respond to Webhook1"
     }
   ],
   "pinData": {
@@ -594,12 +794,13 @@
           "query": {
             "fname": "Joel",
             "lname": "Blagg",
-            "idstatus": "confirmed"
+            "idstatus": "confirmed",
+            "email": "joel.blagg@resolve.io"
           },
           "body": {
             "Called": "+12312591770",
             "Direction": "inbound",
-            "SpeechResult": "I'm locked out of my computer.",
+            "SpeechResult": "I need the guest wifi info.",
             "Confidence": "0.8617299",
             "CallSid": "CAwalk-test-0001",
             "To": "+12312591770",
@@ -631,6 +832,24 @@
     },
     "Extract State": {
       "main": [
+        [
+          {
+            "node": "Step Check?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Step Check?": {
+      "main": [
+        [
+          {
+            "node": "Set Recognized",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "Switch",
@@ -700,28 +919,21 @@
         ],
         [
           {
-            "node": "Set benefits_contact",
+            "node": "Set_Distro_List",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Set benefits_contact",
+            "node": "Set_Distro_List",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Set benefits_contact",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Set benefits_contact",
+            "node": "Set_Distro_List",
             "type": "main",
             "index": 0
           }
@@ -739,7 +951,7 @@
       "main": [
         [
           {
-            "node": "Set Recognized",
+            "node": "TwiML Ask Employee ID",
             "type": "main",
             "index": 0
           }
@@ -757,7 +969,7 @@
       "main": [
         [
           {
-            "node": "Respond to Webhook",
+            "node": "TwiML Password Reset",
             "type": "main",
             "index": 0
           }
@@ -779,18 +991,7 @@
       "main": [
         [
           {
-            "node": "Respond to Webhook",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Set benefits_contact": {
-      "main": [
-        [
-          {
-            "node": "Respond to Webhook",
+            "node": "Respond to Webhook1",
             "type": "main",
             "index": 0
           }
@@ -807,16 +1008,60 @@
           }
         ]
       ]
+    },
+    "Has Email?": {
+      "main": [
+        [
+          {
+            "node": "Call Resolve Actions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TwiML Password Reset": {
+      "main": [
+        [
+          {
+            "node": "Send Password Reset SMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook": {
+      "main": [
+        [
+          {
+            "node": "Has Email?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set_Distro_List": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "6d22a352-2620-478d-a238-2a9ef2e02d63",
+  "versionId": "35a82844-b1eb-44c2-bb44-eb42f1a2627d",
   "meta": {
     "instanceId": "154f6928422db881044f8d1647b40fc389c59337d14356c0ee681d50ffb55d7e"
   },
-  "id": "fta44WX3HMtpfErq",
+  "id": "eMafLvovX3xXqAKR",
   "tags": []
 }

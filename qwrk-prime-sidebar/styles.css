@@ -1,0 +1,434 @@
+/* ============================================================
+   QSB — Qwrk Prime Sidebar Styles
+   Injected into Shadow DOM — fully isolated from ChatGPT CSS.
+   ============================================================ */
+
+:host {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #333;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+#qsb-container {
+  background: #ffffff;
+  border: 1px solid #d0d0d0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* ==========================================================
+   Execution Bar
+   ========================================================== */
+
+.qsb-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 10px;
+  gap: 8px;
+  min-height: 30px;
+}
+
+.qsb-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Status indicator dot */
+.qsb-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.qsb-indicator.idle      { background: #ccc; }
+.qsb-indicator.staged    { background: #4ecca3; }
+.qsb-indicator.executing { background: #f0c040; animation: qsb-pulse 1s infinite; }
+.qsb-indicator.error     { background: #e74c3c; }
+
+@keyframes qsb-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.3; }
+}
+
+.qsb-status-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #999;
+  font-size: 11px;
+}
+
+.qsb-status-text.active {
+  color: #1a6b4a;
+}
+
+.qsb-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* ==========================================================
+   Buttons
+   ========================================================== */
+
+.qsb-btn {
+  padding: 3px 10px;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  background: #f5f5f5;
+  color: #333;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: inherit;
+  line-height: 1.4;
+}
+
+.qsb-btn:hover {
+  background: #e8e8e8;
+  border-color: #bbb;
+}
+
+.qsb-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.qsb-btn:disabled:hover {
+  background: #f5f5f5;
+  border-color: #d0d0d0;
+}
+
+.qsb-btn.execute {
+  background: #1a6b4a;
+  border-color: #1a6b4a;
+  color: #fff;
+  font-weight: 600;
+}
+
+.qsb-btn.execute:hover:not(:disabled) {
+  background: #1d7d55;
+}
+
+.qsb-btn.clear {
+  color: #888;
+}
+
+.qsb-btn.debug-toggle {
+  padding: 3px 7px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* ==========================================================
+   Auto-Paste Toggle
+   ========================================================== */
+
+.qsb-auto-paste-toggle {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  color: #888;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.qsb-auto-paste-toggle input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+  accent-color: #1a6b4a;
+}
+
+.qsb-auto-paste-toggle:has(input:checked) {
+  color: #1a6b4a;
+  font-weight: 600;
+}
+
+/* ==========================================================
+   Workspace Select
+   ========================================================== */
+
+.qsb-select {
+  padding: 3px 6px;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  background: #f5f5f5;
+  color: #333;
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  max-width: 140px;
+}
+
+.qsb-select:focus {
+  outline: none;
+  border-color: #4ecca3;
+}
+
+/* ==========================================================
+   Result Summary Card
+   ========================================================== */
+
+.qsb-summary-card {
+  padding: 6px 10px;
+  border-top: 1px solid #e0e0e0;
+  font-size: 11px;
+}
+
+.qsb-summary-success {
+  background: #f4f7fb;
+}
+
+.qsb-summary-error {
+  background: #fef5f5;
+}
+
+.qsb-summary-title {
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+
+.qsb-summary-success .qsb-summary-title {
+  color: #1a6b4a;
+}
+
+.qsb-summary-error .qsb-summary-title {
+  color: #e74c3c;
+}
+
+.qsb-summary-row {
+  padding: 1px 0;
+  color: #555;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qsb-summary-label {
+  color: #888;
+  font-size: 10px;
+}
+
+.qsb-summary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+/* ==========================================================
+   Execution Log
+   ========================================================== */
+
+.qsb-log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 10px;
+  border-top: 1px solid #e0e0e0;
+  background: #fafafa;
+  font-size: 10px;
+  color: #888;
+  user-select: none;
+}
+
+.qsb-log-header-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.qsb-log-header-left:hover {
+  color: #555;
+}
+
+.qsb-log-chevron {
+  font-size: 8px;
+}
+
+.qsb-btn-log-clear {
+  padding: 1px 6px;
+  font-size: 10px;
+}
+
+.qsb-log {
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+.qsb-log:empty {
+  display: none;
+}
+
+.qsb-log-entry {
+  display: flex;
+  align-items: center;
+  padding: 3px 10px;
+  gap: 6px;
+  font-size: 11px;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+  user-select: none;
+}
+
+.qsb-log-entry:last-child {
+  border-bottom: none;
+}
+
+.qsb-log-entry:hover {
+  background: #f5f5f5;
+}
+
+.qsb-log-icon {
+  flex-shrink: 0;
+  font-size: 11px;
+}
+
+.qsb-log-icon.success { color: #4ecca3; }
+.qsb-log-icon.error   { color: #e74c3c; }
+
+.qsb-log-message {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qsb-log-time {
+  flex-shrink: 0;
+  color: #555;
+  font-size: 10px;
+}
+
+.qsb-log-detail {
+  padding: 4px 10px 6px 28px;
+  border-bottom: 1px solid #eee;
+}
+
+.qsb-log-detail pre {
+  margin: 0;
+  padding: 6px;
+  background: #f8f8f8;
+  border: 1px solid #e0e0e0;
+  border-radius: 3px;
+  font-family: "Consolas", "Monaco", "Courier New", monospace;
+  font-size: 10px;
+  color: #555;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+/* ==========================================================
+   Debug Panel
+   ========================================================== */
+
+.qsb-debug {
+  border-top: 1px solid #e0e0e0;
+  padding: 8px 10px;
+}
+
+.qsb-debug-label {
+  font-size: 10px;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 3px;
+}
+
+.qsb-debug textarea {
+  display: block;
+  width: 100%;
+  min-height: 60px;
+  max-height: 200px;
+  padding: 6px;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  background: #f8f8f8;
+  color: #333;
+  font-family: "Consolas", "Monaco", "Courier New", monospace;
+  font-size: 11px;
+  resize: vertical;
+  line-height: 1.3;
+}
+
+.qsb-debug textarea:focus {
+  outline: none;
+  border-color: #1a6b4a;
+}
+
+.qsb-debug textarea[readonly] {
+  color: #777;
+  cursor: default;
+}
+
+.qsb-debug-staged {
+  margin-bottom: 8px;
+}
+
+.qsb-debug-manual {
+  margin-bottom: 4px;
+}
+
+.qsb-debug-controls {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.qsb-debug-request {
+  margin-top: 4px;
+  padding: 5px 8px;
+  background: #f8f8f8;
+  border: 1px solid #e0e0e0;
+  border-radius: 3px;
+  font-family: "Consolas", "Monaco", "Courier New", monospace;
+  font-size: 10px;
+  color: #777;
+}
+
+.qsb-header-line {
+  margin: 1px 0;
+}
+
+/* ==========================================================
+   Scrollbar (minimal)
+   ========================================================== */
+
+.qsb-log::-webkit-scrollbar,
+.qsb-log-detail pre::-webkit-scrollbar,
+.qsb-debug textarea::-webkit-scrollbar {
+  width: 4px;
+}
+
+.qsb-log::-webkit-scrollbar-track,
+.qsb-log-detail pre::-webkit-scrollbar-track,
+.qsb-debug textarea::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.qsb-log::-webkit-scrollbar-thumb,
+.qsb-log-detail pre::-webkit-scrollbar-thumb,
+.qsb-debug textarea::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 2px;
+}

@@ -11,10 +11,10 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        -832,
-        80
+        -880,
+        112
       ],
-      "id": "08130d27-8f5d-48f7-9a41-4fa8e2e38153",
+      "id": "c7ba85df-4f40-4347-96be-cb8a9ddfd383",
       "name": "Webhook",
       "webhookId": "e2000001-wh01-4aaa-b001-000000000001"
     },
@@ -35,10 +35,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -640,
-        80
+        -688,
+        112
       ],
-      "id": "b62d0ebf-1a96-445b-9114-16774fbc0857",
+      "id": "cebdde0e-2353-4d2b-a616-0f043c4887f2",
       "name": "Extract Phone"
     },
     {
@@ -53,11 +53,12 @@
           "conditions": [
             {
               "id": "e2000001-c001-4aaa-b001-000000000001",
-              "leftValue": "={{$json.idstatus}} equals \"confirmed\"",
-              "rightValue": true,
+              "leftValue": "={{$json.recognized}}",
+              "rightValue": "",
               "operator": {
                 "type": "boolean",
-                "operation": "equals"
+                "operation": "true",
+                "singleValue": true
               }
             }
           ],
@@ -68,16 +69,16 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        -176,
-        80
+        -224,
+        112
       ],
-      "id": "83b2ed0a-bedb-45db-8b31-816c6585f861",
+      "id": "f65f599a-f605-4263-bdc8-37fda45e5bfb",
       "name": "Recognized?"
     },
     {
       "parameters": {
         "respondWith": "text",
-        "responseBody": "=<Response>\n  <Say voice=\"alice\">Hi, this is Frita. I recognize this number. Are you {{$json.first_name}} {{$json.last_name}}?</Say>\n  <Gather input=\"speech\" timeout=\"5\" action=\"/webhook/twilio/voice/confirm-identity?fname={{$json.first_name}}&amp;lname={{$json.last_name}}\" method=\"POST\">\n    <Say voice=\"alice\">Please say yes or no.</Say>\n  </Gather>\n  <Say voice=\"alice\">I didn't catch that. Please try calling again.</Say>\n</Response>",
+        "responseBody": "=<Response>\n  <Say voice=\"Polly.Joanna-Neural\">Hi, this is Rita. I recognize this number. Are you {{$json.first_name}} {{$json.last_name}}?</Say>\n  <Gather input=\"speech\" timeout=\"5\" action=\"/webhook/twilio/voice/confirm-identity?fname={{$json.first_name}}&amp;lname={{$json.last_name}}&amp;email={{$json.email}}\" method=\"POST\">\n    <Say voice=\"Polly.Joanna-Neural\">Please say yes or no.</Say>\n  </Gather>\n  <Say voice=\"Polly.Joanna-Neural\">I didn't catch that. Please try calling again.</Say>\n</Response>",
         "options": {
           "responseCode": 200,
           "responseHeaders": {
@@ -93,16 +94,16 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        48,
-        -32
+        0,
+        0
       ],
-      "id": "f9397873-4759-41cc-9444-11111bc9139f",
+      "id": "340301f7-22e6-42cd-86c3-d94b58a92733",
       "name": "TwiML Recognized"
     },
     {
       "parameters": {
         "respondWith": "text",
-        "responseBody": "<Response>\n  <Say voice=\"alice\">Hi, this is Frita. To help you, I'll need to look up your account. Can you tell me your employee ID number?</Say>\n  <Gather input=\"speech\" timeout=\"8\" action=\"/webhook/twilio/voice/employee-id\" method=\"POST\">\n    <Say voice=\"alice\">Go ahead with your employee ID.</Say>\n  </Gather>\n  <Say voice=\"alice\">I didn't catch that. Please try calling again.</Say>\n</Response>",
+        "responseBody": "<Response>\n  <Say voice=\"Polly.Joanna-Neural\">Hi, this is Rita. To help you, I'll need to look up your account. Can you tell me your employee ID number?</Say>\n  <Gather input=\"speech\" timeout=\"8\" action=\"/webhook/twilio/voice/employee-id\" method=\"POST\">\n    <Say voice=\"Polly.Joanna-Neural\">Go ahead with your employee ID.</Say>\n  </Gather>\n  <Say voice=\"Polly.Joanna-Neural\">I didn't catch that. Please try calling again.</Say>\n</Response>",
         "options": {
           "responseCode": 200,
           "responseHeaders": {
@@ -118,19 +119,19 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        48,
-        176
+        0,
+        208
       ],
-      "id": "d5171072-32f0-421e-9053-fd601c6fb3cf",
+      "id": "e9fc811c-8edf-4bd1-8560-1c26565014c0",
       "name": "TwiML Unknown"
     },
     {
       "parameters": {
         "workflowId": {
           "__rl": true,
-          "value": "ya1SivZbX1EZk1Nn",
+          "value": "0JPtbuhhlCpxtoXK",
           "mode": "list",
-          "cachedResultUrl": "/workflow/ya1SivZbX1EZk1Nn",
+          "cachedResultUrl": "/workflow/0JPtbuhhlCpxtoXK",
           "cachedResultName": "Frita – Identity Lookup v2"
         },
         "workflowInputs": {
@@ -148,10 +149,10 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
       "position": [
-        -432,
-        80
+        -480,
+        112
       ],
-      "id": "33e66b45-06f0-469f-b6bd-a71ee71d2069",
+      "id": "fa01036d-1d69-4f8b-8e01-cbe6c8b3eb1b",
       "name": "Call 'Frita – Identity Lookup v2'"
     }
   ],
@@ -213,10 +214,10 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "ee36cb00-c1f5-49b8-9052-3251f81fbcd5",
+  "versionId": "4a0b7c70-0466-4861-a832-bf1b8d4cda62",
   "meta": {
     "instanceId": "154f6928422db881044f8d1647b40fc389c59337d14356c0ee681d50ffb55d7e"
   },
-  "id": "VJyoELUDZ1w1gFAQ",
+  "id": "wLgKm05aBkGyEkyX",
   "tags": []
 }

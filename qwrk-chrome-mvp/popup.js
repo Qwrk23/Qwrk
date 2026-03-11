@@ -10,7 +10,7 @@
 const WORKSPACE_PROFILES = [
   {
     id: "qwrk-personal",
-    label: "Qwrk Personal",
+    label: "Qwrk Prime",
     endpoint: "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1",
     credential: "cXdyay1nYXRld2F5OmFzbGZqYSd3d2UqKCNmaHdvSUk4NDNnaGx3X2VrMmw="
   },
@@ -19,14 +19,25 @@ const WORKSPACE_PROFILES = [
     label: "Qwrk@Work",
     endpoint: "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1/work",
     credential: "cXdyay1ndy13b3JrOnVmd3BqTkYwUEVNcTRSOTJTVDZ6S1FNNWVlVnM3Qm5N"
+  },
+  {
+    id: "qwrk-blagglife",
+    label: "BlaggLife",
+    endpoint: "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1/blagglife",
+    credential: "cXdyay1ndy1ibGFnZ2xpZmU6ZmprczBmZ2hsMjhnaGxzayZ0Z2woaGRoYWx4aGxzZWhlJmx3ZWxraGc="
+  },
+  {
+    id: "qwrk-akara",
+    label: "Akara",
+    endpoint: "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1/akara",
+    credential: "cXdyay1ndy1ha2FyYTpzYTtsODIzNGh0MjkxJilramxoZGFoIWUzODBkamthaHQqdWhrd2U="
+  },
+  {
+    id: "qwrk-greg",
+    label: "Greg",
+    endpoint: "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1/greg",
+    credential: "cXdyay1ndy1ncmVnOkRsbExUaEhNVFpuRU5ZZndmOFhjR3J0Z0pMdGlvRHpWdDhvdGpSSldJNUE="
   }
-  // Add more profiles here:
-  // {
-  //   id: "qwrk-akara",
-  //   label: "Akara",
-  //   endpoint: "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1/akara",
-  //   credential: "<base64>"
-  // }
 ];
 // =============================================================================
 

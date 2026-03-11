@@ -14,14 +14,14 @@
         -720,
         112
       ],
-      "id": "a983a002-009f-4db3-8535-c6d414b03836",
+      "id": "1305393d-7c19-497d-9953-3c12d25ac8c0",
       "name": "Webhook",
       "webhookId": "e4000001-wh01-4aaa-b001-000000000001"
     },
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "// Frita – Employee ID Lookup\n// Normalizes spoken employee ID and looks up in known callers.\n// -----------------------------------------------\n// TODO: Replace hardcoded lookup with n8n Table node:\n//   Table: fv_known_callers\n//   Operation: Get rows where employee_id = normalized input AND active = true\n// -----------------------------------------------\n\n// Normalize spoken numbers to digits\nconst numberWords = {\n  'zero': '0', 'oh': '0', 'o': '0',\n  'one': '1', 'two': '2', 'three': '3',\n  'four': '4', 'five': '5', 'six': '6',\n  'seven': '7', 'eight': '8', 'nine': '9',\n  'ten': '10'\n};\n\nconst speech = $json.body.SpeechResult.toLowerCase().trim();\n\n// Convert spoken words to digits, or use raw if already numeric\nlet employeeId;\nif (/^\\d+$/.test(speech.replace(/\\s+/g, ''))) {\n  // Already digits (possibly with spaces: \"1 0 0 4 2\")\n  employeeId = speech.replace(/\\s+/g, '');\n} else {\n  // Spoken words: \"one zero zero four two\"\n  employeeId = speech.split(/\\s+/).map(w => numberWords[w] || w).join('');\n}\n\n// Hardcoded known callers (replace with n8n Table)\nconst knownCallers = [\n  {\n    phone_number: '+18177156827',\n    employee_id: '10042',\n    first_name: 'Joel',\n    last_name: 'Blagg',\n    active: true\n  }\n];\n\nconst match = knownCallers.find(\n  c => c.employee_id === employeeId && c.active\n);\n\nif (match) {\n  return {\n    json: {\n      found: true,\n      first_name: match.first_name,\n      last_name: match.last_name,\n      employee_id: employeeId\n    }\n  };\n} else {\n  return {\n    json: {\n      found: false,\n      employee_id: employeeId\n    }\n  };\n}"
+        "jsCode": "// Frita – Employee ID Lookup\n// Normalizes spoken employee ID and looks up in known callers.\n// -----------------------------------------------\n// TODO: Replace hardcoded lookup with n8n Table node:\n//   Table: fv_known_callers\n//   Operation: Get rows where employee_id = normalized input AND active = true\n// -----------------------------------------------\n\n// Normalize spoken numbers to digits\nconst numberWords = {\n  'zero': '0', 'oh': '0', 'o': '0',\n  'one': '1', 'two': '2', 'three': '3',\n  'four': '4', 'five': '5', 'six': '6',\n  'seven': '7', 'eight': '8', 'nine': '9',\n  'ten': '10'\n};\n\nconst speech = ($json.body?.SpeechResult || '').toLowerCase().trim();\n\n// Convert spoken words to digits, or use raw if already numeric\nlet employeeId;\nif (/^\\d+$/.test(speech.replace(/\\s+/g, ''))) {\n  // Already digits (possibly with spaces: \"1 0 0 4 2\")\n  employeeId = speech.replace(/\\s+/g, '');\n} else {\n  // Spoken words: \"one zero zero four two\"\n  employeeId = speech.split(/\\s+/).map(w => numberWords[w] || w).join('');\n}\n\n// Hardcoded known callers (replace with n8n Table)\nconst knownCallers = [\n  {\n    phone_number: '+18177156827',\n    email: 'joel.blagg@resolve.io',\n    employee_id: '1234',\n    first_name: 'Joel',\n    last_name: 'Blagg',\n    active: true\n  },\n  {\n    phone_number: '+16785523640',\n    email: 'nelson.veiga@resolve.io',\n    employee_id: '2345',\n    first_name: 'Nelson',\n    last_name: 'Veiga',\n    active: true\n  },\n  {\n    phone_number: '+13479985254',\n    email: 'derek.pascarella@resolve.io',\n    employee_id: '3456',\n    first_name: 'Derek',\n    last_name: 'Pascarella',\n    active: true\n  },\n  {\n    phone_number: '+14084318627',\n    email: 'alex.yupanqui@resolve.io',\n    employee_id: '4567',\n    first_name: 'Alex',\n    last_name: 'Yupanqui',\n    active: true\n  }\n];\n\nconst match = knownCallers.find(\n  c => c.employee_id === employeeId && c.active\n);\n\nif (match) {\n  return {\n    json: {\n      found: true,\n      first_name: match.first_name,\n      last_name: match.last_name,\n      employee_id: employeeId,\n      phone_number: match.phone_number,\n      email: match.email\n    }\n  };\n}\n\nreturn {\n  json: {\n    found: false,\n    employee_id: employeeId\n  }\n};"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -29,7 +29,7 @@
         -480,
         112
       ],
-      "id": "f3786130-450a-4a5f-bb71-586cc35cc8aa",
+      "id": "6ee2889d-c0aa-4c5f-97b5-7371a0fe9544",
       "name": "Lookup by Employee ID"
     },
     {
@@ -62,13 +62,13 @@
         -240,
         112
       ],
-      "id": "00ac5078-c1e5-4e3b-a2f4-19fda7d22cdf",
+      "id": "55071f8c-fa47-4a5f-8604-8275ba783936",
       "name": "Found?"
     },
     {
       "parameters": {
         "respondWith": "text",
-        "responseBody": "=<Response>\n  <Say voice=\"alice\">Thanks, {{$json.first_name}}. How can I help you today?</Say>\n  <Gather input=\"speech\" timeout=\"5\" action=\"/webhook/twilio/voice/walk/handle?fname={{$json.first_name}}&amp;lname={{$json.last_name}}&amp;idstatus=confirmed\" method=\"POST\">\n    <Say voice=\"alice\">Please briefly tell me what you need help with.</Say>\n  </Gather>\n  <Say voice=\"alice\">I didn't catch that. Please try calling again.</Say>\n</Response>",
+        "responseBody": "=<Response>\n  <Say voice=\"Polly.Joanna-Neural\">Thanks, {{$json.first_name}}. How can I help you today?</Say>\n  <Gather input=\"speech\" timeout=\"5\" action=\"/webhook/twilio/voice/walk/handle?fname={{$json.first_name}}&amp;lname={{$json.last_name}}&amp;idstatus=confirmed&amp;email={{$json.email}}\" method=\"POST\">\n    <Say voice=\"Polly.Joanna-Neural\">Please briefly tell me what you need help with.</Say>\n  </Gather>\n  <Say voice=\"Polly.Joanna-Neural\">I didn't catch that. Please try calling again.</Say>\n</Response>",
         "options": {
           "responseCode": 200,
           "responseHeaders": {
@@ -87,13 +87,13 @@
         0,
         0
       ],
-      "id": "9d232122-1c1d-4710-9b06-d430dc7750e7",
+      "id": "8c8bb705-6e72-45a8-9897-ae6d1b8eeca3",
       "name": "TwiML Found"
     },
     {
       "parameters": {
         "respondWith": "text",
-        "responseBody": "<Response>\n  <Say voice=\"alice\">I wasn't able to verify your identity, but I can still help. What do you need assistance with?</Say>\n  <Gather input=\"speech\" timeout=\"5\" action=\"/webhook/twilio/voice/walk/handle?idstatus=unverified\" method=\"POST\">\n    <Say voice=\"alice\">Please briefly tell me what you need help with.</Say>\n  </Gather>\n  <Say voice=\"alice\">I didn't catch that. Please try calling again.</Say>\n</Response>",
+        "responseBody": "<Response>\n  <Say voice=\"Polly.Joanna-Neural\">I wasn't able to verify your identity, but I can still help. What do you need assistance with?</Say>\n  <Gather input=\"speech\" timeout=\"5\" action=\"/webhook/twilio/voice/walk/handle?idstatus=unverified\" method=\"POST\">\n    <Say voice=\"Polly.Joanna-Neural\">Please briefly tell me what you need help with.</Say>\n  </Gather>\n  <Say voice=\"Polly.Joanna-Neural\">I didn't catch that. Please try calling again.</Say>\n</Response>",
         "options": {
           "responseCode": 200,
           "responseHeaders": {
@@ -112,7 +112,7 @@
         0,
         208
       ],
-      "id": "eaa3af08-65e6-41a6-ac30-86ae8329836d",
+      "id": "6ec0486a-ebca-4cf6-9fdd-0a625bfc1650",
       "name": "TwiML Not Found"
     }
   ],
@@ -163,10 +163,10 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "59aac09e-a93c-470c-997a-78f6ac5a910d",
+  "versionId": "5e39ab97-e629-43d6-852a-776bf89a2485",
   "meta": {
     "instanceId": "154f6928422db881044f8d1647b40fc389c59337d14356c0ee681d50ffb55d7e"
   },
-  "id": "4hT9qcKM9JJVI823",
+  "id": "MW4DhETqWqwsHqEb",
   "tags": []
 }
