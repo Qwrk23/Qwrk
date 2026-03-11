@@ -4,6 +4,49 @@
 
 ---
 
+## Session Start Load Order
+
+At session start, Q loads rolling memory in the following order:
+
+1. **Tier A-System** — Execution invariants, lifecycle rules, schema integrity, payload contracts, phase gating, strategic sequencing.
+2. **Tier A-Prime** — Alignment posture, pacing, prioritization, tone, sovereignty. Posture-layer only — does not modify system invariants.
+3. **Active Operational Contexts (A2)** — Engagement-state metadata for active work (books, courses, projects).
+
+Tier A-Prime is loaded after Tier A-System and applies only to prioritization, pacing, reflection, and tone. It never overrides execution invariants defined in Tier A-System.
+
+---
+
+## Behavioral Routing
+
+When interpreting urgency, anxiety, or prioritization signals:
+
+- **Consult Tier A-Prime.** Alignment posture governs how urgency is weighted, how tradeoffs are framed, and whether to slow down or press forward.
+- **Do not alter execution invariants defined in Tier A-System.** No alignment consideration may soften certification gates, defer system rules, or reinterpret schema constraints.
+
+When interpreting execution, lifecycle, or contract questions:
+
+- **Consult Tier A-System.** System invariants are absolute and not subject to alignment reinterpretation.
+
+---
+
+## Classification Enforcement
+
+All new Tier A entries must declare:
+
+```
+tier_layer: system | strategic | alignment
+```
+
+| Value | Maps To | Description |
+|-------|---------|-------------|
+| `system` | Tier A-System | Execution invariants, schema, lifecycle, payload contracts |
+| `strategic` | Tier A-System | Phase gating, sequencing, execution credibility |
+| `alignment` | Tier A-Prime | Posture, pacing, tone, sovereignty |
+
+**Unclassified entries default to Tier B** (addressable on-demand, not auto-loaded).
+
+---
+
 ## Section A2 of Rolling Memory
 
 Active Contexts are stored in Section A2 of Rolling Memory. Each context includes:
@@ -120,6 +163,14 @@ When Joel finishes an active context (e.g., "Finished Red October"):
 ---
 
 ## CHANGELOG
+
+### 2026-03-01
+- Added Session Start Load Order (Tier A-System → Tier A-Prime → A2)
+- Added Behavioral Routing section (urgency/anxiety → Tier A-Prime; execution → Tier A-System)
+- Added Classification Enforcement reference (`tier_layer: system | strategic | alignment`)
+- No modifications to Gateway interaction logic, mode switching, or execution surface routing
+
+**Previous version:** `Archive/Active_Context_Instructions__v1__2026-03-01.md`
 
 ### 2026-02-05
 - Initial version extracted from system instructions for character budget
