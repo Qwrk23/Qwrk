@@ -1,5 +1,7 @@
 Perform a DDL pre-flight check before writing SQL.
 
+Source: CLAUDE.md "Schema Truth Policy" — last synced 2026-03-10
+
 ## Instructions
 
 This skill enforces the **DDL-as-Truth** policy from CLAUDE.md. Before generating ANY SQL that touches `qxb_*` tables, you MUST verify against the authoritative schema.
