@@ -9,10 +9,12 @@ All execution uses JSON Gateway payloads.
 
 ---
 
-## Raw JSON Invariant (Non-Negotiable)
+## Payload Object Invariant (Non-Negotiable)
 
-* **RAW JSON ONLY** — output must start with `{` and end with `}`
-* **NO** markdown fences, comments, labels, headings, or prose
+> Governs the Gateway payload object. Surface rendering wraps the payload per Execution Doctrine above.
+
+* **RAW JSON ONLY** — payload must start with `{` and end with `}`
+* **NO** markdown fences, comments, labels, headings, or prose inside the payload
 * **ONE payload per execution**
 * If a second action depends on the first:
   1. Execute the first payload
@@ -67,10 +69,34 @@ With tag filter:
 {"gw_action":"artifact.list","gw_workspace_id":"be0d3a48-c764-44f9-90c8-e846d9dbbd0a","artifact_type":"snapshot","selector":{"limit":10,"filters":{"tags_any":["for-q"]}}}
 ```
 
+With parent filter (find children of a known artifact):
+```
+{"gw_action":"artifact.list","gw_workspace_id":"be0d3a48-c764-44f9-90c8-e846d9dbbd0a","artifact_type":"journal","selector":{"limit":20,"parent_artifact_id":"3f3f9725-5761-4a47-8c9e-920b8a18a1bf"}}
+```
+
+With lifecycle_status filter:
+```
+{"gw_action":"artifact.list","gw_workspace_id":"be0d3a48-c764-44f9-90c8-e846d9dbbd0a","artifact_type":"project","selector":{"limit":20,"filters":{"lifecycle_status":"sapling"}}}
+```
+
+With execution_status filter:
+```
+{"gw_action":"artifact.list","gw_workspace_id":"be0d3a48-c764-44f9-90c8-e846d9dbbd0a","artifact_type":"branch","selector":{"limit":20,"filters":{"execution_status":"in_progress"}}}
+```
+
 With pagination:
 ```
-{"gw_action":"artifact.list","gw_workspace_id":"be0d3a48-c764-44f9-90c8-e846d9dbbd0a","artifact_type":"project","selector":{"limit":10,"offset":10}}
+{"gw_action":"artifact.list","gw_workspace_id":"be0d3a48-c764-44f9-90c8-e846d9dbbd0a","artifact_type":"project","selector":{"limit":20,"offset":20}}
 ```
+
+**Filter caveats:**
+* `tags_any` is set containment (AND) — artifact must have ALL specified tags, not any one
+* All `selector.filters` fields combine with AND
+* `execution_status` filter excludes NULL rows — most journals/snapshots/restarts have NULL execution_status
+* `lifecycle_status` filter excludes NULL rows — non-project artifacts typically have NULL
+* Pagination cap: `offset + limit + 1` must not exceed 500
+
+**Discovery:** For structured search strategies, see `Instruction_Pack__Artifact_Discovery_Playbook__v1.md`.
 
 ---
 
@@ -109,12 +135,36 @@ With pagination:
 {"gw_action":"artifact.update","gw_workspace_id":"be0d3a48-c764-44f9-90c8-e846d9dbbd0a","artifact_type":"project","artifact_id":"[UUID]","extension":{"operational_state":"active"}}
 ```
 
+**Content merge (T140 — mutable types, default deep merge):**
+```
+{"gw_action":"artifact.update","gw_workspace_id":"be0d3a48-c764-44f9-90c8-e846d9dbbd0a","artifact_type":"twig","artifact_id":"[UUID]","content":{"new_key":"value","nested":{"updated":true}}}
+```
+
+**Content replace (T140 — explicit full replacement):**
+```
+{"gw_action":"artifact.update","gw_workspace_id":"be0d3a48-c764-44f9-90c8-e846d9dbbd0a","artifact_type":"twig","artifact_id":"[UUID]","content":{"clean_slate":true},"content_mode":"replace"}
+```
+
+**Content append (T140 — immutable types only: snapshot, journal, restart):**
+```
+{"gw_action":"artifact.update","gw_workspace_id":"be0d3a48-c764-44f9-90c8-e846d9dbbd0a","artifact_type":"snapshot","artifact_id":"[UUID]","content_append":{"entries":[{"note":"supplementary context","actor":"joel"}]}}
+```
+
 `tags` and `extension` are top-level fields — no `changes` wrapper.
 
 **Lifecycle mutability (T87):**
 * `archive` projects: ALL mutations blocked (`ARCHIVE_IMMUTABLE`) — spine, extension, and tags
 * `tree` projects: `title` frozen (`FIELD_FROZEN`); summary, priority, extension, tags remain mutable
 * `seed`/`sapling`: fully mutable
+
+**Content mutability (T140):**
+* Mutable types (project, twig, branch, leaf, limb): `content` merge (default) or replace (`content_mode: "replace"`)
+* Immutable types (snapshot, journal, restart): `content_append` only — adds entries to `append_log`
+* `content` on immutable types → `CONTENT_UPDATE_NOT_ALLOWED`; `content_append` on mutable types → `CONTENT_APPEND_NOT_ALLOWED`
+* `content` and `content_append` cannot be combined in one call
+* `append_log` is reserved — never include in `content` payloads (`RESERVED_NAMESPACE`)
+* Archived artifacts: ALL content operations blocked (`ARCHIVE_FROZEN`)
+* `append_log` max: 100 entries
 
 **Warning:** Semantic type + tags cannot be combined in one call (`MIXED_UPDATE_NOT_ALLOWED`). Spine + extension cannot be combined. Semantic type update applies only to top-level types (`SEMANTIC_TYPE_NOT_APPLICABLE` on branch/leaf/limb).
 
@@ -149,7 +199,9 @@ seed -> sapling -> tree -> archive
 
 ---
 
-## Best Practice: Companion Journal Pattern (Strongly Recommended)
+## Companion Journal Pattern (When Exploratory Context Exists)
+
+Use this pattern when a journal captured exploratory thinking BEFORE you decided to create a seed. For direct seeds where intent is already clear, skip to the single-payload seed save — no companion journal needed.
 
 Projects are for lifecycle tracking. Journals are for content.
 
@@ -176,4 +228,78 @@ If it needs detail, write a journal.
 
 ---
 
-*CHANGELOG: v4 (2026-03-06): T87 Spine Field Routing — spine_only and mixed update examples added. Lifecycle mutability warnings added (archive=ALL FROZEN, tree=title FROZEN). Pointer: Canonical v3→v4. Previous version: `Archive/QUICK_REFERENCE__v3__2026-03-06.md`. v3 (2026-03-03): T69 Semantic Type Registry — `semantic_type_id` added to all 6 save examples (4 main + 2 companion journal). New semantic type update example (placed before tag/extension updates per dedicated mode priority). 9 registry values listed. `priority` corrected from REQUIRED to optional. `tags` corrected from REQUIRED to recommended. Surface routing distinction added (QSB vs TG). MIXED_UPDATE_NOT_ALLOWED and SEMANTIC_TYPE_NOT_APPLICABLE warnings added. Previous version: `Archive/QUICK_REFERENCE__v2.1__2026-03-03.md`. v2.1 (2026-02-20): Fixed Update payload structure — removed incorrect `changes` wrapper. v2 (2026-02-18): Unified to JSON-only execution.*
+## Workflow Patterns
+
+Reference patterns for common artifact creation. See system instructions for core rules.
+
+### Morning Flow
+
+**Trigger:** Start of day reflection, gratitude, or intention-setting conversation.
+
+**Artifact:** Journal
+**Title:** `Morning Flow - [DATE]`
+**Tags:** `morning-flow`, `reflection`
+**Content:** Capture gratitude, priorities, energy state, and intentions.
+
+### Strategic Discussion
+
+**Trigger:** Extended thinking conversation about a topic, decision, or direction.
+
+**Artifact:** Journal
+**Title:** `[TOPIC] Discussion - [DATE]`
+**Tags:** `discussion`, `[topic]`
+**Content:** Key insights, decisions considered, reasoning captured.
+
+### Seed Planting
+
+**Trigger:** New initiative, project concept, or direction Joel wants to track as a seed.
+
+**Artifact:** Project (primary). Optional companion Journal only if exploratory thinking was captured first.
+
+**Project:**
+- Title: `Seed — [NAME]`
+- Tags: `seed`, `[topic]`
+- lifecycle_stage: `seed`
+- Summary: Concise description of the idea
+
+**Companion Journal (only when pre-existing thinking needs linking):**
+- Title: `[NAME] — Initial Thinking`
+- Tags: `seed`, `[topic]`, `companion`
+- Content: Full context, background, initial exploration
+
+### Navigation Snapshot (Project Map)
+
+**Trigger:** Project promoted to sapling with execution branches/leaves, or execution tree structure changes.
+
+**Artifact:** Snapshot
+**Title:** `<Project Name> — Project Navigation Map`
+**Tags:** `for-q`, `for-cc`, `navigation`
+**Payload:** Project artifact_id + title + lifecycle, design snapshot pointer, full branch/limb/leaf tree with artifact_ids, builder guidance and constraints.
+
+**Deterministic hydration:** When a navigation snapshot exists for a sapling, it is the REQUIRED entry point for builder hydration. Sapling-root traversal is not authoritative when a snapshot exists.
+
+**Maintenance:** Update via `artifact.update` on the snapshot whenever the execution tree changes. See QPM Build Process §2.
+
+### Decision Locked
+
+**Trigger:** A decision has been made and should be recorded as immutable.
+
+**Artifact:** Snapshot
+**Title:** `Decision - [WHAT]`
+**Tags:** `decision`, `governance`
+**Payload:** Decision details, rationale, constraints considered, alternatives rejected.
+
+### Session Restart
+
+**Trigger:** Need to preserve conversation state for continuation.
+
+**Artifact:** Restart
+**Title:** `Restart - [CONTEXT]`
+**Tags:** `restart`, `[topic]`
+**Payload:** Thread inventory, decisions locked, current work, resume instructions.
+
+See `CONVERSATION_RESTART_PROTOCOL.md` for full restart prompt generation protocol.
+
+---
+
+*CHANGELOG: v9 (2026-04-01): T166 — Added deterministic hydration enforcement note to Navigation Snapshot pattern. Navigation snapshot is REQUIRED entry point when present for sapling builder hydration. Previous: `Archive/QUICK_REFERENCE__v8__2026-04-01.md`. v8 (2026-03-26): T140 Content Update — added content merge, content replace, and content_append examples. Added content mutability rules section. Previous: `Archive/QUICK_REFERENCE__v7__2026-03-26.md`. v7 (2026-03-25): Added Navigation Snapshot (Project Map) workflow pattern. Source: governance snapshot `c9cfb7e5`. Previous: `Archive/QUICK_REFERENCE__v6.1__2026-03-25.md`. v6.1 (2026-03-25): Renamed "Raw JSON Invariant" → "Payload Object Invariant" with scope clarifier (rendering vs transport). v6 (2026-03-25): Architecture refactor — absorbed WORKFLOW_PATTERNS.md content (5 patterns: Morning Flow, Strategic Discussion, Seed Planting, Decision Locked, Session Restart) into new "Workflow Patterns" section at end of file. Standalone WORKFLOW_PATTERNS.md deprecated. Previous: `Archive/QUICK_REFERENCE__v5__2026-03-25.md`. v5 (2026-03-11): Discovery support — parent_artifact_id, lifecycle_status, execution_status filter examples. v4 (2026-03-06): T87 Spine Field Routing. v3 (2026-03-03): T69 Semantic Type Registry. v2.1 (2026-02-20): Fixed Update payload structure. v2 (2026-02-18): Unified to JSON-only execution.*

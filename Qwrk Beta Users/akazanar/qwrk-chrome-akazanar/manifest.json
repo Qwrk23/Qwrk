@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Qx — Akazanar (Beta)",
+  "version": "1.0.0",
+  "description": "Qwrk Beta JSON command console for Akazanar",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Qx — Akazanar"
+  },
+  "permissions": [],
+  "host_permissions": [
+    "https://n8n.halosparkai.com/*"
+  ]
+}

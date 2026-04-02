@@ -13,7 +13,8 @@
     "artifact_type": "snapshot",
     "title": "[T87-CERT] Snapshot Immutability Test",
     "tags": [
-      "t87-cert"
+      "t87-cert",
+      "{{RUN_TAG}}"
     ],
     "extension": {
       "payload": {

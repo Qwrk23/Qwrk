@@ -9,6 +9,6 @@
     "title": "[T70-CERT] Branch 1",
     "parent_artifact_id": "{{T70_PROJECT_ID}}",
     "execution_status": "not_started",
-    "tags": ["t70-cert"]
+    "tags": ["t70-cert", "{{RUN_TAG}}"]
   }
 }

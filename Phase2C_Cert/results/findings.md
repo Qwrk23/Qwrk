@@ -2,8 +2,8 @@
 
 | Field | Value |
 |-------|-------|
-| Timestamp | 2026-03-06_06-18-52 |
-| Gateway URL | https://n8n.halosparkai.com/webhook/nqxb/gateway/v1 |
+| Timestamp | 2026-04-01_14-38-22 |
+| Gateway URL | https://n8n.halosparkai.com/webhook/nqxb/gateway/v2 |
 | Workspace | be0d3a48-c764-44f9-90c8-e846d9dbbd0a |
 | Gateway Version | v58 |
 | Save Version | v37 |
@@ -15,10 +15,10 @@
 
 | Metric | Count |
 |--------|-------|
-| Total Tests | 133 |
-| Passed | 82 |
-| Failed | 10 |
-| Skipped | 41 |
+| Total Tests | 139 |
+| Passed | 130 |
+| Failed | 4 |
+| Skipped | 5 |
 
 ---
 
@@ -26,42 +26,42 @@
 
 | # | Test | Result | Notes |
 |---|------|--------|-------|
-| 1 | A01 â€” Journal INSERT Valid | FAIL | Expected ok=True, got ok=False |
-| 2 | A02 â€” Journal QUERY by ID | SKIP | Unresolved: JOURNAL_ID |
-| 3 | A03 â€” Journal TAG Update | SKIP | Unresolved: JOURNAL_ID |
-| 4 | A04 â€” Project INSERT (seed) | FAIL | Expected ok=True, got ok=False |
-| 5 | A05 â€” Project TAG Add | SKIP | Unresolved: PROJECT_ID |
-| 6 | A06 â€” Project TAG Remove | SKIP | Unresolved: PROJECT_ID |
-| 7 | A07 â€” Project Extension Update (state_reason) | SKIP | Unresolved: PROJECT_ID |
-| 8 | A08 â€” Project Promote BLOCKED (seed not ready) | SKIP | Unresolved: PROJECT_ID |
-| 9 | A09 â€” Add Linked Journal to Project | SKIP | Unresolved: PROJECT_ID |
-| 10 | A10 â€” Project Promote ALLOWED (seed to sapling) | SKIP | Unresolved: PROJECT_ID |
-| 11 | A11 â€” Snapshot INSERT Valid | FAIL | Expected ok=True, got ok=False |
-| 12 | A12 â€” Snapshot Extension Update BLOCKED (immutability) | SKIP | Unresolved: SNAPSHOT_ID |
-| 13 | A13 â€” Restart INSERT Valid | FAIL | Expected ok=True, got ok=False |
-| 14 | A14 â€” Restart Extension Update BLOCKED (immutability) | SKIP | Unresolved: RESTART_ID |
-| 15 | B01 â€” Fuzz: Stringified Extension (belt-and-suspenders recovery) | FAIL | Expected ok=True, got ok=False |
-| 16 | B02 â€” Fuzz: Tags as Comma String (normalizeTags recovery) | FAIL | Expected ok=True, got ok=False |
+| 1 | A01 â€” Journal INSERT Valid | PASS |  |
+| 2 | A02 â€” Journal QUERY by ID | PASS |  |
+| 3 | A03 â€” Journal TAG Update | PASS |  |
+| 4 | A04 â€” Project INSERT (seed) | PASS |  |
+| 5 | A05 â€” Project TAG Add | PASS |  |
+| 6 | A06 â€” Project TAG Remove | PASS |  |
+| 7 | A07 â€” Project Extension Update (state_reason) | PASS |  |
+| 8 | A08 â€” Project Promote BLOCKED (seed not ready) | PASS |  |
+| 9 | A09 â€” Add Linked Journal to Project | PASS |  |
+| 10 | A10 â€” Project Promote ALLOWED (seed to sapling) | PASS |  |
+| 11 | A11 â€” Snapshot INSERT Valid | PASS |  |
+| 12 | A12 â€” Snapshot Extension Update BLOCKED (immutability) | PASS |  |
+| 13 | A13 â€” Restart INSERT Valid | PASS |  |
+| 14 | A14 â€” Restart Extension Update BLOCKED (immutability) | PASS |  |
+| 15 | B01 â€” Fuzz: Stringified Extension (belt-and-suspenders recovery) | PASS |  |
+| 16 | B02 â€” Fuzz: Tags as Comma String (normalizeTags recovery) | PASS |  |
 | 17 | B03 â€” Fuzz: Unknown Extension Key (journal strict allowlist) | PASS |  |
 | 18 | B04 â€” Fuzz: Missing Required Extension (snapshot without payload) | PASS |  |
 | 19 | B05 â€” Fuzz: Unknown Gateway Action | PASS |  |
 | 20 | B06 â€” Fuzz: Invalid UUID in Query | PASS |  |
-| 21 | C01 â€” Promote: Invalid Transition Name | SKIP | Unresolved: PROJECT_ID |
-| 22 | C02 â€” Promote: Missing Transition Field | SKIP | Unresolved: PROJECT_ID |
-| 23 | C03 â€” Promote: Missing Reason Field | SKIP | Unresolved: PROJECT_ID |
-| 24 | C04 â€” Promote: Lifecycle Mismatch (already sapling, request seed_to_sapling) | SKIP | Unresolved: PROJECT_ID |
-| 25 | C05 â€” Promote: Non-promotable Type (journal) | SKIP | Unresolved: JOURNAL_ID |
-| 26 | D01 â€” T51 Create Project for Extension Tests | FAIL | Expected ok=True, got ok=False |
-| 27 | D02 â€” T51 Update Project Summary (full-replace) | SKIP | Unresolved: D_PROJECT_ID |
-| 28 | D03 â€” T51 Query Project After Summary Update (hydrate) | SKIP | Unresolved: D_PROJECT_ID |
-| 29 | D04 â€” T51 Project Unknown Extension Field REJECTED | SKIP | Unresolved: D_PROJECT_ID |
-| 30 | D05 â€” T51 Project lifecycle_stage via Update REJECTED (PROMOTE_ONLY) | SKIP | Unresolved: D_PROJECT_ID |
-| 31 | D06 â€” T51 Create Journal for Extension Tests | FAIL | Expected ok=True, got ok=False |
-| 32 | D07 - T51 Journal Extension Update BLOCKED (JOURNAL_INSERT_ONLY per T87) | SKIP | Unresolved: D_JOURNAL_ID |
-| 33 | D08 â€” T51 Snapshot Extension Update BLOCKED (immutability) | SKIP | Unresolved: SNAPSHOT_ID |
-| 34 | D09 â€” T51 Project Full-Replace Set (baseline for clear test) | SKIP | Unresolved: D_PROJECT_ID |
-| 35 | D10 â€” T51 Project Full-Replace Clear (send summary only, expect state_reason NULL) | SKIP | Unresolved: D_PROJECT_ID |
-| 36 | D11 â€” T51 Query Project After Full-Replace (verify reset) | SKIP | Unresolved: D_PROJECT_ID |
+| 21 | C01 â€” Promote: Invalid Transition Name | PASS |  |
+| 22 | C02 â€” Promote: Missing Transition Field | PASS |  |
+| 23 | C03 â€” Promote: Missing Reason Field | PASS |  |
+| 24 | C04 â€” Promote: Lifecycle Mismatch (already sapling, request seed_to_sapling) | PASS |  |
+| 25 | C05 â€” Promote: Non-promotable Type (journal) | PASS |  |
+| 26 | D01 â€” T51 Create Project for Extension Tests | PASS |  |
+| 27 | D02 â€” T51 Update Project Summary (full-replace) | PASS |  |
+| 28 | D03 â€” T51 Query Project After Summary Update (hydrate) | PASS |  |
+| 29 | D04 â€” T51 Project Unknown Extension Field REJECTED | PASS |  |
+| 30 | D05 â€” T51 Project lifecycle_stage via Update REJECTED (PROMOTE_ONLY) | PASS |  |
+| 31 | D06 â€” T51 Create Journal for Extension Tests | PASS |  |
+| 32 | D07 - T51 Journal Extension Update BLOCKED (JOURNAL_INSERT_ONLY per T87) | PASS |  |
+| 33 | D08 â€” T51 Snapshot Extension Update BLOCKED (immutability) | PASS |  |
+| 34 | D09 â€” T51 Project Full-Replace Set (baseline for clear test) | PASS |  |
+| 35 | D10 â€” T51 Project Full-Replace Clear (send summary only, expect state_reason NULL) | PASS |  |
+| 36 | D11 â€” T51 Query Project After Full-Replace (verify reset) | PASS |  |
 | 37 | D12 â€” T51 Create Instruction Pack for Immutability Test | PASS |  |
 | 38 | D13 â€” T51 Instruction Pack Extension Update BLOCKED (immutability) | PASS |  |
 | 39 | D20a - T87 Create project for design_spine tests | PASS |  |
@@ -87,8 +87,8 @@
 | 59 | E09 â€” Leaf not_started to in_progress (D03 setup) | PASS |  |
 | 60 | E10 â€” D03 Leaf in_progress to complete (no parent check) | PASS |  |
 | 61 | E11 â€” D09 Limb in_progress to in_progress (NOOP) | PASS |  |
-| 62 | E12 â€” D12 Leaf NULL to in_progress (skip rejection) | PASS |  |
-| 63 | E13 â€” Leaf 2 NULL to not_started (D06 setup) | PASS |  |
+| 62 | E12 â€” D12 Leaf NULL to in_progress (skip rejection) | FAIL | Expected ok=False, got ok=True; Expected error=INVALID_TRANSITION, got= |
+| 63 | E13 â€” Leaf 2 NULL to not_started (D06 setup) | FAIL | Expected ok=True, got ok=False |
 | 64 | E14 â€” Leaf 2 not_started to in_progress (D06 setup) | PASS |  |
 | 65 | E15 â€” D06 Leaf in_progress to not_started (backward rejection) | PASS |  |
 | 66 | E16 â€” D07 Leaf complete to in_progress (terminal rejection) | PASS |  |
@@ -100,19 +100,19 @@
 | 72 | F03 â€” Project rollup with branches and leaves | PASS |  |
 | 73 | F04 â€” Rollup flag on non-project type (ignored) | SKIP | Unresolved: KGB_SNAPSHOT_ID |
 | 74 | F05 â€” Rollup with hydrate=false combination | SKIP | Unresolved: KGB_PROJECT_ID |
-| 75 | F06 â€” T70 Create Project for Rollup Tests | FAIL | Expected ok=True, got ok=False |
-| 76 | F07 â€” T70 Create Branch (child of project) | SKIP | Unresolved: T70_PROJECT_ID |
-| 77 | F08 â€” T70 Create Leaf 1 (complete, child of branch) | SKIP | Unresolved: T70_BRANCH_ID |
-| 78 | F09 â€” T70 Create Leaf 2 (in_progress, child of branch) | SKIP | Unresolved: T70_BRANCH_ID |
-| 79 | F10 â€” T70 Create Leaf 3 (no execution_status, child of branch) | SKIP | Unresolved: T70_BRANCH_ID |
-| 80 | F11 â€” T70 Branch rollup (1/3 complete) | SKIP | Unresolved: T70_BRANCH_ID |
-| 81 | F12 â€” T70 Project rollup (0/1 branch complete) | SKIP | Unresolved: T70_PROJECT_ID |
-| 82 | F13 â€” T70 Update Leaf 2 to complete | SKIP | Unresolved: T70_LEAF_2_ID |
-| 83 | F14 â€” T70 Branch rollup (2/3 complete) | SKIP | Unresolved: T70_BRANCH_ID |
-| 84 | F15a â€” T70 Leaf 3 NULL to not_started | SKIP | Unresolved: T70_LEAF_3_ID |
-| 85 | F15b â€” T70 Leaf 3 not_started to in_progress | SKIP | Unresolved: T70_LEAF_3_ID |
-| 86 | F15c â€” T70 Leaf 3 in_progress to complete | SKIP | Unresolved: T70_LEAF_3_ID |
-| 87 | F16 â€” T70 Branch rollup (3/3 complete) | SKIP | Unresolved: T70_BRANCH_ID |
+| 75 | F06 â€” T70 Create Project for Rollup Tests | PASS |  |
+| 76 | F07 â€” T70 Create Branch (child of project) | PASS |  |
+| 77 | F08 â€” T70 Create Leaf 1 (complete, child of branch) | PASS |  |
+| 78 | F09 â€” T70 Create Leaf 2 (in_progress, child of branch) | PASS |  |
+| 79 | F10 â€” T70 Create Leaf 3 (no execution_status, child of branch) | PASS |  |
+| 80 | F11 â€” T70 Branch rollup (1/3 complete) | PASS |  |
+| 81 | F12 â€” T70 Project rollup (0/1 branch complete) | PASS |  |
+| 82 | F13 â€” T70 Update Leaf 2 to complete | PASS |  |
+| 83 | F14 â€” T70 Branch rollup (2/3 complete) | PASS |  |
+| 84 | F15a â€” T70 Leaf 3 NULL to not_started | PASS |  |
+| 85 | F15b â€” T70 Leaf 3 not_started to in_progress | PASS |  |
+| 86 | F15c â€” T70 Leaf 3 in_progress to complete | PASS |  |
+| 87 | F16 â€” T70 Branch rollup (3/3 complete) | PASS |  |
 | 88 | G01 â€” T71 Create Branch (non-leaf baseline) | PASS |  |
 | 89 | G02 â€” T71 Create LEAF_A (dependency target) | PASS |  |
 | 90 | G03 â€” T71 Create LEAF_B (depends on LEAF_A) | PASS |  |
@@ -149,7 +149,7 @@
 | 121 | H16 - T87 Empty update rejected (no spine/tags/extension) | PASS |  |
 | 122 | H17a - T87 Create temp project for delete test | PASS |  |
 | 123 | H17b - T87 Soft-delete temp project | PASS |  |
-| 124 | H17c - T87 Update deleted artifact = NOT_FOUND | PASS |  |
+| 124 | H17c - T87 Update deleted artifact = NOT_FOUND | FAIL | Expected ok=False, got ok=True; Expected error=NOT_FOUND, got= |
 | 125 | H18a - T87 Create project for lifecycle governance tests | PASS |  |
 | 126 | H18b - T87 Promote seed to sapling | PASS |  |
 | 127 | H18c - T87 Create branch child for QPM sapling-to-tree gate | PASS |  |
@@ -159,27 +159,32 @@
 | 131 | H22 - T87 Promote tree to archive | PASS |  |
 | 132 | H23 - T87 Archive project summary update = ARCHIVE_IMMUTABLE | PASS |  |
 | 133 | H24 - T87 Archive project tags update = ARCHIVE_IMMUTABLE | PASS |  |
+| 134 | VERIFY Journal (A01) [4879f0cc] | PASS |  |
+| 135 | VERIFY Project (A04) [0789d55d] | PASS |  |
+| 136 | VERIFY Snapshot (A11) [7210bcff] | PASS |  |
+| 137 | VERIFY Restart (A13) [d72b66f6] | PASS |  |
+| 138 | VERIFY Fuzz Journal (B01) [0568a874] | PASS |  |
+| 139 | VERIFY Fuzz Project (B02) [72bbd1c1] | PASS |  |
 
 ---
 
 ## Failures
 
-- **A01 â€” Journal INSERT Valid**: Expected ok=True, got ok=False
-- **A04 â€” Project INSERT (seed)**: Expected ok=True, got ok=False
-- **A11 â€” Snapshot INSERT Valid**: Expected ok=True, got ok=False
-- **A13 â€” Restart INSERT Valid**: Expected ok=True, got ok=False
-- **B01 â€” Fuzz: Stringified Extension (belt-and-suspenders recovery)**: Expected ok=True, got ok=False
-- **B02 â€” Fuzz: Tags as Comma String (normalizeTags recovery)**: Expected ok=True, got ok=False
-- **D01 â€” T51 Create Project for Extension Tests**: Expected ok=True, got ok=False
-- **D06 â€” T51 Create Journal for Extension Tests**: Expected ok=True, got ok=False
-- **F06 â€” T70 Create Project for Rollup Tests**: Expected ok=True, got ok=False
+- **E12 â€” D12 Leaf NULL to in_progress (skip rejection)**: Expected ok=False, got ok=True; Expected error=INVALID_TRANSITION, got=
+- **E13 â€” Leaf 2 NULL to not_started (D06 setup)**: Expected ok=True, got ok=False
 - **G07 â€” T71 LEAF_B in_progress to complete (BLOCKED â€” LEAF_A not complete)**: Expected ok=False, got ok=True; Expected error=DEPENDENCY_INCOMPLETE, got=
+- **H17c - T87 Update deleted artifact = NOT_FOUND**: Expected ok=False, got ok=True; Expected error=NOT_FOUND, got=
 
 ---
 
 ## Observations
 
-None.
+- Journal (A01): version=2
+- Project (A04): version=5
+- Snapshot (A11): version=1
+- Restart (A13): version=1
+- Fuzz Journal (B01): version=1
+- Fuzz Project (B02): version=1
 
 ---
 
@@ -187,23 +192,38 @@ None.
 
 | Variable | Value |
 |----------|-------|
-| D_DS_PROJECT_ID | `6b682c50-3e8c-4259-9eb7-c2f28468df2f` |
-| D_IPACK_ID | `fb410902-7394-497c-bb0a-8bac3f039d8d` |
-| H_JOURNAL_ID | `2c05c94e-3219-4026-9357-fa14c4ee809b` |
-| H_LIFE_PROJECT_ID | `e21e5f01-b980-4bff-b929-d0b266e87fc7` |
-| H_PROJECT_ID | `f187efc8-f58c-4980-9d51-387ae7b00253` |
-| H_SNAPSHOT_ID | `0f1d3534-19e0-48d7-9999-1820ff0d0c58` |
-| H_TEMP_PROJECT_ID | `7e8d6a67-3c70-40ba-b9c8-db9d795f9faa` |
-| LEAF_ID | `f9443837-9b76-4e1d-b5e2-9cfacba97f54` |
-| LIMB_ID | `c3326dd7-020c-43fa-b186-c2588e3956de` |
-| T64_BRANCH_ID | `35712bd8-4ce2-46f7-9374-9c1650d8c57e` |
-| T64_LEAF_ID | `b458b5d5-fbe2-4d57-a328-e542e582fcef` |
-| T64_LEAF2_ID | `d9b46737-342a-4fb5-b893-006f233aa0aa` |
-| T64_LIMB_ID | `8f785f12-78aa-4511-988b-692c9d7ad8da` |
-| T71_BRANCH_ID | `c39410c8-ac83-4136-937b-9afdfe0ff5f8` |
-| T71_LEAF_A_ID | `7634d9d5-51a2-438c-835f-9c303e870b30` |
-| T71_LEAF_B_ID | `f71c65b9-0a9d-4131-9b0c-9f10ac52650f` |
-| T71_LEAF_C_ID | `f9041b2c-871e-4e7a-a0ee-e207cac972f0` |
+| CHILD_JOURNAL_ID | `d4c98006-45dd-4cfd-bafd-240eaffa0e19` |
+| D_DS_PROJECT_ID | `759f9794-e495-44eb-aebb-538b4c9141c8` |
+| D_IPACK_ID | `401a2f4a-0cc9-4f3a-9523-821098313219` |
+| D_JOURNAL_ID | `1df1ac2e-d200-4709-8b5b-3880dee2c860` |
+| D_PROJECT_ID | `e8857ca0-ad3e-4139-aeef-f28955fa153e` |
+| FUZZ_JOURNAL_ID | `0568a874-b685-45cf-b500-d5ba61fcf23e` |
+| FUZZ_PROJECT_ID | `72bbd1c1-b037-466f-80cf-9c6edd1054fc` |
+| H_JOURNAL_ID | `7da58541-bc1c-4d63-a022-7064b5f3866e` |
+| H_LIFE_PROJECT_ID | `b0db9b01-c94e-42f0-9eda-8e6532e1dfc0` |
+| H_PROJECT_ID | `a90d775a-008a-49d9-be9a-1cbf95b68491` |
+| H_SNAPSHOT_ID | `9d88dfb6-c16e-4b66-a63d-06834f325fe3` |
+| H_TEMP_PROJECT_ID | `d017afa4-7e8d-4a85-9ea5-b516be0615c9` |
+| JOURNAL_ID | `4879f0cc-6ac3-4e5c-b90a-71ddd1cbb20a` |
+| LEAF_ID | `bb6a0d6d-ac67-47e5-b95b-faf6fcdca2d1` |
+| LIMB_ID | `e2b2c56e-d64b-4c34-b2c4-e0c78b728355` |
+| PROJECT_ID | `0789d55d-a140-4f2f-b28f-f186126e6ba5` |
+| RESTART_ID | `d72b66f6-1139-4106-84bc-7b5e43b97426` |
+| RUN_TAG | `run:cert-2026-04-01_14-38-22` |
+| SNAPSHOT_ID | `7210bcff-6a24-4ecf-a13a-b0df5612af00` |
+| T64_BRANCH_ID | `ef40c690-be74-4887-a064-f560a294b501` |
+| T64_LEAF_ID | `cf789572-ae5e-4567-941a-313f8df689c7` |
+| T64_LEAF2_ID | `6951d79e-6522-4fa1-9147-d5a49724aa6c` |
+| T64_LIMB_ID | `2b2d9f79-7402-467d-af85-8fe5a3b79745` |
+| T70_BRANCH_ID | `9a1a8db0-e1ca-4cfa-ad36-66ca159d148e` |
+| T70_LEAF_1_ID | `4e04e2ca-7e16-4e8b-a8bb-56ef6cd29936` |
+| T70_LEAF_2_ID | `ad4d3ff8-a90f-4441-8c72-1fd4c3706d8e` |
+| T70_LEAF_3_ID | `f5ecab46-480a-4ce7-a2c0-384f235905b0` |
+| T70_PROJECT_ID | `c97b815b-8d7e-4e9a-be1f-da3d69e02514` |
+| T71_BRANCH_ID | `032e4dec-c307-431f-98ef-ca3545054ab8` |
+| T71_LEAF_A_ID | `a7c605c8-bcb3-4555-b7e4-5e643c7ff190` |
+| T71_LEAF_B_ID | `cee5d3f2-029d-4c38-8c76-f315cb63845c` |
+| T71_LEAF_C_ID | `65f811fd-29ca-4dd0-9224-d8ac8ec6a020` |
 
 ---
 

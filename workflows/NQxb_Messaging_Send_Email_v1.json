@@ -1,0 +1,443 @@
+{
+  "name": "NQxb_Messaging_Send_Email_v1",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -4400,
+        120
+      ],
+      "id": "28643ce0-cc5b-43e3-8b64-eaf4bc911f16",
+      "name": "NQxb_Messaging__In"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Messaging__Normalize_Request\n// Extract and normalize messaging.send_email fields from Execute Workflow input\n// v1.1: Fixed crypto.randomUUID() → Math.random UUID (n8n sandbox compatible)\n\nconst raw = $json ?? {};\n\n// Generate trace_id for this dispatch (n8n sandbox does not expose crypto)\nconst trace_id = 'msg_' + 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {\n  const r = Math.random() * 16 | 0;\n  return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);\n});\n\nconst normalized = {\n  // Identity\n  gw_action: (raw.gw_action ?? '').toString().trim(),\n  gw_workspace_id: (raw.gw_workspace_id ?? '').toString().trim(),\n  trace_id: trace_id,\n\n  // Required fields\n  to: Array.isArray(raw.to) ? raw.to : [],\n  subject: (raw.subject ?? '').toString().trim(),\n  body_html: raw.body_html ?? null,\n  body_text: raw.body_text ?? null,\n\n  // Optional fields\n  cc: Array.isArray(raw.cc) ? raw.cc : [],\n  bcc: Array.isArray(raw.bcc) ? raw.bcc : [],\n  reply_to: raw.reply_to ?? null,\n  tags: Array.isArray(raw.tags) ? raw.tags : [],\n  parent_artifact_id: raw.parent_artifact_id ?? null,\n\n  // Semantic type for artifact save\n  semantic_type_id: raw.semantic_type_id ?? 'f458c86a-e037-4c48-a4a2-ce228546957f',\n};\n\nreturn [{ json: normalized }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4176,
+        120
+      ],
+      "id": "c5be429d-8ee9-4a09-bbc4-8445adabf414",
+      "name": "NQxb_Messaging__Normalize_Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Messaging__Validate_Payload\n// Validation rules per contract 2cbc7f05\n// Fail-fast: returns first error only\n// v1.0: Initial implementation\n\nconst req = $json;\n\n// Email regex (basic RFC 5322)\nconst emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\nconst uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\n\n// --- Validation rules (fail-fast) ---\n\n// 1. gw_action\nif (req.gw_action !== 'messaging.send_email') {\n  return [{ json: { valid: false, error_code: 'VALIDATION_ERROR', error_message: 'invalid gw_action', error_field: 'gw_action', ...req } }];\n}\n\n// 2. gw_workspace_id\nif (!req.gw_workspace_id || !uuidRegex.test(req.gw_workspace_id)) {\n  return [{ json: { valid: false, error_code: 'VALIDATION_ERROR', error_message: 'missing or invalid gw_workspace_id', error_field: 'gw_workspace_id', ...req } }];\n}\n\n// 3. to — required, non-empty array, valid emails\nif (!Array.isArray(req.to) || req.to.length === 0) {\n  return [{ json: { valid: false, error_code: 'VALIDATION_ERROR', error_message: 'to must be non-empty array of valid email addresses', error_field: 'to', ...req } }];\n}\nfor (const addr of req.to) {\n  if (typeof addr !== 'string' || !emailRegex.test(addr.trim())) {\n    return [{ json: { valid: false, error_code: 'VALIDATION_ERROR', error_message: `to contains invalid email: ${addr}`, error_field: 'to', ...req } }];\n  }\n}\n\n// 4. subject — required, non-empty\nif (typeof req.subject !== 'string' || req.subject.trim() === '') {\n  return [{ json: { valid: false, error_code: 'VALIDATION_ERROR', error_message: 'missing subject', error_field: 'subject', ...req } }];\n}\n\n// 5. body_html or body_text — at least one required\nconst hasHtml = typeof req.body_html === 'string' && req.body_html.trim() !== '';\nconst hasText = typeof req.body_text === 'string' && req.body_text.trim() !== '';\nif (!hasHtml && !hasText) {\n  return [{ json: { valid: false, error_code: 'VALIDATION_ERROR', error_message: 'at least one of body_html or body_text required', error_field: 'body_html / body_text', ...req } }];\n}\n\n// 6. cc — optional, valid emails if present\nif (req.cc && req.cc.length > 0) {\n  for (const addr of req.cc) {\n    if (typeof addr !== 'string' || !emailRegex.test(addr.trim())) {\n      return [{ json: { valid: false, error_code: 'VALIDATION_ERROR', error_message: `cc contains invalid email: ${addr}`, error_field: 'cc', ...req } }];\n    }\n  }\n}\n\n// 7. bcc — optional, valid emails if present\nif (req.bcc && req.bcc.length > 0) {\n  for (const addr of req.bcc) {\n    if (typeof addr !== 'string' || !emailRegex.test(addr.trim())) {\n      return [{ json: { valid: false, error_code: 'VALIDATION_ERROR', error_message: `bcc contains invalid email: ${addr}`, error_field: 'bcc', ...req } }];\n    }\n  }\n}\n\n// 8. reply_to — optional, valid email if present\nif (req.reply_to !== null && req.reply_to !== undefined) {\n  if (typeof req.reply_to !== 'string' || !emailRegex.test(req.reply_to.trim())) {\n    return [{ json: { valid: false, error_code: 'VALIDATION_ERROR', error_message: 'invalid reply_to email', error_field: 'reply_to', ...req } }];\n  }\n}\n\n// 9. tags — optional, must be array of strings\nif (req.tags && req.tags.length > 0) {\n  for (const t of req.tags) {\n    if (typeof t !== 'string') {\n      return [{ json: { valid: false, error_code: 'VALIDATION_ERROR', error_message: 'tags must be array of strings', error_field: 'tags', ...req } }];\n    }\n  }\n}\n\n// 10. parent_artifact_id — optional, valid UUID if present\nif (req.parent_artifact_id !== null && req.parent_artifact_id !== undefined) {\n  if (typeof req.parent_artifact_id !== 'string' || !uuidRegex.test(req.parent_artifact_id)) {\n    return [{ json: { valid: false, error_code: 'VALIDATION_ERROR', error_message: 'invalid parent_artifact_id format', error_field: 'parent_artifact_id', ...req } }];\n  }\n}\n\n// All valid\nreturn [{ json: { valid: true, ...req } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3952,
+        120
+      ],
+      "id": "c933394f-f90d-4ff3-9f51-0c6550d84dfe",
+      "name": "NQxb_Messaging__Validate_Payload"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "check-valid",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -3728,
+        120
+      ],
+      "id": "3c5cf5d5-54a5-4cfd-b1b3-b9040baf79c7",
+      "name": "NQxb_Messaging__Check_Validation"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.to.join(', ') }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.body_html ?? $json.body_text }}",
+        "options": {
+          "bccList": "={{ ($json.bcc ?? []).join(', ') }}",
+          "ccList": "={{ ($json.cc ?? []).join(', ') }}",
+          "replyTo": "={{ $json.reply_to ?? '' }}"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -3504,
+        48
+      ],
+      "id": "8b22cec6-c34b-4ca5-9de0-ced659ade0da",
+      "name": "NQxb_Messaging__Gmail_Send",
+      "webhookId": "f005af36-f740-4d35-b979-3d9d2f71fdbe",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "GS1rBONQ0rNVTsAi",
+          "name": "Qwrk_as_Qwrk_Gmail"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Messaging__Build_Dispatch_Response\n// Build internal dispatch response per contract 721cfe50\n// Extract provider_metadata from Gmail response\n// v1.0: Initial implementation\n\nconst gmailResponse = $json;\nconst request = $node['NQxb_Messaging__Normalize_Request'].json;\n\n// Check if Gmail returned an error\nif (gmailResponse.error || gmailResponse.statusCode >= 400) {\n  // Provider dispatch failed\n  const errorMsg = gmailResponse.error?.message\n    ?? gmailResponse.message\n    ?? JSON.stringify(gmailResponse).substring(0, 500);\n\n  return [{ json: {\n    dispatch_ok: false,\n    gw_action: 'messaging.send_email',\n    provider: 'gmail',\n    error_code: 'PROVIDER_DISPATCH_FAILED',\n    error_message: `Gmail API error: ${errorMsg}`.substring(0, 500),\n    timestamp: new Date().toISOString(),\n    trace_id: request.trace_id,\n    // Carry forward request data for error response\n    _request: request,\n  }}];\n}\n\n// Success — extract provider metadata per contract 60c2bdf0\nconst message_id = gmailResponse.id ?? null;\nconst thread_id = gmailResponse.threadId ?? null;\n\nreturn [{ json: {\n  dispatch_ok: true,\n  gw_action: 'messaging.send_email',\n  provider: 'gmail',\n  timestamp: new Date().toISOString(),\n  trace_id: request.trace_id,\n  provider_metadata: {\n    message_id: message_id,\n    thread_id: thread_id,\n  },\n  request_echo: {\n    to: request.to,\n    subject: request.subject,\n  },\n  // Carry forward for artifact save\n  _request: request,\n}}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3280,
+        48
+      ],
+      "id": "df76f48e-ea5b-4df6-8cc2-98e06d501fd7",
+      "name": "NQxb_Messaging__Build_Dispatch_Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Messaging__Check_Dispatch\n// Route based on dispatch_ok: true → save artifact, false → error\n// v1.0\n\nconst dispatch = $json;\n\nif (dispatch.dispatch_ok === true) {\n  // Continue to artifact save\n  return [{ json: dispatch }];\n}\n\n// Dispatch failed — route to error shaper\n// Return empty array for this output, data goes via second output\nreturn [];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3056,
+        48
+      ],
+      "id": "1d987b54-d975-4f9b-a7ef-51fd7130e809",
+      "name": "NQxb_Messaging__Route_Dispatch",
+      "notes": "Routes dispatch_ok=true to save path, dispatch_ok=false handled by separate connection from Build_Dispatch_Response"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://npymhacpmxdnkqdzgxll.supabase.co/rest/v1/qxb_artifact",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"workspace_id\": \"{{ $json._request.gw_workspace_id }}\",\n  \"artifact_type\": \"snapshot\",\n  \"title\": \"Email to {{ $json.request_echo.to[0] }} — {{ $json.request_echo.subject }}\",\n  \"tags\": {{ JSON.stringify([...($json._request.tags ?? []), 'communication']) }},\n  \"semantic_type_id\": \"{{ $json._request.semantic_type_id }}\",\n  \"parent_artifact_id\": {{ $json._request.parent_artifact_id ? '\"' + $json._request.parent_artifact_id + '\"' : 'null' }},\n  \"owner_user_id\": \"c52c7a57-74ad-433d-a07c-4dcac1778672\",\n  \"priority\": 3\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2832,
+        48
+      ],
+      "id": "e8f27819-03d7-42b0-87d5-e57c3768f807",
+      "name": "NQxb_Messaging__Save_Spine",
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://npymhacpmxdnkqdzgxll.supabase.co/rest/v1/qxb_artifact_snapshot",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"artifact_id\": \"{{ $node['NQxb_Messaging__Save_Spine'].json[0]?.artifact_id ?? $node['NQxb_Messaging__Save_Spine'].json.artifact_id }}\",\n  \"payload\": {\n    \"messaging_action\": \"messaging.send_email\",\n    \"provider\": \"gmail\",\n    \"dispatch_timestamp\": \"{{ $node['NQxb_Messaging__Build_Dispatch_Response'].json.timestamp }}\",\n    \"trace_id\": \"{{ $node['NQxb_Messaging__Build_Dispatch_Response'].json.trace_id }}\",\n    \"request_echo\": {{ JSON.stringify($node['NQxb_Messaging__Build_Dispatch_Response'].json.request_echo) }},\n    \"provider_metadata\": {{ JSON.stringify($node['NQxb_Messaging__Build_Dispatch_Response'].json.provider_metadata) }}\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2608,
+        48
+      ],
+      "id": "0f0ead67-44ab-4d98-ab43-9e065784aefc",
+      "name": "NQxb_Messaging__Save_Extension",
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Messaging__Check_Save\n// Verify both spine and extension saves succeeded\n// v1.0\n\nconst spineResult = $node['NQxb_Messaging__Save_Spine'].json;\nconst extResult = $json; // extension save result\nconst dispatch = $node['NQxb_Messaging__Build_Dispatch_Response'].json;\n\n// Check if spine save returned an artifact_id\nconst spineData = Array.isArray(spineResult) ? spineResult[0] : spineResult;\nconst artifact_id = spineData?.artifact_id ?? null;\n\nif (!artifact_id) {\n  // Spine save failed\n  return [{ json: {\n    save_ok: false,\n    dispatch: dispatch,\n  }}];\n}\n\n// Check extension save\nconst extData = Array.isArray(extResult) ? extResult[0] : extResult;\nif (extData?.error || extData?.statusCode >= 400) {\n  return [{ json: {\n    save_ok: false,\n    dispatch: dispatch,\n    artifact_id: artifact_id,\n  }}];\n}\n\n// Both succeeded\nreturn [{ json: {\n  save_ok: true,\n  artifact_id: artifact_id,\n  dispatch: dispatch,\n}}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2384,
+        48
+      ],
+      "id": "898fc1fb-671f-40e8-80e9-268167da87df",
+      "name": "NQxb_Messaging__Check_Save"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "check-save-ok",
+              "leftValue": "={{ $json.save_ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2160,
+        48
+      ],
+      "id": "3c095109-e993-4f79-9997-b3cfb618dfe3",
+      "name": "NQxb_Messaging__Route_Save"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Messaging__Shape_Success\n// Build Gateway success envelope per contract aeca3c25\n// v1.0\n\nconst data = $json;\nconst dispatch = data.dispatch;\n\nreturn [{ json: {\n  ok: true,\n  gw_action: 'messaging.send_email',\n  artifact_id: data.artifact_id,\n  timestamp: new Date().toISOString(),\n  trace_id: dispatch.trace_id,\n  provider_metadata: dispatch.provider_metadata,\n}}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1936,
+        0
+      ],
+      "id": "bda95252-4075-4e07-ba09-e3e8dfcfd52a",
+      "name": "NQxb_Messaging__Shape_Success"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Messaging__Shape_Error\n// Build Gateway error envelope\n// Handles: VALIDATION_ERROR, PROVIDER_DISPATCH_FAILED, ARTIFACT_SAVE_FAILED\n// v1.0\n\nconst data = $json;\n\n// Determine which error path we came from\n\n// Path 1: Validation error (from Check_Validation false branch)\nif (data.error_code === 'VALIDATION_ERROR') {\n  return [{ json: {\n    ok: false,\n    _gw_route: 'error',\n    error: {\n      code: 'VALIDATION_ERROR',\n      message: data.error_message,\n      details: {\n        gw_action: 'messaging.send_email',\n        field: data.error_field ?? null,\n        rule: data.error_message,\n        trace_id: data.trace_id,\n      },\n    },\n  }}];\n}\n\n// Path 2: Provider dispatch failed (from Build_Dispatch_Response with dispatch_ok=false)\nif (data.dispatch_ok === false) {\n  return [{ json: {\n    ok: false,\n    _gw_route: 'error',\n    error: {\n      code: 'PROVIDER_DISPATCH_FAILED',\n      message: data.error_message,\n      details: {\n        gw_action: 'messaging.send_email',\n        provider: 'gmail',\n        provider_status: data.provider_status ?? null,\n        provider_message: (data.error_message ?? '').substring(0, 500),\n        trace_id: data.trace_id,\n      },\n    },\n  }}];\n}\n\n// Path 3: Artifact save failed (from Check_Save with save_ok=false)\nif (data.save_ok === false) {\n  const dispatch = data.dispatch ?? {};\n  return [{ json: {\n    ok: false,\n    _gw_route: 'error',\n    error: {\n      code: 'ARTIFACT_SAVE_FAILED',\n      message: 'Message sent successfully but artifact record failed to save',\n      details: {\n        gw_action: 'messaging.send_email',\n        dispatch_succeeded: true,\n        provider_metadata: dispatch.provider_metadata ?? null,\n        trace_id: dispatch.trace_id ?? null,\n      },\n    },\n  }}];\n}\n\n// Fallback (should not reach here)\nreturn [{ json: {\n  ok: false,\n  _gw_route: 'error',\n  error: {\n    code: 'UNKNOWN_ERROR',\n    message: 'Unexpected error in messaging workflow',\n    details: data,\n  },\n}}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1936,
+        216
+      ],
+      "id": "5e14a642-02a6-4cf9-9bcf-2c61ef9c8744",
+      "name": "NQxb_Messaging__Shape_Error"
+    }
+  ],
+  "pinData": {
+    "NQxb_Messaging__In": [
+      {
+        "json": {
+          "gw_action": "messaging.send_email",
+          "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+          "to": [
+            "joel@halosparkai.com"
+          ],
+          "subject": "Messaging Subsystem Test",
+          "body_text": "This is a test email from Qwrk Messaging Subsystem.",
+          "tags": [
+            "messaging",
+            "test"
+          ]
+        }
+      }
+    ]
+  },
+  "connections": {
+    "NQxb_Messaging__In": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Messaging__Normalize_Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Messaging__Normalize_Request": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Messaging__Validate_Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Messaging__Validate_Payload": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Messaging__Check_Validation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Messaging__Check_Validation": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Messaging__Gmail_Send",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Messaging__Shape_Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Messaging__Gmail_Send": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Messaging__Build_Dispatch_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Messaging__Build_Dispatch_Response": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Messaging__Route_Dispatch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Messaging__Route_Dispatch": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Messaging__Save_Spine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Messaging__Save_Spine": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Messaging__Save_Extension",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Messaging__Save_Extension": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Messaging__Check_Save",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Messaging__Check_Save": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Messaging__Route_Save",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Messaging__Route_Save": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Messaging__Shape_Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Messaging__Shape_Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "404690c2-6a72-412d-836e-ecea907e4874",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "154f6928422db881044f8d1647b40fc389c59337d14356c0ee681d50ffb55d7e"
+  },
+  "id": "bqFW4VdpIA67w3CT",
+  "tags": []
+}

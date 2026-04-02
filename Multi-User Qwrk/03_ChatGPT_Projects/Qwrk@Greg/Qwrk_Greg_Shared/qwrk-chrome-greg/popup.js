@@ -1,7 +1,7 @@
 // Qwrk Chrome Extension — Greg
 // Single-workspace JSON Command Console
 
-const ENDPOINT = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1/greg";
+const ENDPOINT = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v2";
 const CREDENTIAL = "cXdyay1ndy1ncmVnOkRsbExUaEhNVFpuRU5ZZndmOFhjR3J0Z0pMdGlvRHpWdDhvdGpSSldJNUE=";
 
 const payloadEl = document.getElementById("payload");

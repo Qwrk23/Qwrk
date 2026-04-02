@@ -54,28 +54,6 @@ Projects in Qwrk follow a "grow" metaphor, progressing through stages as they ma
 
 ---
 
-## Mutability by Stage (T87)
-
-What you can change at each stage:
-
-| Stage | Title | Summary | Priority | Extension Fields | Tags | Semantic Type |
-|-------|-------|---------|----------|-----------------|------|---------------|
-| **Seed** | Yes | Yes | Yes | Yes | Yes | Yes |
-| **Sapling** | Yes | Yes | Yes | Yes | Yes | Yes |
-| **Tree** | **No** (FROZEN) | Yes | Yes | Yes | Yes | Yes |
-| **Archive** | **No** | **No** | **No** | **No** | **No** | **No** |
-
-**Key rules:**
-- **Tree:** Title is locked — it represents the shipped identity. Everything else remains mutable for ongoing refinement.
-- **Archive:** Fully immutable. No updates of any kind. If you need to change something, consider whether the project should be un-archived (not currently supported — create a new project instead).
-- **Seed/Sapling:** Fully mutable. Rename, reprioritize, retag freely.
-
-**Error codes:**
-- Updating anything on an archived project → `ARCHIVE_IMMUTABLE`
-- Updating title on a tree project → `FIELD_FROZEN`
-
----
-
 ## Promotion Commands (JSON)
 
 ```json
@@ -109,35 +87,16 @@ The Gateway will:
 
 ---
 
-## Twig Lifecycle (T94)
+## Content Mutability by Stage (T140)
 
-Twigs are lightweight micro-initiatives — small experiments or explorations attached to a Limb. They have their own lifecycle, separate from the project lifecycle above.
+| Stage | `content` (merge/replace) | `content_append` | Tags/Spine |
+|-------|--------------------------|-------------------|------------|
+| Seed | Mutable types only | Immutable types only | Allowed |
+| Sapling | Mutable types only | Immutable types only | Allowed |
+| Tree | Mutable types only | Immutable types only | Allowed (title frozen) |
+| Archive | **BLOCKED** | **BLOCKED** | **BLOCKED** |
 
-### Twig Stages
-
-| Stage | Meaning |
-|-------|---------|
-| **proposed** | Idea captured, not yet active |
-| **active** | Actively being explored |
-| **promoted** | Graduated to a full project or merged into parent (TERMINAL) |
-| **pruned** | Abandoned or deemed not viable (TERMINAL) |
-
-### Valid Transitions
-
-| From | To |
-|------|-----|
-| proposed | active |
-| active | promoted |
-| active | pruned |
-
-**Terminal states:** `promoted` and `pruned` cannot transition further.
-
-### Twig vs Project
-
-- Twigs do NOT use `artifact.promote` — lifecycle is managed via `artifact.update`
-- Twigs have NO extension table (spine-only, like branch/leaf)
-- Twigs do NOT require `semantic_type_id` (non-top-level)
-- Twigs are cheap — create many, promote few
+Archive = fully frozen. No content mutations of any kind.
 
 ---
 
@@ -147,7 +106,6 @@ Twigs are lightweight micro-initiatives — small experiments or explorations at
 2. **Document the "why"** - Add a journal entry when promoting
 3. **Seeds are cheap** - Create many, promote few
 4. **Archive thoughtfully** - Capture lessons before archiving
-5. **Rename before tree** - Title freezes at tree stage (T87)
 
 ---
 
@@ -167,4 +125,4 @@ The extension will show current `lifecycle_stage`.
 
 ---
 
-*CHANGELOG: v3 (2026-03-06): T87 Lifecycle Mutability — added "Mutability by Stage" section with full matrix (seed/sapling=mutable, tree=title frozen, archive=all frozen). Error codes documented. Best practice added: "Rename before tree." Previous version: `Archive/LIFECYCLE_GUIDE__v2__2026-03-06.md`. v2 (2026-02-18): Removed "Oak" stage (not in canonical lifecycle — stages are seed/sapling/tree/archive). Replaced Telegram NL promote commands with JSON Gateway payloads. Replaced "Telegram bot" references with "Gateway". Added JSON list/query examples. Previous version: included 5 stages and Telegram command syntax.*
+*CHANGELOG: v3 (2026-03-26): Added Content Mutability by Stage table (T140) — archive freeze covers content and content_append. Previous: `Archive/LIFECYCLE_GUIDE__v2__2026-03-26.md`. v2 (2026-02-18): Removed "Oak" stage (not in canonical lifecycle — stages are seed/sapling/tree/archive). Replaced Telegram NL promote commands with JSON Gateway payloads. Replaced "Telegram bot" references with "Gateway". Added JSON list/query examples. Previous version: included 5 stages and Telegram command syntax.*

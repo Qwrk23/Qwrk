@@ -1,0 +1,202 @@
+openapi: 3.1.0
+info:
+  title: Qwrk Beta Gateway
+  version: "2.0-beta"
+  description: >
+    Qwrk artifact workspace API — beta access surface.
+    Workspace identity is resolved from the Bearer token on the server.
+    Do not send gw_workspace_id.
+
+servers:
+  - url: https://n8n.halosparkai.com/webhook/nqxb/gateway/v2/beta
+
+paths:
+  /:
+    post:
+      operationId: gatewayAction
+      summary: Execute a Qwrk gateway action
+      description: >
+        Single endpoint for all beta artifact operations. The gw_action field
+        determines the operation. The server resolves workspace identity from
+        the Bearer token and ignores any client attempt to control workspace routing.
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - gw_action
+              properties:
+
+                gw_action:
+                  type: string
+                  enum:
+                    - artifact.save
+                    - artifact.query
+                    - artifact.list
+                    - artifact.update
+                    - artifact.promote
+
+                artifact_type:
+                  type: string
+                  enum:
+                    - project
+                    - journal
+                    - snapshot
+                    - restart
+                    - instruction_pack
+                    - branch
+                    - limb
+                    - leaf
+                    - twig
+
+                artifact_id:
+                  type: string
+                  format: uuid
+
+                title:
+                  type: string
+
+                summary:
+                  type: string
+
+                content:
+                  type: object
+                  additionalProperties: true
+                  description: >
+                    Structured JSON payload. Primary content field for snapshots
+                    (decision payloads) and restarts (session state). Optional
+                    for other types.
+
+                priority:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+
+                semantic_type_id:
+                  type: string
+
+                parent_artifact_id:
+                  type: string
+                  format: uuid
+
+                extension:
+                  type: object
+                  properties:
+                    entry_text:
+                      type: string
+                    payload:
+                      type: object
+                      additionalProperties: true
+                    lifecycle_stage:
+                      type: string
+                      enum:
+                        - seed
+                        - sapling
+                        - tree
+                        - archive
+                  additionalProperties: true
+
+                tags:
+                  oneOf:
+                    - type: array
+                      items:
+                        type: string
+                    - type: object
+                      properties:
+                        add:
+                          type: array
+                          items:
+                            type: string
+                        remove:
+                          type: array
+                          items:
+                            type: string
+
+                selector:
+                  type: object
+                  properties:
+                    limit:
+                      type: integer
+                      minimum: 1
+                      maximum: 100
+                    offset:
+                      type: integer
+                      minimum: 0
+                    hydrate:
+                      type: boolean
+                    filters:
+                      type: object
+                      properties:
+                        tags_any:
+                          type: array
+                          items:
+                            type: string
+                        lifecycle_status:
+                          oneOf:
+                            - type: string
+                              enum:
+                                - seed
+                                - sapling
+                                - tree
+                                - archive
+                            - type: array
+                              items:
+                                type: string
+                                enum:
+                                  - seed
+                                  - sapling
+                                  - tree
+                                  - archive
+                        execution_status:
+                          oneOf:
+                            - type: string
+                              enum:
+                                - not_started
+                                - in_progress
+                                - blocked
+                                - complete
+                            - type: array
+                              items:
+                                type: string
+                                enum:
+                                  - not_started
+                                  - in_progress
+                                  - blocked
+                                  - complete
+                    parent_artifact_id:
+                      type: string
+                      format: uuid
+
+                transition:
+                  type: string
+                  enum:
+                    - seed_to_sapling
+                    - sapling_to_tree
+                    - tree_to_archive
+
+                reason:
+                  type: string
+
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                additionalProperties: true
+
+        "400":
+          description: Validation error
+
+        "401":
+          description: Unauthorized
+
+        "403":
+          description: Forbidden

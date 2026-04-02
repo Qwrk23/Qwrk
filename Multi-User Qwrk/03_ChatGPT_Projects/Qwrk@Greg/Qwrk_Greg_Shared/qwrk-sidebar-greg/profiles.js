@@ -11,7 +11,7 @@ QSB.profiles = [
   {
     id: "qwrk-greg",
     label: "Greg",
-    endpoint: "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1/greg",
+    endpoint: "https://n8n.halosparkai.com/webhook/nqxb/gateway/v2",
     credential: "cXdyay1ndy1ncmVnOkRsbExUaEhNVFpuRU5ZZndmOFhjR3J0Z0pMdGlvRHpWdDhvdGpSSldJNUE=",
     auth_mode: "basic"
   }

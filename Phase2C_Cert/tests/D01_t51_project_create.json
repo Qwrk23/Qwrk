@@ -1,17 +1,26 @@
-{
-  "name": "D01 — T51 Create Project for Extension Tests",
-  "expected": { "ok": true, "error_code": null },
-  "capture": { "D_PROJECT_ID": "artifact_id" },
-  "payload": {
-    "gw_action": "artifact.save",
-    "gw_workspace_id": "{{WORKSPACE_ID}}",
-    "artifact_type": "project",
-    "title": "[T51-CERT] Extension Update Surface Test Project",
-    "tags": ["t51-cert"],
-    "extension": {
-      "lifecycle_stage": "seed",
-      "operational_state": "active",
-      "state_reason": "T51 certification baseline"
-    }
-  }
+﻿{
+    "name":  "D01 â€” T51 Create Project for Extension Tests",
+    "expected":  {
+                     "ok":  true,
+                     "error_code":  null
+                 },
+    "capture":  {
+                    "D_PROJECT_ID":  "artifact_id"
+                },
+    "payload":  {
+                    "gw_action":  "artifact.save",
+                    "gw_workspace_id":  "{{WORKSPACE_ID}}",
+                    "artifact_type":  "project",
+                    "title":  "[T51-CERT] Extension Update Surface Test Project",
+                    "tags":  [
+                                 "t51-cert",
+                                 "{{RUN_TAG}}"
+                             ],
+                    "extension":  {
+                                      "lifecycle_stage":  "seed",
+                                      "operational_state":  "active",
+                                      "state_reason":  "T51 certification baseline"
+                                  },
+                    "semantic_type_id":  "infrastructure"
+                }
 }

@@ -6,5 +6,5 @@ $body = @{
     artifact_id = "361e5e4a-feae-435e-b743-1c6861a98be0"
     hydrate = $true
 } | ConvertTo-Json
-$response = Invoke-RestMethod -Uri "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1" -Method POST -Body $body -ContentType "application/json" -Headers $headers
+$response = Invoke-RestMethod -Uri "https://n8n.halosparkai.com/webhook/nqxb/gateway/v2" -Method POST -Body $body -ContentType "application/json" -Headers $headers
 $response | ConvertTo-Json -Depth 10

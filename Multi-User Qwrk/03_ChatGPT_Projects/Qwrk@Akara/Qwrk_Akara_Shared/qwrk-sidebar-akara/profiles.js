@@ -11,8 +11,8 @@ QSB.profiles = [
   {
     id: "qwrk-akara",
     label: "Akara",
-    endpoint: "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1/akara",
-    credential: "cXdyay1ndy1ha2FyYTpzYTtsODIzNGh0MjkxJilramxoZGFoIWUzODBkamthaHQqdWhrd2U=",
+    endpoint: "https://n8n.halosparkai.com/webhook/nqxb/gateway/v2",
+    credential: "cXdyay1nYXRld2F5OmFzbGZqYSd3d2UqKCNmaHdvSUk4NDNnaGx3X2VrMmw=",
     auth_mode: "basic"
   }
 ];

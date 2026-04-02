@@ -9,6 +9,6 @@
     "title": "[T70-CERT] Leaf 1 — Complete",
     "parent_artifact_id": "{{T70_BRANCH_ID}}",
     "execution_status": "complete",
-    "tags": ["t70-cert"]
+    "tags": ["t70-cert", "{{RUN_TAG}}"]
   }
 }

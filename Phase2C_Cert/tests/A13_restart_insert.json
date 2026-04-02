@@ -1,18 +1,27 @@
-{
-  "name": "A13 — Restart INSERT Valid",
-  "expected": { "ok": true, "error_code": null },
-  "capture": { "RESTART_ID": "artifact_id" },
-  "payload": {
-    "gw_action": "artifact.save",
-    "gw_workspace_id": "{{WORKSPACE_ID}}",
-    "artifact_type": "restart",
-    "title": "[P2C-CERT] Restart INSERT Test",
-    "tags": ["phase2c-cert"],
-    "extension": {
-      "payload": {
-        "session_context": "phase2c_certification",
-        "resume_instructions": "Continue from certification checkpoint"
-      }
-    }
-  }
+﻿{
+    "name":  "A13 â€” Restart INSERT Valid",
+    "expected":  {
+                     "ok":  true,
+                     "error_code":  null
+                 },
+    "capture":  {
+                    "RESTART_ID":  "artifact_id"
+                },
+    "payload":  {
+                    "gw_action":  "artifact.save",
+                    "gw_workspace_id":  "{{WORKSPACE_ID}}",
+                    "artifact_type":  "restart",
+                    "title":  "[P2C-CERT] Restart INSERT Test",
+                    "tags":  [
+                                 "phase2c-cert",
+                                 "{{RUN_TAG}}"
+                             ],
+                    "extension":  {
+                                      "payload":  {
+                                                      "session_context":  "phase2c_certification",
+                                                      "resume_instructions":  "Continue from certification checkpoint"
+                                                  }
+                                  },
+                    "semantic_type_id":  "infrastructure"
+                }
 }

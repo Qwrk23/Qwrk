@@ -1,12 +1,21 @@
-{
-  "name": "G02 — T71 Create LEAF_A (dependency target)",
-  "expected": { "ok": true, "error_code": null },
-  "capture": { "T71_LEAF_A_ID": "artifact_id" },
-  "payload": {
-    "gw_action": "artifact.save",
-    "gw_workspace_id": "{{WORKSPACE_ID}}",
-    "artifact_type": "leaf",
-    "title": "[T71-CERT] Leaf A — Dependency Target",
-    "tags": ["t71-cert"]
-  }
+﻿{
+    "name":  "G02 â€” T71 Create LEAF_A (dependency target)",
+    "expected":  {
+                     "ok":  true,
+                     "error_code":  null
+                 },
+    "capture":  {
+                    "T71_LEAF_A_ID":  "artifact_id"
+                },
+    "payload":  {
+                    "gw_action":  "artifact.save",
+                    "gw_workspace_id":  "{{WORKSPACE_ID}}",
+                    "artifact_type":  "leaf",
+                    "title":  "[T71-CERT] Leaf A â€” Dependency Target",
+                    "tags":  [
+                                 "t71-cert",
+                                 "{{RUN_TAG}}"
+                             ],
+                    "parent_artifact_id":  "{{T71_BRANCH_ID}}"
+                }
 }

@@ -1,11 +1,11 @@
-# Instruction Pack — QSB Payload Format: PrimeExecutionObject Contract (v2)
+# Instruction Pack — QSB Payload Format: PrimeExecutionObject Contract (v3)
 
 **artifact_id:** `78855749-d9d0-4cc1-b28d-2e0e47eb6d4b`
 **scope:** `global`
-**pack_version:** `v2`
+**pack_version:** `v3`
 **status:** Active
 **created:** 2026-02-23
-**updated:** 2026-03-03
+**updated:** 2026-03-06
 **origin:** Qwrk Prime Sidebar (QSB) build — Chrome Extension for Gateway execution from ChatGPT
 
 ---
@@ -151,6 +151,36 @@ Use Qwrk Personal unless Joel specifies otherwise.
 }
 ```
 
+### Update spine fields (T87)
+
+```json
+{
+  "gw_action": "artifact.update",
+  "gw_workspace_id": "635bb8d7-7b93-4bea-8ca6-ee2c924c9557",
+  "artifact_type": "project",
+  "artifact_id": "<uuid>",
+  "title": "Updated Project Title",
+  "summary": "New project summary",
+  "priority": 2
+}
+```
+
+### Mixed update — spine + tags (T87)
+
+```json
+{
+  "gw_action": "artifact.update",
+  "gw_workspace_id": "635bb8d7-7b93-4bea-8ca6-ee2c924c9557",
+  "artifact_type": "project",
+  "artifact_id": "<uuid>",
+  "summary": "Updated summary",
+  "tags": {
+    "add": ["reviewed"],
+    "remove": ["draft"]
+  }
+}
+```
+
 ### Update tags
 
 ```json
@@ -181,6 +211,37 @@ Use Qwrk Personal unless Joel specifies otherwise.
 }
 ```
 
+### Content merge (T140 — mutable types)
+
+```json
+{
+  "gw_action": "artifact.update",
+  "gw_workspace_id": "635bb8d7-7b93-4bea-8ca6-ee2c924c9557",
+  "artifact_type": "twig",
+  "artifact_id": "<uuid>",
+  "content": {
+    "status": "updated",
+    "notes": "deep merges into existing content"
+  }
+}
+```
+
+### Content append (T140 — immutable types only)
+
+```json
+{
+  "gw_action": "artifact.update",
+  "gw_workspace_id": "635bb8d7-7b93-4bea-8ca6-ee2c924c9557",
+  "artifact_type": "snapshot",
+  "artifact_id": "<uuid>",
+  "content_append": {
+    "entries": [
+      { "note": "supplementary context", "actor": "joel" }
+    ]
+  }
+}
+```
+
 ### Promote a project
 
 ```json
@@ -206,7 +267,13 @@ Use Qwrk Personal unless Joel specifies otherwise.
 - **Do NOT wrap in extra envelopes** — the JSON IS the Gateway payload, nothing else around it
 - **Do NOT use flat array for tag updates** — use `{ "add": [...], "remove": [...] }` format
 - **Do NOT omit `semantic_type_id` on top-level saves** — required for project, journal, snapshot, restart
-- **Do NOT include `semantic_type_id` on non-top-level saves** — forbidden for branch, leaf, limb, instruction_pack
+- **Do NOT include `semantic_type_id` on non-top-level saves** — forbidden for branch, leaf, limb, instruction_pack, twig
+- **Do NOT combine spine fields + extension in one call** — use separate requests (T87)
+- **Do NOT update title on tree-lifecycle projects** — returns `FIELD_FROZEN` (T87)
+- **Do NOT attempt any update on archived projects** — returns `ARCHIVE_IMMUTABLE` (T87)
+- **Do NOT use `content` on immutable types** (snapshot, journal, restart) — use `content_append` instead (T140)
+- **Do NOT combine `content` and `content_append`** in one call — mutually exclusive modes (T140)
+- **Do NOT include `append_log`** in `content` payloads — reserved system namespace (T140)
 
 ---
 
@@ -222,6 +289,21 @@ Use Qwrk Personal unless Joel specifies otherwise.
 ---
 
 ## CHANGELOG
+
+### v4 — 2026-03-26
+
+- T140 Content Update
+- New "Content merge" and "Content append" action examples
+- "What NOT To Do" expanded: content/content_append mode rules, append_log protection
+- Previous version: `Archive/Instruction_Pack__QSB_Payload_Format__v3__2026-03-26.md`
+
+### v3 — 2026-03-06
+
+- T87 Spine Field Routing
+- New "Update spine fields" example (title/summary/priority as top-level fields)
+- New "Mixed update — spine + tags" example
+- "What NOT To Do" expanded: spine+extension combination, title freeze at tree, archive immutability
+- Previous version: `Archive/Instruction_Pack__QSB_Payload_Format__v2__2026-03-06.md`
 
 ### v2 — 2026-03-03
 

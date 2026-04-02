@@ -7,5 +7,5 @@ $body = @{
     limit = 50
     offset = 0
 } | ConvertTo-Json
-$response = Invoke-RestMethod -Uri "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1" -Method POST -Body $body -ContentType "application/json" -Headers $headers
+$response = Invoke-RestMethod -Uri "https://n8n.halosparkai.com/webhook/nqxb/gateway/v2" -Method POST -Body $body -ContentType "application/json" -Headers $headers
 $response | ConvertTo-Json -Depth 10

@@ -14,7 +14,8 @@
     "title": "[T87-CERT] Design Spine Test Project",
     "summary": "Pre-filled summary for design_spine certification",
     "tags": [
-      "t87-design-spine-cert"
+      "t87-design-spine-cert",
+      "{{RUN_TAG}}"
     ],
     "extension": {
       "lifecycle_stage": "seed"

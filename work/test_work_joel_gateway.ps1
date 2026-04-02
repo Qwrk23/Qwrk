@@ -1,7 +1,7 @@
 # Test suite for NQxb_Gateway_v1__Work_Joel
 # Temporary file — delete after testing
 
-$webhookUrl = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1/work"
+$webhookUrl = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v2"
 $principal = "qwrk-gw-work"
 $password = "ufwpjNF0PEMq4R92ST6zKQM5eeVs7BnM"
 $workspaceId = "635bb8d7-7b93-4bea-8ca6-ee2c924c9557"

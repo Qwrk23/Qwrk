@@ -24,11 +24,13 @@
     Path to results output directory. Default: ./results
 #>
 param(
-    [string]$GatewayUrl = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1",
+    [string]$GatewayUrl = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v2",
     [string]$WorkspaceId = "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
     [string]$CredentialString = $env:QWRK_GW_CREDENTIAL,
     [string]$TestDir = "$PSScriptRoot/tests",
-    [string]$ResultDir = "$PSScriptRoot/results"
+    [string]$ResultDir = "$PSScriptRoot/results",
+    [switch]$RetainArtifacts,
+    [int]$CleanupThreshold = 50
 )
 
 # --- Credential Setup ---
@@ -54,7 +56,9 @@ if (-not (Test-Path $rawDir)) {
 
 # --- Runtime State ---
 $RunTimestamp = (Get-Date).ToString("yyyy-MM-dd_HH-mm-ss")
-$captured = @{ "WORKSPACE_ID" = $WorkspaceId }
+$RunId = "cert-$RunTimestamp"
+$captured = @{ "WORKSPACE_ID" = $WorkspaceId; "RUN_TAG" = "run:$RunId" }
+$createdArtifactIds = @()
 $results = @()
 $aborted = $false
 $abortReason = ""
@@ -383,6 +387,10 @@ foreach ($file in $testFiles) {
             if ($val) {
                 $captured[$prop.Name] = $val.ToString()
                 Write-Host "         Captured $($prop.Name) = $val" -ForegroundColor DarkGray
+                # Track artifact IDs for cleanup
+                if ($prop.Value -eq "artifact_id") {
+                    $createdArtifactIds += $val.ToString()
+                }
             }
             else {
                 Write-Host "         WARN: Could not capture $($prop.Name) from '$($prop.Value)'" -ForegroundColor Yellow
@@ -536,6 +544,200 @@ foreach ($target in $verifyTargets) {
     }
 
     Start-Sleep -Milliseconds 300
+}
+
+# ============================================================
+# Cleanup Phase — Soft-Delete Test Artifacts
+# ============================================================
+
+if (-not $RetainArtifacts) {
+    Write-Host ""
+    Write-Host "--- Cleanup Phase ---" -ForegroundColor Cyan
+
+    if ($createdArtifactIds.Count -eq 0) {
+        Write-Host "  No artifacts to clean up." -ForegroundColor DarkGray
+    }
+    else {
+        Write-Host "  Cleaning up $($createdArtifactIds.Count) test artifacts..." -ForegroundColor Yellow
+        $cleanupPass = 0
+        $cleanupFail = 0
+
+        foreach ($artifactId in $createdArtifactIds) {
+            $deletePayload = @{
+                gw_action       = "artifact.delete"
+                gw_workspace_id = $WorkspaceId
+                artifact_id     = $artifactId
+            } | ConvertTo-Json -Depth 5
+
+            $deleteResult = Invoke-GatewayCall $deletePayload
+
+            if ($deleteResult.Body.ok) {
+                $cleanupPass++
+                $shortId = $artifactId.Substring(0, 8)
+                Write-Host "    [DEL] $shortId" -ForegroundColor DarkGray
+            }
+            else {
+                $cleanupFail++
+                $errCode = if ($deleteResult.Body.error) { $deleteResult.Body.error.code } else { "UNKNOWN" }
+                $shortId = $artifactId.Substring(0, 8)
+                Write-Host "    [FAIL] $shortId ($errCode)" -ForegroundColor Red
+            }
+
+            Start-Sleep -Milliseconds 300
+        }
+
+        Write-Host "  [CLEANUP] Primary cleanup complete: $cleanupPass artifacts deleted" -ForegroundColor $(
+            if ($cleanupFail -eq 0) { "Green" } else { "Yellow" }
+        )
+        if ($cleanupFail -gt 0) {
+            Write-Host "  [CLEANUP] Primary cleanup failures: $cleanupFail" -ForegroundColor Yellow
+        }
+    }
+
+    # --- Fallback Cleanup by RUN_TAG (Two-Pass with Guardrails) ---
+    Write-Host ""
+    Write-Host "  --- Fallback Cleanup (RUN_TAG sweep) ---" -ForegroundColor Cyan
+    Write-Host "  Threshold: $CleanupThreshold artifacts max" -ForegroundColor DarkGray
+
+    $runTag = $captured["RUN_TAG"]
+    $fallbackTypes = @("journal", "project", "snapshot", "restart", "instruction_pack", "limb", "leaf", "branch")
+    $fallbackDeleted = 0
+    $fallbackErrors = 0
+
+    # T170+: Protected tags — governance artifacts are NEVER deletable
+    $PROTECTED_TAGS = @("for-q", "for-cc", "governance", "certified", "decision", "doctrine")
+
+    # ---- PASS 1: Count and collect targets (NO deletes) ----
+    Write-Host "  [PASS 1] Collecting fallback targets..." -ForegroundColor DarkGray
+    $fallbackTargets = @()
+    $fallbackSkipped = @()
+
+    foreach ($aType in $fallbackTypes) {
+        $listPayload = @{
+            gw_action       = "artifact.list"
+            gw_workspace_id = $WorkspaceId
+            artifact_type   = $aType
+            selector        = @{
+                limit   = 100
+                filters = @{
+                    tags_any = @($runTag)
+                }
+            }
+        } | ConvertTo-Json -Depth 5
+
+        $listResult = Invoke-GatewayCall $listPayload
+
+        # Extract artifacts from response (handle both envelope shapes)
+        $artifacts = @()
+        if ($listResult.Body.data -and $listResult.Body.data.artifacts) {
+            $artifacts = @($listResult.Body.data.artifacts)
+        }
+        elseif ($listResult.Body.artifacts) {
+            $artifacts = @($listResult.Body.artifacts)
+        }
+
+        foreach ($art in $artifacts) {
+            $artId = if ($art.artifact_id) { $art.artifact_id.ToString() } else { $null }
+            if (-not $artId) { continue }
+
+            $shortId = $artId.Substring(0, 8)
+            $artTags = @($art.tags)
+            $artTitle = if ($art.title) { $art.title } else { "(no title)" }
+
+            # Guard 1: Protected tags — skip unconditionally
+            $isProtected = ($artTags | Where-Object { $PROTECTED_TAGS -contains $_ }).Count -gt 0
+            if ($isProtected) {
+                Write-Host "    [SKIP-PROTECTED] $shortId ($aType) $artTitle" -ForegroundColor Magenta
+                $fallbackSkipped += @{ Id = $artId; Type = $aType; Reason = "protected-tag"; Title = $artTitle }
+                continue
+            }
+
+            # Guard 2: Scope enforcement — only delete artifacts this harness created
+            $wasCreatedByHarness = $createdArtifactIds -contains $artId
+            if (-not $wasCreatedByHarness) {
+                Write-Host "    [SKIP-UNTRACKED] $shortId ($aType) $artTitle" -ForegroundColor Yellow
+                $fallbackSkipped += @{ Id = $artId; Type = $aType; Reason = "not-in-created-list"; Title = $artTitle }
+                continue
+            }
+
+            $fallbackTargets += @{ Id = $artId; Type = $aType; Title = $artTitle }
+        }
+
+        Start-Sleep -Milliseconds 200
+    }
+
+    Write-Host "  [PASS 1] Results: $($fallbackTargets.Count) targets, $($fallbackSkipped.Count) skipped" -ForegroundColor DarkGray
+
+    # ---- GUARD 3: THRESHOLD CHECK (kill switch) ----
+    $fallbackAborted = $false
+    if ($fallbackTargets.Count -gt $CleanupThreshold) {
+        $fallbackAborted = $true
+        Write-Host ""
+        Write-Host "  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" -ForegroundColor Red
+        Write-Host "  [ABORT] Fallback target count ($($fallbackTargets.Count)) exceeds threshold ($CleanupThreshold)" -ForegroundColor Red
+        Write-Host "  [ABORT] Cleanup HALTED - no artifacts deleted in fallback pass" -ForegroundColor Red
+        Write-Host "  [ABORT] This may indicate the RUN_TAG filter is not being applied by Gateway" -ForegroundColor Red
+        Write-Host "  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "  Would-be targets:" -ForegroundColor Yellow
+        foreach ($t in $fallbackTargets | Select-Object -First 10) {
+            Write-Host "    - $($t.Id.Substring(0,8)) ($($t.Type)) $($t.Title)" -ForegroundColor Yellow
+        }
+        if ($fallbackTargets.Count -gt 10) {
+            Write-Host "    ... and $($fallbackTargets.Count - 10) more" -ForegroundColor Yellow
+        }
+    }
+
+    # ---- PASS 2: Delete confirmed targets (only if not aborted) ----
+    if (-not $fallbackAborted -and $fallbackTargets.Count -gt 0) {
+        Write-Host "  [PASS 2] Deleting $($fallbackTargets.Count) confirmed harness artifacts..." -ForegroundColor DarkGray
+
+        foreach ($target in $fallbackTargets) {
+            $deletePayload = @{
+                gw_action       = "artifact.delete"
+                gw_workspace_id = $WorkspaceId
+                artifact_id     = $target.Id
+            } | ConvertTo-Json -Depth 5
+
+            $deleteResult = Invoke-GatewayCall $deletePayload
+
+            if ($deleteResult.Body.ok) {
+                $fallbackDeleted++
+                $shortId = $target.Id.Substring(0, 8)
+                Write-Host "    [FALLBACK-DEL] $shortId ($($target.Type))" -ForegroundColor DarkYellow
+            }
+            else {
+                $errCode = if ($deleteResult.Body.error) { $deleteResult.Body.error.code } else { "UNKNOWN" }
+                if ($errCode -ne "ALREADY_DELETED" -and $errCode -ne "NOT_FOUND") {
+                    $fallbackErrors++
+                    $shortId = $target.Id.Substring(0, 8)
+                    Write-Host "    [FALLBACK-FAIL] $shortId ($errCode)" -ForegroundColor Red
+                }
+            }
+
+            Start-Sleep -Milliseconds 200
+        }
+    }
+
+    # ---- Fallback Summary ----
+    if ($fallbackAborted) {
+        # Already reported above
+    }
+    elseif ($fallbackTargets.Count -eq 0) {
+        Write-Host "  [CLEANUP] Fallback: no residual artifacts found" -ForegroundColor Green
+    }
+    else {
+        $color = if ($fallbackErrors -eq 0) { "Green" } else { "Yellow" }
+        Write-Host "  [CLEANUP] Fallback removed $fallbackDeleted additional artifacts" -ForegroundColor $color
+        if ($fallbackErrors -gt 0) {
+            Write-Host "  [CLEANUP] Fallback errors: $fallbackErrors" -ForegroundColor Red
+        }
+    }
+} else {
+    Write-Host ""
+    Write-Host "--- Cleanup SKIPPED (-RetainArtifacts) ---" -ForegroundColor Yellow
+    Write-Host "  Run tag: $($captured['RUN_TAG'])" -ForegroundColor DarkGray
+    Write-Host "  To clean up manually: DELETE WHERE tags ? '$($captured['RUN_TAG'])'" -ForegroundColor DarkGray
 }
 
 # ============================================================

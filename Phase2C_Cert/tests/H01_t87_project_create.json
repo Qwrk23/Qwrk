@@ -14,7 +14,8 @@
     "title": "[T87-CERT] Spine Field Test Project",
     "summary": "Original summary before T87 spine updates",
     "tags": [
-      "t87-cert"
+      "t87-cert",
+      "{{RUN_TAG}}"
     ],
     "extension": {
       "lifecycle_stage": "seed"

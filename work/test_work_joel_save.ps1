@@ -1,6 +1,6 @@
 # Smoke test: Save a snapshot via Work_Joel clone
 
-$webhookUrl = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1/work"
+$webhookUrl = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v2"
 $principal = "qwrk-gw-work"
 $password = "ufwpjNF0PEMq4R92ST6zKQM5eeVs7BnM"
 

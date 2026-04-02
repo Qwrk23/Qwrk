@@ -8,7 +8,7 @@ param(
     [string]$Test
 )
 
-$baseUrl = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1/acl-test"
+$baseUrl = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v2"
 $base64 = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("qwrk-gateway:aslfja'wwe*(#fhwoII843ghlw_ek2l"))
 $headers = @{
     "Authorization" = "Basic $base64"

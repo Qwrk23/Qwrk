@@ -3,51 +3,101 @@
 > **Single source of truth for unresolved work across sessions.**
 >
 > Updated at session end. Read at session start.
+>
+> **Structure:** Active Surface (session-start default) → Cold Archive (on-demand) → On Hold → Closed
+>
+> **Last restructured:** 2026-03-24 (v27 cognitive load reduction). Pre-restructure snapshot: `sessions/Archive/OPEN_THREADS__pre-restructure__2026-03-24.md`
 
-## Active Threads
+## Active Surface
 
-| ID | Thread | Opened | Origin Session | Priority | Notes |
-|----|--------|--------|----------------|----------|-------|
-| T22 | Frita Voice — WALK Identity-First | 2026-02-07 | `2026-02-07__002` | Medium | **TREE — ACTIVE ENHANCEMENT.** All 5 workflows operational, tree promoted (`df65ba2f`). Session 080: Added employee ID gather step to password reset path — voice asks for employee ID (any input passes), then proceeds with reset + SMS. Handle v5 updated (Step Check? IF node + TwiML Ask Employee ID node). Tested and confirmed working. 10DLC pending (leaf `8a42f845`). |
-| T24 | Multi-Forest Gateway Enablement | 2026-02-08 | `2026-02-08__006` | Medium | **Q@W + BLAGGLIFE + AKARA ACTIVATED.** Q@W: v59 T69-compliant (session 047/049). BlaggLife: Full deployment (session 056) — Supabase identity (auth user `afa5845c`, qxb_user `81609ab7`, workspace_user `daa9e5be`, ACL `a841ad59`), Gateway clone (`NQxb_Gateway_v1_BlaggLife`, principal `qwrk-gw-blagglife`), 7 ChatGPT project files (SI v1.1 + 6 instruction packs), Chrome Extension profile, first artifact saved (`fe82369b`). Coach Qwrk — Family Manager MVP. **Remaining:** 1 clone pending (Krista_Blagg). Greg clone COMPLETE (session 081) -- see T119. ACL enforcement still paused. |
-| T48 | Qwrk Prime — Restart Instruction Pack + System Instructions Update | 2026-02-20 | current | Medium | **NOT STARTED.** T47 delivered restart semantics for Q@Work only. Prime needs: (1) Restart instruction pack adapted for Prime context (re-anchor is Prime-only), (2) Prime system instructions updated with restart command routing + restart artifact schema. Reference: T47 implementation, `Multi-User Qwrk/04_Instruction_Packs/Restart_Semantics_v1.md`. |
-| T49 | Version Invariant — Semantic Definition and Centralization Strategy | 2026-02-20 | `2026-02-20__007` | Medium | **OPTION B IMPLEMENTED — DEPLOYED AND VERIFIED.** Version increment added to Promote (DB_Update_Lifecycle +1 field) and Update extension/project path (2 new nodes: Prepare_Spine_Version_Increment → DB_Increment_Spine_Version). All 3 modified workflows imported to n8n and tested. Promote verified live: version 3→4 on sapling→tree, QPM guard fires first, no double-writes. Branch/limb/leaf blocked by T51 (no DB write exists). **Additional finding:** Gateway↔SubWorkflow contract seam — no formal spec of what Gateway outputs vs what sub-workflows expect. Same bug class as T26/BUG-015. To be addressed when T49 centralization work continues. Coverage: Save (DB DEFAULT 1), tags (pre-existing), extension/project (+1 NEW), Promote (+1 NEW), branch/limb/leaf (BLOCKED by T51). Restart snapshot `09e8312b` (for-cc) reviewed 2026-02-21 — no new action items, all next_actions map to T49/T51/T52. |
-| T52 | Payload Contract Drift Guardrails (Planning Only) | 2026-02-21 | `2026-02-21__010` | Medium | **PLANNING COMPLETE — GOVERNANCE LOCKED.** Design document delivered: `docs/design/Design__Payload_Contract_Drift_Guardrails__v1.md` (v1.1). 23 authority surfaces inventoried, 15 drift vectors mapped, 5 guardrails designed (A: Version Bump Protocol, B: Contract Regression Checklist, C: Pre-Activation Ritual, D: Drift Detection, E: Pointer Discipline). All 4 open questions resolved 2026-02-21. CLAUDE.md step 7 approved for separate governance edit. **Implementation deferred** — unlock: Hardening Sprint complete + re-audit PASS + T51 resolved. |
-| T53 | Phase Boundary Doctrine Realignment (Planning Only) | 2026-02-21 | current | Medium | **PLANNING ONLY — PLAN APPROVED.** Reconcile Amendment 4 (Crawl-only type scope) with actual system state (Walk types active since `2a8911ef` on 2026-02-16). Deliverables: (1) Phase status declaration — "Crawl-to-Walk Transition (Phase 2/2B Hybrid)", (2) Amendment 4 v2 draft — three-layer enforcement model (DDL/Registry/Gateway), grass/thorn reclassified "Unphased", forest/thicket/flower "Reserved", (3) Registry enforcement diagram, (4) Risk analysis (3 HIGH risks from misalignment), (5) Future type activation policy (8-step prerequisites), (6) Governance snapshot spec (extends `2a8911ef`). Plan file: `~/.claude/plans/enchanted-juggling-gray.md`. **Unlock condition:** T51 resolved + Deterministic Hardening Sprint complete + no competing structural mutations. |
-| T58 | **FROM Q (for-cc).** Deterministic Restart Contract v2 | 2026-02-22 | `2026-02-22__020` | Medium | **NOT STARTED.** Restart contract redesign. Broader scope than T48 (Prime restart IP only). Recommended as priority 3 in forward roadmap (after Phase 2 close + Walk gaps). May subsume T48 depending on scope decision. Source: `388b023e`. |
-| T59 | **FROM Q (for-cc).** Gateway Resolve + Enhanced Search Capability | 2026-02-22 | `2026-02-22__020` | Medium | **NOT STARTED — SAPLING. DOWNGRADED.** CmdCtr + MCP covers CC-side search. Remaining value: Q-facing Gateway action for ChatGPT direct search without CC intermediation. Source: `8ffbda90`. |
-| T60 | **FROM Q (for-cc).** Multi-Forest Architecture via LLM Project Isolation | 2026-02-22 | `2026-02-22__020` | Medium | **NOT STARTED.** Architecture for multi-forest isolation via LLM project boundaries (e.g., Claude Code projects per forest). Different angle from T24 (Gateway clones) — this is about CC/LLM-level isolation. Recently updated (v2). Source: `0664d7ad`. |
-| T61 | **FROM Q (for-cc).** 2025 Tax Prep & CPA Submission | 2026-02-22 | `2026-02-22__020` | Medium | **NOT STARTED.** Personal operations project, priority 2. Not Qwrk build work — personal task management tracked through Qwrk. Source: `679fc921`. |
-| T62 | **FROM Q (for-cc).** Thorn: extension.payload Documentation Audit | 2026-02-22 | `2026-02-22__020` | Medium | **NOT STARTED.** Snapshot save failed due to missing `extension.payload` — validation correctly rejected but indicates documentation gap or Q behavior drift. CC review prompt: audit all docs in `phase1.5-chat-gateway/Chat Project Files/` for `extension.payload` mandatory-on-INSERT documentation. Provide file references and corrections. Source: `344f292f`. |
-| T63 | **FROM Q (for-cc).** Promote Rolling Registry to Tree | 2026-02-22 | `2026-02-22__023` | Low | **IN USE — PROMOTE TO TREE.** Rolling Registry feature is fully operational (CLAUDE.md v20, `Registry refresh` command). Project artifact `c84c2aeb` is seed — needs promote seed→sapling→tree to reflect implemented state. Source: `c84c2aeb`. |
-| T66 | **FROM Q (for-cc).** Phase 3 Type Registry Implementation Doctrine | 2026-02-24 | `2026-02-23__025` | Medium | **NOT STARTED.** Seed-stage architecture for Phase 3 type registry implementation. Source: `802b5eb1`. Sub-item: App Build Process Contract Template (`a6ae6d8d`) — Q drafting seed skeleton with 7 sections, 2 open refinement questions (commercial Economic Model Snapshot, enterprise RLS validation artifact). Folded from deferred for-cc item (session 041). |
-| T67 | **FROM Q (for-cc).** Thorn: TG Silent Error Response Investigation | 2026-02-24 | `2026-02-23__025` | Medium | **NOT STARTED.** TG (Telegram) returning silent errors — needs investigation of error handling path. Source: `9e600927`. |
-| T68 | **FROM Q (for-cc).** Phase 2C Behavioral Type System + Category Layer | 2026-02-24 | `2026-02-23__025` | Medium | **NOT STARTED.** Schema design for behavioral type system and category layer. Phase 2C scope. Source: `58667e8e`. |
-| T73 | **FROM Q (for-cc).** Refactor Q@W Domain Architecture (Forest vs Separate Workspace) | 2026-02-28 | `2026-02-28__032` | Medium | **OPTION — NOT YET AGREED UPON.** Seed-stage architecture question: should Q@Work be a domain within the main forest or a separate workspace? Related to T24 (Multi-Forest Gateway Enablement) and T60 (LLM Project Isolation) but distinct — this is about the Q@W domain model itself. No content/payload yet. Approach is an option under consideration, not a committed direction. Source: `c1cce3d1`. |
-| T78 | **FROM Q (for-cc).** Classification Architecture Design + Post-T70 Execution | 2026-03-01 | `2026-03-01__038` | Medium | **NOT STARTED — DESIGN ONLY. T70 BLOCKER RESOLVED.** Define category/subcategory model for artifacts. Key decisions: spine vs extension, nullable, controlled vocabulary, type-scoped vs global, relationship to tags. Constraints: no schema/workflow changes until design locked. Related to T68 (Behavioral Type System), T69 (Behavioral Role Layer). Design seed: `0325aa2c`. Execution seed: `a21c0b63` (merged — implementation stub for post-design). Q restart prompt provides full scope. |
-| T79 | **FROM Q (for-cc).** Build Mode Protocol v1 (Post-T70 Governance) | 2026-03-01 | `2026-03-01__038` | Medium | **NOT STARTED. T70 NOW CERTIFIED — READY TO DRAFT.** Formalize build governance for Walk phase. Draft `BUILD_MODE_PROTOCOL_v1` after T70 certification. T64 deployed, T70 certified, T71 certified. Project seed: `262d805c`. Restart: `441ebf52`. |
-| T81 | **FROM Q (for-cc).** Strategic Direction — Open Brain Substrate Under Qwrk | 2026-03-05 | `2026-03-05__051` | Medium | **NOT STARTED — STRATEGIC CAPTURE.** Decision: layer Open Brain (embeddings/RAG/MCP) beneath Qwrk governance spine. 4-phase roadmap: pgvector → semantic retrieval → MCP read → MCP write. Read-first, approval-gated writes. Captured for future, not active build. Source: `73b7851f`. |
-| T82 | **FROM Q (for-cc).** Execution Ordering Model (Branch + Leaf Sequence) | 2026-03-05 | `2026-03-05__051` | Low | **NOT STARTED — PHASE 5.** Seed for branch/leaf execution sequencing within QPM. Source: `30944fcb`. |
-| T83 | **FROM Q (for-cc).** Artifact Operational State Column | 2026-03-05 | `2026-03-05__051` | Medium | **NOT STARTED.** Seed — new spine column for operational state tracking. Phase 3 scope. Source: `bdd57e37`. |
-| T84 | **FROM Q (for-cc).** Artifact Query Indexing Strategy | 2026-03-05 | `2026-03-05__051` | Medium | **NOT STARTED.** Seed — query performance and indexing design. Phase 3-late scope. Source: `5ca2bbe1`. |
-| T85 | **FROM Q (for-cc).** Artifact Durability Model (Ephemeral vs Durable) | 2026-03-05 | `2026-03-05__051` | Low | **NOT STARTED — PHASE 5.** Seed for artifact durability classification. Source: `cb446713`. |
-| T86 | **FROM Q (for-cc).** Lifecycle Force Archive Path | 2026-03-05 | `2026-03-05__051` | Low | **NOT STARTED — PHASE 5.** Seed for forced archive lifecycle transition. Source: `d1933171`. |
-| T88 | Preserve Spine Fields During Extension-Only Updates | 2026-03-06 | `2026-03-06__052` | Medium | **NOT STARTED — TECHNICAL DEBT.** Extension-only updates on project artifacts clear spine `summary` field. Pre-existing behavior, discovered during T87 Task 4 certification. Source: T87 certification snapshot `20389ab0`. |
-| T89 | **FROM Q (for-cc).** Single-Query Tree Render Capability | 2026-03-06 | `2026-03-06__054` | Medium | **NOT STARTED — SEED. DOWNGRADED from P1.** CmdCtr read-model tables cover CC-side. Remaining value: Gateway-level action for Q/multi-user access. Source: `b5b374c3`. |
-| T90 | **FROM Q (for-cc).** Command Center Execution Readiness Engine | 2026-03-06 | `2026-03-06__054` | Medium | **NOT STARTED — SEED.** Source: `edb1a406`. |
-| T91 | **FROM Q (for-cc).** Command Center Project Health Monitor | 2026-03-06 | `2026-03-06__054` | Medium | **NOT STARTED — SEED.** Source: `315014e6`. |
-| T92 | **FROM Q (for-cc).** Command Center Design Integrity Scanner | 2026-03-06 | `2026-03-06__054` | Medium | **NOT STARTED — SAPLING.** Source: `542c2d25`. |
-| T103 | **FROM Q (for-cc).** Command Center Limb -- Structural Artifact | 2026-03-06 | `2026-03-06__059` | Medium | **IN PROGRESS.** CmdCtr limb `b00fc252` re-parented from Product to Platform branch (session 060). Blocked by Branch Closure Protocol: 6 child twigs must complete execution lifecycle before limb can close. Session 076: Forest Topology section added to CmdCtr briefing (leaf `454de01d` under Strategic Operator Briefing twig `6b59a677`). Governance snapshot: `34f74800`. Source: `b00fc252`. |
-| T106 | **FROM Q (for-cc).** Thin-Core Prompt + Instruction Director Boot Model | 2026-03-07 | `2026-03-07__060` | Medium | **NOT STARTED.** Platform prompt architecture — instruction system design. Source: `f00020b6`. |
-| T109 | **FROM Q (for-cc).** CmdCtr Chief of Staff Evolution | 2026-03-07 | `2026-03-07__066` | Medium | **NOT STARTED.** Phase 3: evolve CmdCtr beyond observability into operational intelligence. Source: `45721910`. |
-| T111 | Gateway execution_status Update Path | 2026-03-09 | `2026-03-09__074` | Medium | **NOT STARTED.** Gateway has no action to update `execution_status` on leaves/branches/limbs. Column exists (CHECK enforced: not_started, in_progress, blocked, complete) but no Gateway route handles it. Discovered during first QPM leaf execution. Workaround: direct SQL. Needed for QPM canon Phase 6 (CC marks leaves in_progress/complete via Gateway). |
-| T113 | Audit Gateway Response Shapers for Error-Swallowing Bug | 2026-03-09 | `2026-03-09__076` | Medium | **NOT STARTED.** Shape_List_Response was swallowing sub-workflow errors (fixed in session 074). Same bug pattern likely exists in Shape_Save_Response, Shape_Update_Response, Shape_Promote_Response. Audit all 4 gateway response shapers across all 4 gateways (QP, Q@W, BlaggLife, Akara). |
-| T114 | Mobile Gateway Silent Failures | 2026-03-09 | `2026-03-09__076` | Medium | **NOT STARTED.** Mobile console returns silent failures (no error displayed to user). Related to T113 (response shaper error-swallowing) and T67 (TG silent errors). Needs investigation of error visibility on mobile execution surface. |
-| T116 | **FROM Q (for-cc).** Twig Incubation and Mother Tree Feature Topology Doctrine | 2026-03-10 | `2026-03-10__080` | Medium | **NOT STARTED.** Doctrine clarification on twig incubation rules and Mother Tree feature topology. Source: `ec801b27`. |
-| T117 | **FROM Q (for-cc).** Menu Mode Journal Tag Update Failure | 2026-03-10 | `2026-03-10__080` | Medium | **NOT STARTED.** Menu mode journal tag update failing — needs investigation. Carry-forward from 5 sessions. Source: `7e1aec02`. |
-| T118 | parent_artifact_id Update Path -- Fix + Multi-Gateway Rollout | 2026-03-10 | `2026-03-10__081` | High | **IN PROGRESS -- BLOCKED ON DEBUG.** Enable `parent_artifact_id` as mutable spine field in `artifact.update`. Three-layer fix: (1) Gateway Gatekeeper -- DONE on Prime only (v67, `spineFieldCandidates` + `spine_fields` builder patched), (2) Update Normalize_Request + Compute_Mixed -- DONE in exported JSON (v9), (3) Check_Mutability_Rules -- code correct (section 2b returns early for spine_only before journal guard). **BUG:** Both journal and project tests fail with `hasSpineFields=false`. Journal: `JOURNAL_INSERT_ONLY`. Project: `VALIDATION_ERROR: No updateable fields in extension`. **ROOT CAUSE:** n8n import of Update v9 likely did not apply Normalize_Request code change. **RESUME:** Joel must verify in n8n UI: open Update sub-workflow > Normalize_Request node > search for `parent_artifact_id` in JS code. If absent, re-import v9. If present, need deeper data pipeline debug. **GATEWAY DIVERGENCE:** Prime=v67 (patched). Q@W/BlaggLife/Akara/Greg=prior version (unpatched). Once Prime works, patch all 4. **Files:** `workflows/NQxb_Gateway_v1 (67).json`, `workflows/NQxb_Artifact_Update_v1__T69 (9).json`. **Test payloads:** Journal: `artifact_id=9570cf84, parent=8ffbda90`. Project: `artifact_id=8ffbda90, parent=dec0597b`. Workspace: `be0d3a48`. |
-| T119 | Greg Onboarding -- Sunday 2026-03-15 | 2026-03-10 | `2026-03-10__081` | High | **READY FOR ONBOARDING.** All infra complete: Supabase identity (workspace `970d0df8`, auth `1bad96c8`, qxb_user `07c097ad`, ws_user `5fe84de0`, ACL `c878f29a`, principal `qwrk-gw-greg`). Gateway clone deployed. Chrome extensions built (QX+QSB). 7 ChatGPT instruction files. Greg profile added to Joel QX+QSB for testing. Test saves confirmed (journal `aa71c995`, project `0c76208c`). Target: Sunday 2026-03-15. |
-| T120 | SI Update — Extension Persistence Rule + Seed Planting Protocol | 2026-03-10 | `2026-03-10__082` | High | **APPROVED — READY TO EXECUTE.** Two additions to all 5 workspace SIs, shipping together. **(1) Extension Persistence Rule:** "Only listed fields are persisted per type — unknown keys are silently dropped. To link artifacts, use `parent_artifact_id` (top-level)." Discovered via Greg onboarding (session 081): `journal_source_id` passed in project extension was silently dropped. DDL confirmed: `qxb_artifact_project` has strict column schema (lifecycle_stage, operational_state, state_reason, design_spine). **(2) Seed Planting Protocol:** Journal-first genesis pattern. Save companion journal FIRST → retrieve artifact_id → save seed project with `parent_artifact_id` = journal_id. Anti-pattern: creating unlinked seed then attempting post-hoc topology repair (Gateway does not support retroactive `parent_artifact_id` assignment via update — **blocked by T118**). **DEPENDENCY:** T118 (parent_artifact_id Update Path) blocked on n8n debug. Extension persistence rule can ship independently. **5 FILES:** (1) Prime: `Qwrk_SYSTEM_INSTRUCTIONS_2_5_41.md` after line 72, (2) Greg: `qwrk_greg_system_instructions_v1.md` after line 81, (3) Akara: `qwrk_akara_system_instructions_v_1.md` after line 80, (4) BlaggLife: `qwrk_blagglife_system_instructions_v_1.md` after line 82, (5) Q@W: `qwrk_work_system_instructions_v_2.md` after line 46. **Related twig:** `ea25d6a0` (Gateway Enhancement — Unknown Extension Field Warning, priority 4). |
+> Threads with momentum, active bugs, or clear next actions. This is the default session-start view.
+>
+> **`Last Touch`** = session number where thread was last worked or discussed. Prevents zombie drift.
+
+| ID | Thread | Priority | Last Touch | Status | Notes |
+|----|--------|----------|------------|--------|-------|
+| T140 | ~~Gateway Content Field Update Path~~ | Low | 124 | **COMPLETE** | Moved to Closed. |
+| T160 | ~~Canonical v5 — T140 Content Update Section~~ | Low | 124 | **COMPLETE** | Moved to Closed. |
+| T159 | Non-Prime Pack Propagation Sprint | Medium | 115 | PARTIAL | **AKARA AT PARITY (session 115).** SI v1.3→v1.4 (T140 pointer, fast-capture, person type). IP Index v2→v3 (Person pack added, WORKFLOW_PATTERNS removed). Person Save Capability Boundary IP v1 created. Joel also added Feedback Snapshot section + pack count bump. Remaining: BlaggLife SI alignment, Q@W SI alignment, Greg SI alignment, Messaging v2.2 resolution, QPM v1.2 propagation. Restart: `79b1a02a`. |
+| T167 | Compliance-to-Enforcement Hardening Initiative | High | 121 | 2 TREES, 1 SAPLING | **Tree A: Response & Error Integrity** (`20d27f2d`, certified `e35be5af`). Save v49, Update T140 v2, Gateway v4. Gateway passthrough enforced, dual-shaping eliminated. **Tree B: Gateway Strict Mode** (`8a937ffd`, certified `3f8e5052`). Save v50. Extension allowlists, empty object rejection, for-q auto-injection, execution_status default, parent requirement, twig completeness. **Sapling C: Architectural Enforcement** (`459fd517`) — design-first, not yet implemented. Seed: `fb5bccd0`. Subsumes T113/T114. |
+| T118 | parent_artifact_id Update Path | High | 081 | BLOCKED | **BLOCKED ON DEBUG.** n8n import of Update v9 may not have applied Normalize_Request code change. Joel must verify in n8n UI. Prime=v67 (patched), 4 other gateways unpatched. |
+| T145 | Qwrk Beta User Provisioning & Onboarding | High | 106 | IN PROGRESS | **SAPLING — TEACHING LAYER LOCKED.** Joel needs to: (1) fill credential placeholder in Akazanar Qx/QSB, (2) upload beta IPs to ChatGPT. Tree criteria defined. |
+| T152 | Fix Akara Gateway Access | High | 107 | PARTIAL | **REGULAR QX FIXED — BETA QX STILL BLOCKED.** Beta Qx needs KNOWN_WORKSPACES update for Akara workspace. |
+| T164 | Seed Pod — Portable Idea Primitive (Move 1) | High | 114 | WSY GATE ACTIVE | **WSY Review Gate (first use).** Source: `4c536ef7`. WSY Gate: `09df42bf`. Decision: `3b1bdb03`. Restart: `4b37da12` (supersedes `4f1117ac`). Waiting for WSY-complete snapshot from Q+Manus. |
+| T165 | Qwrk Update Versioning System | High | 114c | NOT STARTED | **Design discussion with Q pending.** Twigs: `f0786cad`, `09254a0d`. Restart: pending save. No version scheme exists — Q heads cannot answer "what's new?" after deployments. Triggered by live Akara update today. |
+| T150 | Person Artifact Type — Implementation | Medium | 114 | IN PROGRESS | **BRANCHES 1-3 COMPLETE.** DDL v2.10, Save v47 deployed (v46→v47: communication_style bug fix). Person Save Capability Boundary IP v1 created. NEXT: Branch 4 (Retrieval & Behavior) → 5 → 6. Source: `f3505fdf`. |
+| T103 | Command Center Limb | Medium | 076 | IN PROGRESS | CmdCtr limb `b00fc252`. Blocked by Branch Closure Protocol: 6 child twigs must complete. |
+| T127 | Qwrk Exploratory GPT | Medium | 091 | IN PROGRESS | Demo proxy operational, 47/47 tests PASS, auth added. Source: `f83ca27c`. |
+| T22 | Frita Voice — WALK Identity-First | Medium | 080 | TREE | Active enhancement. 10DLC pending (leaf `8a42f845`). |
+| T121 | Upload Instruction Packs to ChatGPT | Medium | 105 | PARTIAL | Akara files ready, Greg deferred. QPM Build Process IP still needed for Q@W, BlaggLife, Greg. |
+| T123 | Messaging Subsystem — QPM Execution | Low | 124 | MVP COMPLETE | **Session 123:** Calendar Event v2 deployed (recurrence RRULE, attendee fix, sendUpdates, timezone). Google Meet leaf `1465d007` created. Recurrence leaf `659817a9` complete. 1 future leaf open (file attachments `3a7ad2ba`). Multi-forest rollout: BlaggLife + Q@W + Akara done. Greg remaining. |
+| T126 | Akara/Greg Capability Parity | Medium | 105 | PARTIAL | Akara complete. Greg deferred until after onboarding. |
+| T88 | ~~Preserve Spine Fields During Extension-Only Updates~~ | Medium | 123 | **COMPLETE** | Moved to Closed. |
+| T171 | ~~Destructive Operation Safety — 3-Layer Defense Model~~ | High | 124 | **COMPLETE** | Moved to Closed. |
+| T111 | Gateway execution_status Update Path | Medium | 074 | NOT STARTED | No Gateway route for `execution_status` updates. Needed for QPM Phase 6. Workaround: direct SQL. |
+| T113 | ~~Audit Gateway Response Shapers~~ | Medium | 123 | **COMPLETE** | Moved to Closed. |
+| T114 | Mobile Gateway Silent Failures | Medium | 076 | NOT STARTED | Mobile console returns silent failures. Related to T113. |
+| T117 | Menu Mode Journal Tag Update Failure | Medium | 080 | NOT STARTED | Bug — 5-session carry-forward. Source: `7e1aec02`. |
+| T133 | ~~Gateway UPDATE Failure — Save Crashes During Merge~~ | Medium | 124 | **CLOSED** | Moved to Closed. |
+| T141 | Reset the Board — Re-Entry & Loose Thread Sweep | Medium | — | NOT STARTED | Brain dump all loose threads, categorize, pick 3 re-entry targets. Source: `9aac2d90`. |
+| T144 | Lifecycle Alignment Guardrail | Medium | 099 | SEED | Spine/extension lifecycle alignment enforcement. Seed: `eae05a4a`. |
+| T166 | ~~Navigation Snapshot Required for Sapling Hydration~~ | Medium | 124 | **COMPLETE** | Moved to Closed. |
+| T167 | Artifact-Based Handoff Lane (Q ↔ CC) | Medium | 117 | MVP PILOT READY | Protocol doc: `docs/design/Design__Artifact_Handoff_Protocol__v1.md`. CLAUDE.md pointer added. Q-side IP: `Instruction_Pack__CC_Handoff_Lane__v1.md` (IP Index v11, 25 packs). Pilot #0 completed. Pattern: `3758dab9`. Handoffs: `aa3569fb`, `c44bdb00`. **NEXT:** Upload IP to ChatGPT, pick real thread for Pilot #1. |
+| T168 | ~~Gateway Read Path Alignment (Query/List Response Consistency)~~ | Medium | 124 | **CLOSED** | Moved to Closed. |
+| T169 | execution_status Update → HTTP 400 Investigation | Medium | 123 | PARTIAL — TRANSPORT FIXED | **Session 123: Transport fix applied.** `onError: continueRegularOutput` + `alwaysOutputData: true` added to both Update and Promote Execute Workflow nodes in Gateway v2. Data path gap remains: `execution_status` still not in Update Normalizer allowlist (T111). |
+| T170 | ~~Cert Harness Governance Boundary — Protect Non-Test Artifacts~~ | Medium | 123 | **COMPLETE** | Moved to Closed. |
+| T172 | Qwrk Operator Console — Web Product Surface | High | 125 | SAPLING — 3 BRANCHES | **Sapling:** `152d9c11`. Promoted seed→sapling 2026-04-01. CC built Phases 1–8 (scaffold→pattern standardization). 3 branches: **Core Console** (`d5781fab`, read/hydration, Phases 1–8 complete), **Topology Visualization** (`298a32bd`, 5 leaves scaffolded, not started), **Hosting & Deployment** (`af189c7d`, deployment plan leaf saved, auth blocker identified). Nav snapshot: `pending save`. Milestone v2: `cd4487d6`. NEXT: Joel decides Vercel vs self-hosted, auth approach. Duplicate leaf to clean up: `c1e2b0e8` (same as `d49b9124`). |
+
+## Cold Archive
+
+> Seeds, Phase 3+ items, deferred designs, and strategic captures. NOT scanned at session start.
+>
+> **28 threads.** Say "show cold archive" or reference a T-number to access.
+>
+> To promote a thread back to Active Surface, tell CC during any session.
+
+| ID | Thread | Priority | Category | Notes |
+|----|--------|----------|----------|-------|
+| T24 | Multi-Forest Gateway Enablement | Medium | Stalled | 1 clone pending (Krista_Blagg), ACL enforcement paused. |
+| T52 | Payload Contract Drift Guardrails | Medium | Planning locked | Implementation deferred. Unlock: Hardening Sprint + re-audit + T51. |
+| T53 | Phase Boundary Doctrine Realignment | Medium | Planning locked | Unlock: T51 + Hardening Sprint + no competing mutations. |
+| T58 | Deterministic Restart Contract v2 | Medium | Deferred | Priority 3 in roadmap. Source: `388b023e`. |
+| T60 | Multi-Forest Architecture via LLM Project Isolation | Medium | Architecture | CC/LLM-level isolation design. Source: `0664d7ad`. |
+| ~~T61~~ | ~~2025 Tax Prep & CPA Submission~~ | — | Closed | **Moved to Closed table.** |
+| T66 | Phase 3 Type Registry Implementation Doctrine | Medium | Phase 3 seed | Source: `802b5eb1`. |
+| T68 | Phase 2C Category/Subcategory Universal Classification | **High** | **SAPLING — ACTIVE** | 6 branches scaffolded, all `not_started`. Canonical plan: `32d88e45`. Nav snapshot: `c3819c41`. Ready for leaf creation (Branch 1 first). Source: `58667e8e`. |
+| T78 | Classification Architecture Design | Medium | Design only | Category/subcategory model. Related: T68, T69. Source: `0325aa2c`. |
+| T81 | Open Brain Substrate Under Qwrk | Medium | Strategic capture | Future: pgvector → semantic retrieval → MCP. Source: `73b7851f`. |
+| T82 | Execution Ordering Model | Low | Phase 5 seed | Branch/leaf sequencing. Source: `30944fcb`. |
+| T83 | Artifact Operational State Column | Medium | Phase 3 seed | New spine column. Source: `bdd57e37`. |
+| T84 | Artifact Query Indexing Strategy | Medium | Phase 3-late seed | Source: `5ca2bbe1`. |
+| T85 | Artifact Durability Model | Low | Phase 5 seed | Source: `cb446713`. |
+| T86 | Lifecycle Force Archive Path | Low | Phase 5 seed | Source: `d1933171`. |
+| T90 | CmdCtr Execution Readiness Engine | Medium | Seed | Source: `edb1a406`. |
+| T91 | CmdCtr Project Health Monitor | Medium | Seed | Source: `315014e6`. |
+| T92 | CmdCtr Design Integrity Scanner | Medium | Sapling (no activity) | Source: `542c2d25`. |
+| T106 | Thin-Core Prompt + Instruction Director | Medium | Platform design | Source: `f00020b6`. |
+| T109 | CmdCtr Chief of Staff Evolution | Medium | Phase 3 | Source: `45721910`. |
+| T116 | Twig Incubation & Mother Tree Doctrine | Medium | Doctrine | Source: `ec801b27`. |
+| ~~T124~~ | ~~Recurring Calendar Events~~ | — | Closed | **Moved to Closed table.** |
+| T128 | Default Seed Content Lives on the Seed | Medium | Governance seed | Source: `b8cd7538`. |
+| T129 | Qwrk Release Contract & Forest Seasoning | Medium | Seed | Source: `589b9f42`. |
+| T130 | Qwrk v3 Autonomous System Concept | Medium | Seed | Source: `1733c477`. |
+| T131 | Qwrk v2 Release Definition | Medium | Seed | Source: `70664f0c`. |
+| T132 | Multi-User Feedback Capture via Snapshot | Medium | Decision | Source: `1f663eb1`. |
+| T134 | Versioned Design Spine Architecture | Medium | Architecture seed | Source: `363164a5`. |
+| T135 | QPM Active Execution Registry | Medium | Seed | Source: `55d061ef`. |
+| T136 | QPM Active Execution Registry — Standard Pattern | Medium | Seed | Source: `3c38011a`. |
+| T137 | Demo Qwrk Upgrade Requirements | Medium | Seed | Source: `ac51d703`. |
+| T138 | QPM as AI-Driven Software Dev Framework | Medium | Seed | Source: `c61c6177`. |
+| T139 | Multi-User Gateway & Workspace Resolution | Medium | Seed | Related to T122. Source: `e8bfcb89`. |
+| T142 | Forest Map Doctrine — CmdCtr Topology | Medium | Governance seed | Source: `961c37b3`. |
+| ~~T143~~ | ~~Decision — Twig Fast-Capture Pattern~~ | — | Closed | **Moved to Closed table.** |
+| T146 | Snapshot-Triggered Upgrade Notifications | Medium | Seed | Source: `679f9f5d`. |
+| T147 | Read-Only Gateway Layer | Medium | Late sapling | 5 actions scoped. Source: `199be114`. |
+| T161 | Qwrk Monetization Sapling | Medium | Seed | **FROM Q (for-cc).** Initial structure + go-to-market direction. Source: `5a089e39`. |
+| ~~T162~~ | ~~DIY Tax Preparation System~~ | — | Closed | **Moved to Closed table.** |
+| T163 | Cognitive Exoskeleton Initiative | Medium | Paused | **FROM Q (for-cc).** Paused at sapling scaffold. Source: `f21579f3`. |
 
 
 ## On Hold
@@ -61,6 +111,7 @@
 | T37 | Audit & Reattach — Mother Tree Topology Alignment | Medium | Audit task. Not urgent. |
 | T40 | Q Personal Tag Instruction Update | Medium | Nice-to-have, not system critical. |
 | T42 | Modes vs Lenses Distinction Architecture | Medium | Pure agent-architecture thinking. No shipping impact. |
+| T73 | Refactor Q@W Domain Architecture (Forest vs Separate Workspace) | Medium | Option not agreed upon. No content/payload. Source: `c1cce3d1`. |
 | T43 | Role Micro-Switch Lens Architecture | Medium | Pure agent-architecture thinking. No shipping impact. |
 | T45 | Qwrk Public Beta — Restart-Only MVP | High | Explicitly deferred. Respect the lock. |
 
@@ -68,6 +119,21 @@
 
 | ID | Thread | Closed | Resolution |
 |----|--------|--------|------------|
+| T165 | BUG: Person communication_style Corruption (Save Pipeline) | 2026-03-29 |
+| T61 | 2025 Tax Prep & CPA Submission | 2026-03-29 | **COMPLETE.** Personal + TPS (Daisy's business) taxes filed for 2025. Seed `679fc921` never scaffolded — work driven by Q + Manus outside QPM. |
+| T162 | DIY Tax Preparation System | 2026-03-29 | **CLOSED — SUBSUMED BY T61.** Tax filing complete. Source `1b754cd1` (soft-deleted). | **COMPLETE.** Malformed n8n expression in Save v46 DB_Insert_Person_Extension (field 21). Save v47 deployed, 6/6 TC PASS. 10 corrupted records remediated (8 test + 2 production NULLed). Production re-acquisition pending (Fran, Christian). Beta Gateway parity deferred. Bug intake: `c7bd3a1b`. Authorization: `7c81ad8d`. Closure: `4b7dcd76`. |
+| T158 | Instruction Architecture Refactor — Root Compression + Payload Discipline Authority | 2026-03-25 | **COMPLETE.** SI v48→v49 (7,910→7,108 chars, 892 headroom). Payload Discipline v2→v3 (single payload construction authority). Quick Ref v5→v6 (absorbed Workflow Patterns). Pack count 21→20. Snapshot: `0ce5488b`. |
+| T157 | Cross-Workspace Write Gate — Three-Layer Defense | 2026-03-25 | **COMPLETE.** SI v48 §CW Gate [LOCKED — INVIOLABLE], Instruction Pack v1, QSB executor.js runtime gate, profiles.js home_workspace_id + workspaceNames. Prime-first scope. |
+| T156 | Cognitive Load Reduction — CLAUDE.md v27 + OPEN_THREADS Restructure | 2026-03-24 | **COMPLETE.** CLAUDE.md 1723→1156 lines (33% reduction). OPEN_THREADS split into Active Surface (21) + Cold Archive (37). Last Touch column added. |
+| T155 | CmdCtr Daily Operating Loop — Session Start Integration | 2026-03-24 | **COMPLETE.** CmdCtr integrated into session start protocol. First snapshot saved. |
+| T154 | Branch 4 Duplicate Leaf Cleanup — Soft-Delete Superseded Batch | 2026-03-24 | **COMPLETE.** 16 superseded Batch 1 leaves soft-deleted from Branch 4 (`f483df62`). Two passes (11 + 5). Tagged `superseded` + `duplicate-cleanup`. 16 canonical Batch 2 leaves verified. |
+| T153 | Manus Project Files — Plan Reviewer Upgrade | 2026-03-24 | **COMPLETE.** 8-file package delivered. Manus upgraded to bounded plan sanity checker. |
+| T151 | Decision — Progress Rollup Implementation Strategy | 2026-03-24 | **DECISION LOCKED.** Option B selected — use existing read patterns, defer dedicated endpoint. |
+| T149 | Promote Atomicity Fix — Extension lifecycle_stage Sync | 2026-03-21 | **COMPLETE.** Promote v28 deployed to both gateways (Qwrk + Qwrk Beta). Atomic promote via `promote_artifact_lifecycle()` RPC function. Post-promote re-validation fixed. Build scripts: v26-v28a. Migration: `2026-03-21__promote_lifecycle_atomic__v1.sql`. |
+| T148 | Beta SI Semantic Type Registry Drift | 2026-03-21 | **COMPLETE.** Corrected 6 invalid `semantic_type_id` values in Beta SI and Payload Discipline. |
+| T125 | Instruction Pack Lookup Discipline Implementation | 2026-03-12 | **COMPLETE.** 6 twigs executed under sapling `c5707a3f`. Payload Lookup Mandate [LOCKED] in all 5 SIs, IP Index v2 (Trigger column), Payload Discipline v2 (preflight checklist). |
+| T120 | SI Update — Extension Persistence Rule + Seed Planting Protocol | 2026-03-12 | **COMPLETE.** Extension Persistence Rule + Seed Planting Protocol shipped to all 5 workspace SIs. Related twig `ea25d6a0` (Unknown Extension Field Warning) remains open. |
+| T79 | Build Mode Protocol v1 | 2026-03-12 | **COMPLETE — DELIVERED AS QPM BUILD PROCESS IP.** `Instruction_Pack__QPM_Build_Process__v1.md` shipped to Prime, Q@W, BlaggLife. Distilled from 8 governance snapshots (first QPM tree build). Covers 7-phase launch procedure, navigation snapshots, branch closure protocol, build governance rules, and extension guidance. Source seed: `262d805c`. |
 | T115 | CC Skills Suite — 5 New Skills Built + PRDs | 2026-03-10 | **COMPLETE.** 5 skills deployed: /archive-file, /registry-refresh, /query-artifact, /cmdctr-briefing, /rolling-mem-sync. Plus /run-sql. 6 PRDs written, Manus-reviewed, executed, archived. |
 | T110 | Q@W Feature Parity Sprint | 2026-03-09 | **COMPLETE.** 6-block parity sprint + workspace cleanup. 21 clean artifacts, Mother Tree intact, all governance operational. |
 | T51 | Extension Update Surface Determinism | 2026-03-05 | **COMPLETE — CERTIFIED AND DEPLOYED.** |
@@ -93,6 +159,15 @@
 | T105 | QSB Auto-Dismiss + Accomplishment Report | 2026-03-07 | **COMPLETE.** |
 | T107 | Mobile Gateway Access — Phone Execution Surface | 2026-03-08 | **COMPLETE.** |
 | T108 | Pre-Feb-1 Artifact Cleanup — Soft Delete Sweep | 2026-03-07 | **COMPLETE.** |
+| T48 | Qwrk Prime — Restart IP + SI Update | 2026-03-11 | **CLOSED — SUBSUMED BY T58.** T58 (Deterministic Restart Contract v2) is broader scope and explicitly subsumes T48. Source: `388b023e`. |
+| T49 | Version Invariant — Semantic Definition | 2026-03-11 | **CLOSED — OPTION B DEPLOYED.** Save/Promote/Update all increment version. Branch/limb/leaf version increment gap remains (minor, ad-hoc if needed). Contract seam finding covered by T52. |
+| T59 | Gateway Resolve + Enhanced Search | 2026-03-11 | **CLOSED — SUPERSEDED.** CmdCtr + MCP covers CC-side. Discovery Playbook covers Q-side. Remaining value (Gateway search action) speculative. |
+| T62 | Thorn: extension.payload Doc Audit | 2026-03-11 | **CLOSED — RESOLVED BY T69/T87.** Documentation sweeps fixed all extension examples across QR, SI, and Canonical docs. |
+| T63 | Promote Rolling Registry to Tree | 2026-03-11 | **CLOSED — SOURCE ARTIFACT DELETED.** Original `c84c2aeb` soft-deleted 2026-03-08. Replacement `2ca3b6be` tagged deprecated. Feature operational via CLAUDE.md v20 `Registry refresh` command — no project artifact needed. |
+| T67 | Thorn: TG Silent Error Response | 2026-03-11 | **CLOSED — MERGED INTO T114.** Same bug class as Mobile Gateway Silent Failures. Source `9e600927` referenced in T114. |
+| T89 | Single-Query Tree Render | 2026-03-11 | **CLOSED — SUPERSEDED.** CmdCtr read-model covers CC-side. Remaining value (Gateway action) speculative, downgraded twice. |
+| T122 | Unified Gateway Identity & Workspace Resolution | 2026-03-25 | **COMPLETE.** Tree promoted. v1 clones (Q@W, email_cal) decommissioned and archived. |
+| T119 | Greg Onboarding | 2026-03-20 | **COMPLETE.** All infra deployed, walkthrough completed. |
 | T87 | Qwrk Governance Ergonomics Correction | 2026-03-06 | **COMPLETE — ALL 8 DOCUMENTS DEPLOYED.** |
 | T93 | Test Artifact Cleanup — Surgical Delete | 2026-03-06 | **COMPLETE.** |
 | T46 | Journal Append — Governance Decision | 2026-03-06 | **CLOSED — DECISION LOCKED BY T87.** |
@@ -145,7 +220,11 @@
 ## Maintenance Rules
 
 1. **At session end:** Update this file before writing `LATEST_END_SESSION.md`
-2. **Adding threads:** Assign next ID (T28, T29...), set Opened date and Origin Session
+2. **Adding threads:** Assign next ID, add to Active Surface with `Last Touch` = current session number
 3. **Closing threads:** Move to Closed Threads table with resolution note
 4. **Priority levels:** High / Medium / Low
-5. **Blocked threads:** Note blocker in Notes column (e.g., "Blocked by T1")
+5. **Blocked threads:** Note blocker in Status/Notes column
+6. **Last Touch:** Update session number when a thread is worked or meaningfully discussed
+7. **Cold Archive promotion:** Joel says "pick up T-number" → move from Cold Archive to Active Surface
+8. **Active Surface demotion:** At session end, threads untouched for 10+ sessions with no momentum may be proposed for Cold Archive (Joel confirms)
+9. **New for-cc items:** Always enter Active Surface first. Demote to Cold Archive only at session end if seed/Phase 3+

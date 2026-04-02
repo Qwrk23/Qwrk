@@ -62,9 +62,9 @@ Profiles are configured in `profiles.js`. Same model as QX:
 {
   id: "qwrk-personal",
   label: "Qwrk Prime",
-  endpoint: "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1",
+  endpoint: "https://n8n.halosparkai.com/webhook/nqxb/gateway/v2",
   credential: "<base64>",
-  auth_mode: "basic"    // "basic" (v1) | "bearer" (future)
+  auth_mode: "basic"    // "basic" (v2) | "bearer" (future)
 }
 ```
 
@@ -81,7 +81,7 @@ Selected workspace persists via `chrome.storage.local`.
 
 ## Auth
 
-v1 ships with **Basic Auth** (`Authorization: Basic <base64>`).
+v2 ships with **Basic Auth** (`Authorization: Basic <base64>`).
 
 Per-profile `auth_mode` switch supports future Bearer migration. Auth logic is isolated in `auth.js`.
 

@@ -1,7 +1,7 @@
 # Verbose ACL test — capture response body with multiple methods
 $credential = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("qwrk-gateway:aslfja'wwe*(#fhwoII843ghlw_ek2l"))
 
-$cloneUrl = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1/acl-test"
+$cloneUrl = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v2"
 
 # --- Test 3 first (allowed workspace, should be 200 with body) ---
 Write-Host "=== TEST 3: Allowed Workspace ==="

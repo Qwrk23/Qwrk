@@ -1,6 +1,6 @@
 # T24 Step 2 - Test 2: Malformed ACL Endpoint (Fail-Closed Proof)
 $credential = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("qwrk-gateway:aslfja'wwe*(#fhwoII843ghlw_ek2l"))
-$cloneUrl = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1/acl-test"
+$cloneUrl = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v2"
 
 $body = '{"gw_action":"artifact.list","gw_workspace_id":"be0d3a48-c764-44f9-90c8-e846d9dbbd0a","artifact_type":"project","selector":{"limit":1}}'
 

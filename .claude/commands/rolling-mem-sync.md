@@ -17,7 +17,7 @@ Glob: Qwrk_RollingMem/Qwrk_Rolling_Memory__for-q__*.md
 
 **Q@W:**
 ```
-Glob: Multi-User Qwrk/03_ChatGPT_Projects/Qwrk@Wrk/RollingMem/Qwrk_Rolling_Memory__for-q-work__*.md
+Glob: Multi-User Qwrk/03_ChatGPT_Projects/Qwrk@Wrk/Q@W Rolling Mem/Qwrk_Rolling_Memory__for-q-work__*.md
 ```
 
 Select the file with the most recent date. If no file exists, emit warning (see Step 5).
@@ -99,11 +99,16 @@ WAIT for user confirmation before regenerating.
    - Section A2: Active Operational Contexts
    - Section B: All for-q artifacts (by created_at)
    - Section C: Compacted/archived references
-3. Save with today's date:
+3. **Archive previous rolling memory files** before writing new ones:
+   - Move all existing `Qwrk_Rolling_Memory__for-q__*.md` (excluding today's date) → `Archive/` subfolder
+   - **Prime:** `Qwrk_RollingMem/Qwrk_Rolling_Memory__for-q__*.md` → `Qwrk_RollingMem/Archive/`
+   - **Q@W:** `Multi-User Qwrk/.../Q@W Rolling Mem/Qwrk_Rolling_Memory__for-q-work__*.md` → `Multi-User Qwrk/.../Q@W Rolling Mem/Archive/`
+   - Create `Archive/` subfolder if it doesn't exist
+   - Do NOT delete archived files
+4. Save new file with today's date:
    - **Prime:** `Qwrk_RollingMem/Qwrk_Rolling_Memory__for-q__YYYY-MM-DD.md`
-   - **Q@W:** `Multi-User Qwrk/03_ChatGPT_Projects/Qwrk@Wrk/RollingMem/Qwrk_Rolling_Memory__for-q-work__YYYY-MM-DD.md`
-4. Retain previous files (do NOT delete)
-5. Confirm: "Rolling memory regenerated: [filename] (N entries)"
+   - **Q@W:** `Multi-User Qwrk/03_ChatGPT_Projects/Qwrk@Wrk/Q@W Rolling Mem/Qwrk_Rolling_Memory__for-q-work__YYYY-MM-DD.md`
+5. Confirm: "Rolling memory regenerated: [filename] (N entries). Archived: [list of files moved]"
 
 ## Decision Points
 
@@ -125,4 +130,5 @@ Session start step 4. Delta feeds into step 6 (CC Memory Harvest). No delta = st
 - Never be silent when a check fails — silence means "checked, nothing new"
 - Never auto-regenerate without user approval
 - Never execute SQL through bash/heredoc — use MCP directly
-- Never delete previous rolling memory files
+- Never delete archived rolling memory files
+- Never leave previous dated rolling memory files in the main folder — archive them before writing the new one

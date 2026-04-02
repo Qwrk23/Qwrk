@@ -1,0 +1,711 @@
+[
+  {
+    "_comment": "SAPLING A: Response & Error Integrity — Branch 1/3",
+    "_branch": "Deterministic Error Surfacing (1ed8973a)",
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+    "artifact_type": "snapshot",
+    "title": "Leaf Plan — Deterministic Error Surfacing",
+    "semantic_type_id": "governance",
+    "tags": ["for-q", "compliance-to-enforcement", "leaf-plan"],
+    "parent_artifact_id": "1ed8973a-d841-4239-9764-453fac3cf26b",
+    "extension": {
+      "payload": {
+        "branch_title": "Deterministic Error Surfacing",
+        "branch_id": "1ed8973a-d841-4239-9764-453fac3cf26b",
+        "sapling": "Response & Error Integrity",
+        "action_scope": "Save sub-workflow ONLY (Update, Promote, Query, List scoped separately after Save validated)",
+        "gateway_boundary": {
+          "truth_rule": "Every ok:false produced at any node in the Save sub-workflow MUST arrive at the Webhook Response with ok:false, error.code preserved, error.message preserved. No ok:true when any upstream node signaled failure.",
+          "error_propagation_chain": "Save Normalize_Request → Save Validate_Request → Semantic Type Resolution → Type Switch → DB Insert → Shape_Save_Response → [Execute Workflow return] → Gateway Shape Response → Webhook Response",
+          "invalid_states": {
+            "swallowed": "Error produced but never reaches response node (dead branch, unconnected error output)",
+            "masked": "Error reaches response but code/message is replaced with generic or incorrect values",
+            "false_success": "Error occurred but response returns ok:true (most dangerous)"
+          }
+        },
+        "proposed_leaves": [
+          {
+            "leaf": 1,
+            "title": "Enumerate error emission points in Save sub-workflow",
+            "type": "analysis",
+            "scope": "Save sub-workflow only. Read the build script (build_save_v47_comms_fix.py) and/or n8n workflow export. List every node that can produce an error: validation rejects, semantic type lookup failures, DB insert failures, type-switch fallthrough.",
+            "excluded": "No fixes. No classification. Just enumeration.",
+            "completion_condition": "A table exists mapping: node_name → error_condition → output_path (success/error) for every node in the Save chain."
+          },
+          {
+            "leaf": 2,
+            "title": "Trace and classify error handling behavior",
+            "type": "analysis",
+            "scope": "For each error emission point from Leaf 1, trace the path from that node to the final response. Classify each as: propagated (reaches response correctly), swallowed (never reaches response), masked (reaches response but code/message altered incorrectly), or false_success (error occurred, response says ok:true).",
+            "excluded": "No fixes. No design. Classification only.",
+            "completion_condition": "Every row in the Leaf 1 table has a classification. The number and identity of non-propagated error classes is known."
+          },
+          {
+            "leaf": 3,
+            "title": "Define error propagation contract for Save",
+            "type": "design",
+            "scope": "Using Leaf 2 classifications, write the explicit contract: (1) every error emission point must reach Shape_Save_Response, (2) error code and message must be preserved end-to-end, (3) ok:true is forbidden when any upstream error occurred. Define the response shape contract for error cases.",
+            "excluded": "No implementation. Contract definition only.",
+            "completion_condition": "A written contract exists that can be used as acceptance criteria for implementation leaves. Includes: required error response shape, forbidden states, and the truth boundary definition."
+          },
+          {
+            "leaf": 4,
+            "title": "[DERIVED] Fix implementation leaves (one per error class)",
+            "type": "implementation",
+            "scope": "Each leaf fixes exactly ONE error class (e.g., 'Fix swallowed errors in Save' or 'Fix false-success path in DB Insert error handling'). Scope is determined by Leaf 2 output — cannot be pre-defined.",
+            "excluded": "No mixing of error classes. No changes to success paths.",
+            "execution_rule": "Leaf 4 is not a single executable leaf. It is a generation step. After Leaf 2 completes, each discovered error class MUST be instantiated as its own independent leaf artifact before implementation begins.",
+            "decomposition_rule": "After Leaf 2 completes, create one implementation leaf per distinct non-propagated error class discovered. If Leaf 2 finds 0 issues, skip to Leaf 5. Each leaf title follows: 'Fix [class] errors in Save — [node/path description]'.",
+            "completion_condition": "Per instantiated leaf: the specific error class now propagates correctly per Leaf 3 contract."
+          },
+          {
+            "leaf": 5,
+            "title": "Validate Save error propagation",
+            "type": "validation",
+            "scope": "For each error emission point from Leaf 1, inject a failure condition and verify: (1) response is ok:false, (2) error code matches expected, (3) no ok:true on failure. Test against Leaf 3 contract.",
+            "excluded": "No new fixes during validation. Failures create new implementation leaf, not inline fix.",
+            "completion_condition": "Every error emission point tested. All pass against Leaf 3 contract. If any fail, a new implementation leaf is created (not fixed inline)."
+          },
+          {
+            "leaf": 6,
+            "title": "Documentation update",
+            "type": "documentation",
+            "scope": "Add 'No silent failure paths' invariant to Gateway README. Update Payload Discipline if error handling guidance changes. Document the Save error propagation contract from Leaf 3 as permanent reference.",
+            "excluded": "No code changes.",
+            "completion_condition": "Invariant documented. Contract referenced in canonical docs."
+          }
+        ],
+        "sequencing": "Leaf 1 → Leaf 2 → Leaf 3 → Leaf 4(×N) → Leaf 5 → Leaf 6. Leaves 1-3 strictly sequential. Leaf 4 count unknown until Leaf 2 completes. Leaf 5 after ALL Leaf 4 instances. Leaf 6 can overlap with Leaf 5.",
+        "risks": [
+          "Leaf 2 may find zero issues in Save — valid outcome, skip to Leaf 5 validation.",
+          "Shape_Save_Response may be the single failure point — if so, overlaps with Branch 2 (Response Shape). Classify in Leaf 2 but fix under whichever branch owns the shaper.",
+          "Execute Workflow boundary — if Save throws unhandled exception instead of returning ok:false, Gateway Execute Workflow node may produce opaque error. Leaf 1 should note top-level error handling."
+        ]
+      }
+    }
+  },
+  {
+    "_comment": "SAPLING A: Response & Error Integrity — Branch 2/3",
+    "_branch": "Consistent Response Shape (f4a98705)",
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+    "artifact_type": "snapshot",
+    "title": "Leaf Plan — Consistent Response Shape",
+    "semantic_type_id": "governance",
+    "tags": ["for-q", "compliance-to-enforcement", "leaf-plan"],
+    "parent_artifact_id": "f4a98705-d4c5-4a7c-b4cb-4e67836d2465",
+    "extension": {
+      "payload": {
+        "branch_title": "Consistent Response Shape",
+        "branch_id": "f4a98705-d4c5-4a7c-b4cb-4e67836d2465",
+        "sapling": "Response & Error Integrity",
+        "action_scope": "Save sub-workflow ONLY (Update, Promote, Query, List scoped separately after Save validated)",
+        "gateway_boundary": {
+          "truth_rule": "Every Gateway response from Save MUST conform to a canonical shape contract. Success and error paths each have a defined field set. No response may omit required fields, include forbidden state combinations, or vary structurally based on artifact type.",
+          "relationship_to_branch_1": "Branch 1 governs error PROPAGATION (errors must reach the response). Branch 2 governs response SHAPE (the response structure must be consistent and complete). Branch 1 truth rule is inherited — this branch does not redefine error semantics.",
+          "allowed_states": {
+            "success": "ok:true with data.artifact object containing all spine + extension fields, version populated, timestamp present",
+            "error": "ok:false with error.code, error.message, and optional error.details. No data.artifact on error path."
+          },
+          "forbidden_states": [
+            "ok:true with error object present",
+            "ok:false missing error.code",
+            "ok:false missing error.message",
+            "version:null on success path",
+            "missing timestamp on any path",
+            "inconsistent nesting (data vs artifact at top level)",
+            "operation field present on some responses but absent on others"
+          ]
+        },
+        "proposed_leaves": [
+          {
+            "leaf": 1,
+            "title": "Enumerate response shapes from Save",
+            "type": "analysis",
+            "scope": "Trace response shape across the full pipeline: from DB Insert node output, through Shape_Save_Response transformations, to the final Webhook Response returned to the client. For both success and error paths, document every field at each stage: field name, type, nullability, source node. Identify any field loss or mutation between DB output and final response. Cover the normal save path and each known error branch (validation error, semantic type error, DB insert error, type mismatch).",
+            "excluded": "No classification of issues. No fixes. Enumeration only.",
+            "completion_condition": "A table exists mapping: response_path (success/validation_error/db_error/etc) → fields present → field type → nullable for every output shape from Save."
+          },
+          {
+            "leaf": 2,
+            "title": "Classify shape inconsistencies",
+            "type": "analysis",
+            "scope": "For each response shape from Leaf 1, compare against expected canonical structure. Classify each inconsistency as: missing_field (required field absent), null_violation (required field present but null, e.g., version:null), structural_mismatch (wrong nesting, wrong type), inconsistent_optional_field (field present on some paths, absent on others without justification).",
+            "excluded": "No fixes. No contract definition. Classification only.",
+            "completion_condition": "Every response path from Leaf 1 has been compared. Each inconsistency is classified with: path, field, issue_type, current_behavior, expected_behavior. The number and identity of inconsistencies is known."
+          },
+          {
+            "leaf": 3,
+            "title": "Define response shape contract for Save",
+            "type": "design",
+            "scope": "Define the canonical Save response schema for success and error paths. Specify: required fields (must always be present and non-null), optional fields (may be absent), nullability rules, forbidden state combinations. Align error shape with Branch 1 propagation contract. This becomes the acceptance criteria for all implementation leaves.",
+            "excluded": "No implementation. Contract definition only.",
+            "completion_condition": "A written contract exists defining: success response shape (exact fields), error response shape (exact fields), required/optional classification per field, forbidden states list, and explicit alignment note with Branch 1 error contract."
+          },
+          {
+            "leaf": 4,
+            "title": "[DERIVED] Fix implementation leaves (one per inconsistency)",
+            "type": "implementation",
+            "scope": "Each leaf fixes exactly ONE shape inconsistency (e.g., 'Fix null version on Save success response' or 'Fix missing timestamp on Save validation error path'). Scope is determined by Leaf 2 output — cannot be pre-defined.",
+            "excluded": "No mixing of inconsistencies. No changes to error propagation logic (that's Branch 1).",
+            "execution_rule": "Leaf 4 is not a single executable leaf. It is a generation step. After Leaf 2 completes, each discovered inconsistency MUST be instantiated as its own independent leaf artifact before implementation begins.",
+            "decomposition_rule": "After Leaf 2 completes, create one implementation leaf per distinct inconsistency discovered. If Leaf 2 finds 0 issues, skip to Leaf 5. Each leaf title follows: 'Fix [issue_type] — [specific field/path] in Save response'.",
+            "completion_condition": "Per instantiated leaf: the specific inconsistency is resolved and the response now conforms to Leaf 3 contract for that field/path."
+          },
+          {
+            "leaf": 5,
+            "title": "Validate Save response shape",
+            "type": "validation",
+            "scope": "For each response path (success + each error type), validate the actual output against Leaf 3 contract. Validation must be deterministic with explicit pass/fail checks: (1) exact field set match — no missing required fields, no unexpected fields, (2) correct field types — string, object, boolean, integer as specified in contract, (3) nullability compliance — no null where contract forbids it, (4) forbidden state detection — test every combination from gateway_boundary.forbidden_states, (5) structural consistency — same nesting and field organization across all response paths. Test version field populated on success, error.code/message present on all error paths.",
+            "excluded": "No new fixes during validation. Failures create new implementation leaf, not inline fix.",
+            "completion_condition": "Every response path tested against Leaf 3 contract. All pass. If any fail, a new implementation leaf is created (not fixed inline)."
+          },
+          {
+            "leaf": 6,
+            "title": "Action expansion control",
+            "type": "planning",
+            "scope": "After Save response shape is validated, define the plan for applying the same pattern to Update, Promote, Query, and List. Determine if the Leaf 3 contract applies directly or needs per-action variations. Produce a scoping note for each remaining action.",
+            "excluded": "No implementation of other actions. Planning only.",
+            "completion_condition": "A written expansion plan exists defining: which actions share the Save contract vs need variations, and the recommended leaf sequence for each."
+          },
+          {
+            "leaf": 7,
+            "title": "Documentation update",
+            "type": "documentation",
+            "scope": "Add canonical response schema to Gateway README. Update QSB Payload Format pack if client-side parsing guidance changes. Document the Save response shape contract from Leaf 3 as permanent reference. Reinforce Gateway as source of truth for response structure.",
+            "excluded": "No code changes.",
+            "completion_condition": "Canonical response schema documented. Contract referenced in Gateway README and relevant instruction packs."
+          }
+        ],
+        "sequencing": "Leaf 1 → Leaf 2 → Leaf 3 → Leaf 4(×N) → Leaf 5 → Leaf 6 → Leaf 7. Leaves 1-3 strictly sequential. Leaf 4 count unknown until Leaf 2 completes. Leaf 5 after ALL Leaf 4 instances. Leaf 6 after Leaf 5. Leaf 7 can overlap with Leaf 6.",
+        "risks": [
+          "Shape_Save_Response is shared territory with Branch 1. If Branch 1 modifies the shaper for error propagation, Branch 2 must build on that version — not a parallel fork. Sequencing recommendation: complete Branch 1 Save leaves before starting Branch 2 Save leaves.",
+          "Response shape may vary by artifact type (e.g., person save includes more extension fields). Leaf 1 must capture type-specific variations, not just generic success/error.",
+          "Actual DB response shape vs shaped response may diverge. Leaf 1 should trace from DB node output through to final response to identify where shaping occurs and what gets lost."
+        ]
+      }
+    }
+  },
+  {
+    "_comment": "SAPLING A: Response & Error Integrity — Branch 3/3",
+    "_branch": "Reject No-Op Extension Updates (10687dfc)",
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+    "artifact_type": "snapshot",
+    "title": "Leaf Plan — Reject No-Op Extension Updates",
+    "semantic_type_id": "governance",
+    "tags": ["for-q", "compliance-to-enforcement", "leaf-plan"],
+    "parent_artifact_id": "10687dfc-3b8d-4ba5-8500-bc0489fb8c28",
+    "extension": {
+      "payload": {
+        "branch_title": "Reject No-Op Extension Updates",
+        "branch_id": "10687dfc-3b8d-4ba5-8500-bc0489fb8c28",
+        "sapling": "Response & Error Integrity",
+        "action_scope": "Update sub-workflow ONLY (Save, Promote, Query, List out of scope)",
+        "gateway_boundary": {
+          "truth_rule": "Every extension update request must either persist the mutation or reject with an explicit error. Silent no-op behavior is forbidden. The Gateway must never return ok:true for an extension update that did not result in a state change.",
+          "allowed_states": {
+            "persisted": "Extension update applied to extension table, response reflects updated state",
+            "rejected": "Extension update rejected with EXTENSION_NOT_MUTABLE error, artifact_type included in error.details"
+          },
+          "forbidden_states": [
+            "Extension accepted but not persisted (silent ignore)",
+            "ok:true returned when no mutation occurred",
+            "Partial extension write (some fields persisted, others dropped without error)",
+            "Extension routed to wrong table or no table"
+          ]
+        },
+        "proposed_leaves": [
+          {
+            "leaf": 1,
+            "title": "Enumerate extension persistence behavior by artifact type",
+            "type": "analysis",
+            "scope": "For each artifact type in the TYPE_ALLOWLIST (project, journal, restart, snapshot, instruction_pack, branch, limb, leaf, twig), determine: (1) does an extension table exist (PK=FK pattern), (2) does the Update sub-workflow route extension updates to a DB write for this type, (3) what is the storage path (table name or none). Trace from incoming extension payload through Update Normalize_Request → Check_Mutability_Rules → type routing → DB update node (or absence thereof).",
+            "excluded": "No classification of issues. No fixes. Enumeration of current behavior only.",
+            "completion_condition": "A table exists mapping: artifact_type → has_extension_table (yes/no) → update_routed_to_db (yes/no) → storage_table_name for every type in the allowlist."
+          },
+          {
+            "leaf": 2,
+            "title": "Classify no-op scenarios",
+            "type": "analysis",
+            "scope": "For each artifact type from Leaf 1, classify the current behavior when an extension update is submitted. Categories: non_persistent_type (no extension table, update silently ignored), silently_ignored_extension (extension table exists but update path doesn't write), partial_write (some extension fields written, others dropped), overwritten_without_effect (write occurs but has no observable state change). Also check: does the response return ok:true for any of these no-op cases?",
+            "excluded": "No fixes. No contract definition. Classification only.",
+            "completion_condition": "Every artifact type from Leaf 1 has a classification: artifact_type → scenario → current_behavior → classification. The number and identity of no-op scenarios is known."
+          },
+          {
+            "leaf": 3,
+            "title": "Define extension mutability contract",
+            "type": "design",
+            "scope": "Using Leaf 1 and Leaf 2 output, define the contract: (1) which artifact types support extension updates (mutable list), (2) which do not (immutable list), (3) required behavior for mutable types (persist and confirm), (4) required behavior for immutable types (reject with EXTENSION_NOT_MUTABLE, include artifact_type in error.details). Define forbidden states from gateway_boundary. This becomes acceptance criteria for implementation leaves.",
+            "excluded": "No implementation. Contract definition only.",
+            "completion_condition": "A written contract exists with: mutable type list, immutable type list, required error code and shape for rejection, forbidden states, and explicit pass/fail criteria for each type."
+          },
+          {
+            "leaf": 4,
+            "title": "[DERIVED] Fix implementation leaves (one per no-op scenario)",
+            "type": "implementation",
+            "scope": "Each leaf fixes exactly ONE no-op scenario (e.g., 'Reject extension update on branch — non-persistent type' or 'Fix silent extension drop on twig update path'). Scope is determined by Leaf 2 output — cannot be pre-defined.",
+            "excluded": "No mixing of scenarios. No changes to types that already correctly persist or reject.",
+            "execution_rule": "Leaf 4 is not a single executable leaf. It is a generation step. After Leaf 2 completes, each discovered no-op scenario MUST be instantiated as its own independent leaf artifact before implementation begins.",
+            "decomposition_rule": "After Leaf 2 completes, create one implementation leaf per distinct no-op scenario discovered. If Leaf 2 finds 0 no-op scenarios, skip to Leaf 5. Each leaf title follows: 'Reject extension update — [artifact_type] ([classification])' or 'Fix silent extension drop — [path/node]'.",
+            "completion_condition": "Per instantiated leaf: the specific no-op scenario is eliminated. The type either persists the extension update or rejects with EXTENSION_NOT_MUTABLE per Leaf 3 contract."
+          },
+          {
+            "leaf": 5,
+            "title": "Validate extension update behavior",
+            "type": "validation",
+            "scope": "For each artifact type in the allowlist, submit an extension update and validate: (1) mutable types — update persists, response reflects new state, (2) immutable types — request rejected with EXTENSION_NOT_MUTABLE, error.details includes artifact_type, (3) no silent no-op behavior on any type, (4) no ok:true when no mutation occurred, (5) forbidden states from gateway_boundary are not present in any response.",
+            "excluded": "No new fixes during validation. Failures create new implementation leaf, not inline fix.",
+            "completion_condition": "Every artifact type tested. All mutable types persist correctly. All immutable types reject correctly. Zero silent no-ops. If any fail, a new implementation leaf is created (not fixed inline)."
+          },
+          {
+            "leaf": 6,
+            "title": "Documentation update",
+            "type": "documentation",
+            "scope": "Add extension mutability table to Payload Discipline pack showing: artifact_type → supports_extension_update (yes/no) → behavior (persist/reject). Document EXTENSION_NOT_MUTABLE error code in error inventory. Add 'no silent no-op' invariant to Gateway README.",
+            "excluded": "No code changes.",
+            "completion_condition": "Extension mutability table documented in Payload Discipline. Error code documented. Invariant in Gateway README."
+          }
+        ],
+        "sequencing": "Leaf 1 → Leaf 2 → Leaf 3 → Leaf 4(×N) → Leaf 5 → Leaf 6. Leaves 1-3 strictly sequential. Leaf 4 count unknown until Leaf 2 completes. Leaf 5 after ALL Leaf 4 instances. Leaf 6 can overlap with Leaf 5.",
+        "risks": [
+          "Existing silent no-op behavior may be widespread — multiple types may accept extension updates and return ok:true without persisting. Leaf 2 classification will reveal true scope.",
+          "Partial writes may appear valid but violate contract — e.g., a type that writes some extension fields but silently drops others. Leaf 1 must trace at the field level, not just the type level.",
+          "Risk of misclassifying extension persistence — some types have extension tables but the Update sub-workflow may not route to them (e.g., instruction_pack has a table but updates may be blocked by immutability rules). Leaf 1 must check actual Update routing, not just table existence.",
+          "Update sub-workflow Check_Mutability_Rules already blocks some extension updates (immutable types like snapshot/restart). Need to confirm whether these return proper error codes or just silently block."
+        ]
+      }
+    }
+  },
+  {
+    "_comment": "SAPLING B: Gateway Strict Mode — Branch 1/8",
+    "_branch": "Reject Unknown Extension Keys (228ab8ed)",
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+    "artifact_type": "snapshot",
+    "title": "Leaf Plan — Reject Unknown Extension Keys",
+    "semantic_type_id": "governance",
+    "tags": ["for-q", "compliance-to-enforcement", "leaf-plan"],
+    "parent_artifact_id": "228ab8ed-1224-48a6-b410-cbc16c7f1e59",
+    "extension": {
+      "payload": {
+        "branch_title": "Reject Unknown Extension Keys",
+        "branch_id": "228ab8ed-1224-48a6-b410-cbc16c7f1e59",
+        "sapling": "Gateway Strict Mode",
+        "scope_boundary": "Sapling B governs input validation and deterministic mutation BEFORE sub-workflow execution. It does NOT govern response shaping, response contracts, or output authority. Those concerns are handled separately under read-path alignment (T168).",
+        "action_scope": "Save sub-workflow ONLY",
+        "gateway_boundary": {
+          "truth_rule": "Every extension key submitted on save MUST be in the type-specific allowlist or the request MUST be rejected. No silent dropping of unknown keys.",
+          "allowed_states": { "accepted": "All extension keys are in allowlist, save proceeds normally", "rejected": "Unknown key detected, UNKNOWN_EXTENSION_KEY error returned with artifact_type, allowed_keys, rejected_keys" },
+          "forbidden_states": ["Unknown extension key silently dropped", "ok:true returned when extension key was ignored", "Partial extension write (some keys accepted, unknown keys dropped)", "ok:true with silent data loss"]
+        },
+        "proposed_leaves": [
+          { "leaf": 1, "title": "Enumerate allowed extension keys per artifact type", "type": "analysis", "scope": "For each artifact type in TYPE_ALLOWLIST, extract the exact extension field allowlist from Save sub-workflow DB insert nodes. Document: artifact_type → allowed_keys[] → source_node. Trace from Validate_Request through type-switch to DB insert to confirm which keys are actually written.", "excluded": "No classification. No fixes. Enumeration only.", "completion_condition": "A table exists mapping every artifact type to its complete extension key allowlist with source node references." },
+          { "leaf": 2, "title": "Classify current unknown-key handling behavior", "type": "analysis", "scope": "For each artifact type, submit a save payload with a known-good extension plus one unknown key. Classify current behavior: silently_dropped (save succeeds, key not persisted), error_returned (save rejected), partial_write (some keys written, unknown dropped). Document actual behavior per type.", "excluded": "No fixes. Classification only.", "completion_condition": "Every artifact type tested. Each has classification: artifact_type → unknown_key_behavior → response_code → was_key_persisted." },
+          { "leaf": 3, "title": "Define extension key validation contract", "type": "design", "scope": "Using Leaf 1 allowlists, define the contract: (1) Save Validate_Request must check all incoming extension keys against type-specific allowlist, (2) any key not in allowlist triggers UNKNOWN_EXTENSION_KEY with artifact_type, allowed_keys, rejected_keys in error.details, (3) no partial acceptance. This becomes acceptance criteria.", "excluded": "No implementation. Contract definition only.", "completion_condition": "Written contract with: allowlist per type, error code and shape, forbidden states, pass/fail criteria." },
+          { "leaf": 4, "title": "[DERIVED] Fix implementation leaves (one per type/scenario)", "type": "implementation", "scope": "Each leaf fixes exactly ONE type's unknown-key handling. Scope determined by Leaf 2 — cannot be pre-defined.", "excluded": "No mixing of types.", "execution_rule": "Leaf 4 is not a single executable leaf. It is a generation step. After Leaf 2 completes, each type with silent-drop behavior MUST be instantiated as its own leaf.", "decomposition_rule": "One leaf per type requiring fix. Title: 'Add extension key allowlist validation — [artifact_type]'. If Leaf 2 finds 0 silent drops, skip to Leaf 5.", "completion_condition": "Per leaf: unknown keys on that type are rejected per Leaf 3 contract." },
+          { "leaf": 5, "title": "Validate extension key enforcement", "type": "validation", "scope": "For every artifact type: (1) submit save with valid extension keys only — verify save succeeds, (2) submit save with one unknown extension key — verify rejected with UNKNOWN_EXTENSION_KEY, (3) verify error.details contains artifact_type, allowed_keys, rejected_keys (exact field presence check), (4) verify no silent drops via post-save query confirming unknown key is NOT in DB, (5) test every forbidden state from gateway_boundary: silent drop, ok:true with ignored key, partial write, (6) verify correct error code string match.", "excluded": "No inline fixes. Failures create new implementation leaf.", "completion_condition": "All types tested. All pass against Leaf 3 contract. Zero silent drops. All forbidden states confirmed absent." },
+          { "leaf": 6, "title": "Documentation update", "type": "documentation", "scope": "Replace 'silently dropped' language in Payload Discipline with 'rejected with validation error'. Add extension key reference table per type. Update error inventory with UNKNOWN_EXTENSION_KEY.", "excluded": "No code changes.", "completion_condition": "Payload Discipline updated. Error inventory updated. Extension key allowlist table documented." }
+        ],
+        "sequencing": "Leaf 1 → Leaf 2 → Leaf 3 → Leaf 4(×N) → Leaf 5 → Leaf 6. Leaves 1-3 strictly sequential. Leaf 4 count unknown until Leaf 2 completes. Leaf 5 after ALL Leaf 4 instances. Leaf 6 can overlap with Leaf 5.",
+        "risks": [
+          "Silent drop behavior may be universal across all types — Leaf 2 will reveal true scope.",
+          "Some types may intentionally accept extra keys for forward compatibility — must confirm no legitimate use case before rejecting.",
+          "Save Validate_Request may need per-type branching if allowlists differ significantly — implementation complexity depends on Leaf 1 output."
+        ]
+      }
+    }
+  },
+  {
+    "_comment": "SAPLING B: Gateway Strict Mode — Branch 2/8",
+    "_branch": "Reject Unknown Top-Level Fields (b84e1ccf)",
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+    "artifact_type": "snapshot",
+    "title": "Leaf Plan — Reject Unknown Top-Level Fields",
+    "semantic_type_id": "governance",
+    "tags": ["for-q", "compliance-to-enforcement", "leaf-plan"],
+    "parent_artifact_id": "b84e1ccf-6219-40be-b50b-1a2e27c0fa76",
+    "extension": {
+      "payload": {
+        "branch_title": "Reject Unknown Top-Level Fields",
+        "branch_id": "b84e1ccf-6219-40be-b50b-1a2e27c0fa76",
+        "sapling": "Gateway Strict Mode",
+        "scope_boundary": "Sapling B governs input validation and deterministic mutation BEFORE sub-workflow execution. It does NOT govern response shaping, response contracts, or output authority. Those concerns are handled separately under read-path alignment (T168).",
+        "action_scope": "Save action ONLY (Phase 1). Expansion to remaining actions documented in Leaf 6.",
+        "gateway_boundary": {
+          "truth_rule": "Every top-level field in a Gateway payload MUST be in the action-specific allowlist or the request MUST be rejected. No silent ignoring of unknown fields.",
+          "allowed_states": { "accepted": "All top-level fields recognized for the given action, request proceeds", "rejected": "Unknown field detected, UNKNOWN_FIELD error returned with action, allowed_fields, rejected_fields" },
+          "forbidden_states": ["Unknown top-level field silently ignored", "ok:true returned when unknown fields were stripped", "Partial processing (known fields processed, unknown discarded)", "ok:true with silent field loss"]
+        },
+        "proposed_leaves": [
+          { "leaf": 1, "title": "Enumerate allowed top-level fields for Save action", "type": "analysis", "scope": "For the Save action only, extract the canonical top-level field set from Gateway Normalize_Request and Gatekeeper code. Document: allowed_fields[] → source_node → field_purpose. Include all fields the Save path references: gw_action, gw_workspace_id, artifact_type, title, summary, priority, tags, extension, content, parent_artifact_id, semantic_type_id, and any others.", "excluded": "No other actions. No classification. No fixes. Enumeration only.", "completion_condition": "Complete top-level field allowlist for Save action documented with source references." },
+          { "leaf": 2, "title": "Classify current unknown-field handling for Save", "type": "analysis", "scope": "Submit a Save payload with valid fields plus one unknown top-level field (e.g., 'foo': 'bar'). Classify behavior: silently_ignored (save succeeds, field not referenced), error_returned (save rejected), field_forwarded (unknown field passed to sub-workflow). Test with multiple unknown fields to confirm consistent behavior.", "excluded": "No fixes. Classification only.", "completion_condition": "Save action tested with unknown fields. Behavior classified: unknown_field_behavior → response → was_field_forwarded." },
+          { "leaf": 3, "title": "Define top-level field validation contract for Save", "type": "design", "scope": "Define the contract for Save action: (1) after action/type validation, check all top-level keys against Save-specific allowlist, (2) unknown keys trigger UNKNOWN_FIELD with action, allowed_fields, rejected_fields in error.details, (3) no partial acceptance. Determine placement: Gatekeeper (before routing) vs Save Normalize_Request. This becomes acceptance criteria.", "excluded": "No implementation. Contract only.", "completion_condition": "Written contract with: Save allowlist, error code and shape, placement decision, forbidden states, pass/fail criteria." },
+          { "leaf": 4, "title": "[DERIVED] Fix implementation leaves", "type": "implementation", "scope": "Each leaf adds top-level field validation for Save action. Scope determined by Leaf 2.", "excluded": "No changes to other actions.", "execution_rule": "Leaf 4 is not a single executable leaf. It is a generation step. After Leaf 2, if silent-ignore behavior is confirmed, create implementation leaf(s) for the Save action path.", "decomposition_rule": "One leaf per implementation point (Gatekeeper vs Normalize_Request depending on Leaf 3 placement decision). Title: 'Add top-level field validation for Save — [placement]'. If Leaf 2 finds Save already rejects, skip to Leaf 5.", "completion_condition": "Per leaf: unknown top-level fields on Save are rejected per Leaf 3 contract." },
+          { "leaf": 5, "title": "Validate top-level field enforcement for Save", "type": "validation", "scope": "For Save action: (1) valid Save payload with only allowlisted fields — verify save succeeds, (2) Save payload with one unknown top-level field — verify rejected with UNKNOWN_FIELD, (3) verify error.details contains action ('artifact.save'), allowed_fields (exact list), rejected_fields (exact list), (4) Save payload with multiple unknown fields — verify all listed in rejected_fields, (5) test every forbidden state from gateway_boundary: silent ignore, ok:true with stripped fields, partial processing, (6) verify non-Save actions are NOT affected by this change.", "excluded": "No inline fixes. Failures create new implementation leaf.", "completion_condition": "Save action tested exhaustively. All pass against Leaf 3 contract. Zero silent ignores. Non-Save actions unaffected." },
+          { "leaf": 6, "title": "Documentation update + expansion plan", "type": "documentation", "scope": "Add allowed top-level fields for Save to QSB Payload Format pack and Gateway README. Update error inventory with UNKNOWN_FIELD. Document expansion plan: after Save is validated, apply same pattern to Update → Promote → Query → List → Delete → Restore → Messaging actions. Each expansion is a separate future leaf set.", "excluded": "No code changes. No implementation of other actions.", "completion_condition": "Save field allowlist documented. Error code documented. Expansion plan written for remaining actions." }
+        ],
+        "sequencing": "Leaf 1 → Leaf 2 → Leaf 3 → Leaf 4(×N) → Leaf 5 → Leaf 6. Leaves 1-3 strictly sequential. Leaf 4 count unknown until Leaf 2 completes. Leaf 5 after ALL Leaf 4 instances. Leaf 6 can overlap with Leaf 5.",
+        "risks": [
+          "QSB and Chrome Extension may inject metadata fields — must verify client-injected fields are in allowlist before enforcement.",
+          "Some fields may be action-conditional (e.g., 'selector' only valid on list). Phase 1 (Save) avoids this complexity by scoping to one action.",
+          "If validation is placed in Gatekeeper (shared), it may accidentally affect other actions. Leaf 3 placement decision is critical."
+        ]
+      }
+    }
+  },
+  {
+    "_comment": "SAPLING B: Gateway Strict Mode — Branch 3/8",
+    "_branch": "Reject Empty Required Objects (2a4c0e50)",
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+    "artifact_type": "snapshot",
+    "title": "Leaf Plan — Reject Empty Required Objects",
+    "semantic_type_id": "governance",
+    "tags": ["for-q", "compliance-to-enforcement", "leaf-plan"],
+    "parent_artifact_id": "2a4c0e50-b229-42a7-ac0b-b46d6be2f23f",
+    "extension": {
+      "payload": {
+        "branch_title": "Reject Empty Required Objects",
+        "branch_id": "2a4c0e50-b229-42a7-ac0b-b46d6be2f23f",
+        "sapling": "Gateway Strict Mode",
+        "scope_boundary": "Sapling B governs input validation and deterministic mutation BEFORE sub-workflow execution. It does NOT govern response shaping, response contracts, or output authority. Those concerns are handled separately under read-path alignment (T168).",
+        "action_scope": "Save sub-workflow ONLY",
+        "gateway_boundary": {
+          "truth_rule": "Required object fields must be present AND non-empty. Presence without content is invalid. The Gateway must distinguish between missing (absent key) and empty (key present, value null/{}/empty-string).",
+          "allowed_states": { "valid": "Required field present with meaningful content", "rejected_missing": "Required field absent — existing VALIDATION_ERROR", "rejected_empty": "Required field present but empty — EMPTY_REQUIRED_FIELD error" },
+          "forbidden_states": ["Required field present as null accepted silently", "Required field present as {} accepted and written to DB", "Required field present as empty string accepted for text fields", "ok:true with empty required field persisted"]
+        },
+        "proposed_leaves": [
+          { "leaf": 1, "title": "Enumerate required object fields per artifact type", "type": "analysis", "scope": "For each artifact type, catalog fields where: (1) presence is required by Save Validate_Request, AND (2) content must be non-empty. Include: extension.payload (snapshot/restart), extension.entry_text (journal), extension.lifecycle_stage (project), extension.full_name/preferred_name/relationship_type (person). Document current validation: does it check presence only, or presence + non-empty?", "excluded": "No fixes. Enumeration only.", "completion_condition": "Table mapping: artifact_type → field → required (yes/no) → current_validation (presence_only/presence_and_content) → empty_value_behavior." },
+          { "leaf": 2, "title": "Classify empty-value handling behavior", "type": "analysis", "scope": "For each required field from Leaf 1, submit a save payload with the field present but empty (null, {}, or empty string as appropriate). Classify: rejected (validation error returned), accepted_and_written (empty value persisted to DB), accepted_and_defaulted (empty value replaced with default).", "excluded": "No fixes. Classification only.", "completion_condition": "Every required field tested with empty value. Each classified: field → empty_behavior → response → db_state." },
+          { "leaf": 3, "title": "Define empty-value rejection contract", "type": "design", "scope": "Define: (1) all required fields must be validated for non-empty content after presence check, (2) EMPTY_REQUIRED_FIELD error returned with field_name in details, (3) define 'empty' per type: null for any, {} for objects, empty string for text. This becomes acceptance criteria.", "excluded": "No implementation. Contract only.", "completion_condition": "Written contract with: per-field empty definitions, error code and shape, forbidden states, pass/fail criteria." },
+          { "leaf": 4, "title": "[DERIVED] Fix implementation leaves (one per field/type)", "type": "implementation", "scope": "Each leaf adds empty-value validation for one field or field group. Scope determined by Leaf 2.", "excluded": "No mixing of unrelated fields.", "execution_rule": "Leaf 4 is not a single executable leaf. It is a generation step. After Leaf 2 completes, each field that accepts empty values MUST be instantiated as its own leaf.", "decomposition_rule": "One leaf per field requiring fix. Title: 'Reject empty [field_name] on [artifact_type] save'. If Leaf 2 finds 0 issues, skip to Leaf 5.", "completion_condition": "Per leaf: empty value for that field is rejected per Leaf 3 contract." },
+          { "leaf": 5, "title": "Validate empty-value rejection", "type": "validation", "scope": "For every required field: (1) valid non-empty value — verify save succeeds, (2) null value — verify rejected with EMPTY_REQUIRED_FIELD, (3) empty object {} — verify rejected, (4) empty string '' — verify rejected for text fields, (5) verify error.details contains field_name (exact match), (6) test every forbidden state from gateway_boundary: silent null acceptance, empty object persisted, empty string persisted, (7) verify optional fields still accept null/empty without error.", "excluded": "No inline fixes. Failures create new implementation leaf.", "completion_condition": "All required fields tested. All empty values rejected. Optional fields unaffected. Zero silent acceptance." },
+          { "leaf": 6, "title": "Documentation update", "type": "documentation", "scope": "Update Payload Discipline with per-field validation table showing required + non-empty. Add EMPTY_REQUIRED_FIELD to error inventory.", "excluded": "No code changes.", "completion_condition": "Validation table documented. Error code documented." }
+        ],
+        "sequencing": "Leaf 1 → Leaf 2 → Leaf 3 → Leaf 4(×N) → Leaf 5 → Leaf 6. Leaves 1-3 strictly sequential. Leaf 4 count unknown until Leaf 2 completes. Leaf 5 after ALL Leaf 4 instances. Leaf 6 can overlap with Leaf 5.",
+        "risks": [
+          "Some fields may legitimately accept empty values (e.g., optional extension fields). Must distinguish required vs optional in Leaf 1.",
+          "Person type has 27 extension fields — only 3 are required. Must not over-validate optional fields.",
+          "DB NOT NULL constraints may already catch some cases — Leaf 2 will reveal which empties hit the DB vs which are caught earlier."
+        ]
+      }
+    }
+  },
+  {
+    "_comment": "SAPLING B: Gateway Strict Mode — Branch 4/8",
+    "_branch": "Reject append_log Reserved Key (a5cfbc01)",
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+    "artifact_type": "snapshot",
+    "title": "Leaf Plan — Reject append_log Reserved Key",
+    "semantic_type_id": "governance",
+    "tags": ["for-q", "compliance-to-enforcement", "leaf-plan"],
+    "parent_artifact_id": "a5cfbc01-0024-487d-97bc-03ce71036a1a",
+    "extension": {
+      "payload": {
+        "branch_title": "Reject append_log Reserved Key",
+        "branch_id": "a5cfbc01-0024-487d-97bc-03ce71036a1a",
+        "sapling": "Gateway Strict Mode",
+        "scope_boundary": "Sapling B governs input validation and deterministic mutation BEFORE sub-workflow execution. It does NOT govern response shaping, response contracts, or output authority. Those concerns are handled separately under read-path alignment (T168).",
+        "action_scope": "Update sub-workflow ONLY (content merge and content_append paths)",
+        "gateway_boundary": {
+          "truth_rule": "The append_log key within content is a system-managed reserved namespace. No client payload may include append_log in content or content_append. Any attempt must be rejected.",
+          "allowed_states": { "accepted": "Content update without append_log key proceeds normally", "rejected": "Content containing append_log key rejected with RESERVED_KEY_CONFLICT" },
+          "forbidden_states": ["Client-provided append_log merged into content (overwrites system data)", "append_log accepted in content_append payload", "ok:true returned when append_log was silently stripped", "Partial content merge where append_log is dropped but other keys accepted"]
+        },
+        "proposed_leaves": [
+          { "leaf": 1, "title": "Enumerate append_log usage in content pipeline", "type": "analysis", "scope": "Trace the content merge and content_append paths in the Update sub-workflow. Document: (1) where append_log is read/written by the system, (2) where client content is merged, (3) whether any check for append_log currently exists. Cover both content (merge/replace) and content_append paths.", "excluded": "No fixes. Enumeration only.", "completion_condition": "Full trace of append_log lifecycle in Update sub-workflow documented. Current client-side protection status confirmed (exists or absent)." },
+          { "leaf": 2, "title": "Classify current append_log handling", "type": "analysis", "scope": "Submit content update with append_log key in payload. Test both content (merge) and content_append paths. Classify per path: rejected (error returned), silently_merged (append_log overwritten), silently_stripped (key removed before merge), partial (key accepted in one path, rejected in other).", "excluded": "No fixes. Classification only.", "completion_condition": "Both paths tested. Current behavior classified per path: path → classification → response_code → db_state." },
+          { "leaf": 3, "title": "Define reserved-key rejection contract", "type": "design", "scope": "Define: (1) content and content_append payloads must be checked for append_log key before processing, (2) RESERVED_KEY_CONFLICT error returned with key_name in details, (3) check applies to both merge and append paths, (4) content_mode: replace also checked. Define placement in Update pipeline (before Compute_Mixed).", "excluded": "No implementation. Contract only.", "completion_condition": "Written contract with: check placement, error code and shape, all paths covered, forbidden states, pass/fail criteria." },
+          { "leaf": 4, "title": "[DERIVED] Fix implementation leaves (one per path)", "type": "implementation", "scope": "Each leaf adds the reserved-key check to one path. Scope determined by Leaf 2.", "excluded": "No mixing of paths.", "execution_rule": "Leaf 4 is not a single executable leaf. It is a generation step. After Leaf 2 completes, each unprotected path MUST be instantiated as its own leaf.", "decomposition_rule": "One leaf per unprotected path. Title: 'Add append_log rejection — [content_merge/content_append/content_replace] path'. If all paths already reject, skip to Leaf 5.", "completion_condition": "Per leaf: append_log in that path is rejected per Leaf 3 contract." },
+          { "leaf": 5, "title": "Validate reserved-key rejection", "type": "validation", "scope": "For each content path (merge, replace, content_append): (1) content without append_log — verify accepted normally, (2) content with append_log — verify rejected with RESERVED_KEY_CONFLICT, (3) verify error.details contains key_name (exact match 'append_log'), (4) verify system-managed append_log preserved after valid content_append operation, (5) test every forbidden state from gateway_boundary: silent merge, silent strip, partial acceptance, (6) verify correct error code string.", "excluded": "No inline fixes. Failures create new implementation leaf.", "completion_condition": "All paths tested. All append_log payloads rejected. System append_log preserved. All forbidden states confirmed absent." },
+          { "leaf": 6, "title": "Documentation update", "type": "documentation", "scope": "Update Quick Reference and Payload Discipline: document append_log as system-reserved with deterministic rejection (not just guidance). Add RESERVED_KEY_CONFLICT to error inventory.", "excluded": "No code changes.", "completion_condition": "Reserved key documented as enforced. Error code documented. Guidance language replaced with enforcement language." }
+        ],
+        "sequencing": "Leaf 1 → Leaf 2 → Leaf 3 → Leaf 4(×N) → Leaf 5 → Leaf 6. Leaves 1-3 strictly sequential. Leaf 4 count unknown until Leaf 2 completes. Leaf 5 after ALL Leaf 4 instances. Leaf 6 can overlap with Leaf 5.",
+        "risks": [
+          "append_log may also be vulnerable on Save (initial content). Leaf 1 should note if Save path also needs protection — but implementation stays Update-scoped for this branch.",
+          "Deep merge behavior may interact with append_log in unexpected ways — Leaf 1 must trace the exact merge logic.",
+          "content_mode: replace bypasses merge but still writes full content — must check if append_log in replace payload would also overwrite."
+        ]
+      }
+    }
+  },
+  {
+    "_comment": "SAPLING B: Gateway Strict Mode — Branch 5/8",
+    "_branch": "Snapshot for-q Auto-Injection (00aafb01)",
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+    "artifact_type": "snapshot",
+    "title": "Leaf Plan — Snapshot for-q Auto-Injection",
+    "semantic_type_id": "governance",
+    "tags": ["for-q", "compliance-to-enforcement", "leaf-plan"],
+    "parent_artifact_id": "00aafb01-67dc-485c-90d8-ac97287bee2e",
+    "extension": {
+      "payload": {
+        "branch_title": "Snapshot for-q Auto-Injection",
+        "branch_id": "00aafb01-67dc-485c-90d8-ac97287bee2e",
+        "sapling": "Gateway Strict Mode",
+        "scope_boundary": "Sapling B governs input validation and deterministic mutation BEFORE sub-workflow execution. It does NOT govern response shaping, response contracts, or output authority. Those concerns are handled separately under read-path alignment (T168).",
+        "action_scope": "Save sub-workflow ONLY (snapshot saves with qualifying semantic_type_id)",
+        "structural_note": "This branch introduces deterministic system behavior (auto-injection), not just validation. Unlike other Sapling B branches that reject invalid input, this branch actively modifies valid input by injecting a tag. The contract must clearly define trigger conditions, injection rules, and non-injection rules to prevent unintended tag proliferation.",
+        "gateway_boundary": {
+          "truth_rule": "Snapshot saves with qualifying semantic_type_id MUST have for-q tag auto-injected by the Save sub-workflow. Q compliance for this tag is eliminated. Non-qualifying snapshots MUST NOT receive auto-injection.",
+          "allowed_states": { "injected": "Qualifying snapshot save receives for-q tag automatically (regardless of whether Q included it)", "not_injected": "Non-qualifying snapshot save (exploratory, sales, marketing, alignment, product) does NOT receive for-q", "deduped": "Snapshot already containing for-q does not get duplicate tag" },
+          "forbidden_states": ["Qualifying snapshot saved without for-q tag", "Non-qualifying snapshot receives for-q auto-injection", "Duplicate for-q tag in tags array", "Auto-injection applied to non-snapshot types", "ok:true with qualifying snapshot missing for-q in persisted tags"]
+        },
+        "proposed_leaves": [
+          { "leaf": 1, "title": "Enumerate current for-q tagging behavior on snapshots", "type": "analysis", "scope": "Query existing snapshots to establish baseline: (1) what percentage have for-q tag, (2) correlation between semantic_type_id and for-q presence, (3) identify snapshots missing for-q that should have it. Document the current tag injection pipeline in Save sub-workflow — does any auto-injection exist today?", "excluded": "No fixes. Baseline enumeration only.", "completion_condition": "Baseline stats documented. Current Save pipeline tag handling traced. Gap between expected and actual for-q presence quantified." },
+          { "leaf": 2, "title": "Classify qualifying vs non-qualifying semantic types", "type": "analysis", "scope": "For each semantic_type_id in the registry (9 values), classify as qualifying (for-q auto-injection) or non-qualifying. Proposed qualifying set: governance, execution-core, infrastructure, platform. Proposed non-qualifying: sales, marketing, exploratory, alignment, product. Document rationale for each classification.", "excluded": "No fixes. Classification only.", "completion_condition": "Complete classification table: semantic_type_key → qualifying (yes/no) → rationale. All 9 registry values classified." },
+          { "leaf": 3, "title": "Define for-q auto-injection contract", "type": "design", "scope": "Define: (1) injection trigger: artifact_type=snapshot AND semantic_type_id in qualifying set, (2) injection behavior: merge for-q into tags array, (3) dedup: if for-q already present, do not duplicate, (4) null handling: if tags is null, create array with for-q, (5) placement in Save pipeline: after semantic type resolution, before DB insert, (6) non-injection guarantee: non-qualifying types and non-snapshot types MUST NOT be affected. This becomes acceptance criteria.", "excluded": "No implementation. Contract only.", "completion_condition": "Written contract with: trigger conditions, injection logic, edge cases (null tags, existing for-q, non-qualifying types), placement, non-injection guarantees, forbidden states." },
+          { "leaf": 4, "title": "[DERIVED] Implementation leaves (one per injection scenario)", "type": "implementation", "scope": "Each leaf implements one aspect of the injection logic. Scope determined by Leaf 2 and Leaf 3.", "excluded": "No mixing of scenarios.", "execution_rule": "Leaf 4 is not a single executable leaf. It is a generation step. After Leaf 2 completes, create implementation leaves based on the injection scenarios: (1) injection logic for qualifying snapshots, (2) null-tags handling, (3) dedup logic. Minimum 1 leaf if all logic is in a single node addition.", "decomposition_rule": "One leaf per distinct implementation point. Title: 'Implement for-q injection — [scenario]'. If Leaf 2 reveals auto-injection already exists, create only gap-filling leaves.", "completion_condition": "Per leaf: the specific injection scenario works per Leaf 3 contract." },
+          { "leaf": 5, "title": "Validate for-q auto-injection", "type": "validation", "scope": "Test exhaustively: (1) qualifying snapshot (governance semantic type) — verify for-q present in persisted tags, (2) non-qualifying snapshot (exploratory) — verify for-q NOT injected, (3) snapshot with for-q already in tags — verify no duplicate (tags array contains exactly one for-q), (4) snapshot with null tags — verify tags array created with for-q, (5) non-snapshot artifact (project, journal) with qualifying semantic type — verify for-q NOT injected, (6) test every forbidden state from gateway_boundary: missing for-q on qualifying, injected on non-qualifying, duplicate, injection on non-snapshot.", "excluded": "No inline fixes. Failures create new implementation leaf.", "completion_condition": "All scenarios tested. All pass against Leaf 3 contract. All forbidden states confirmed absent." },
+          { "leaf": 6, "title": "Documentation update", "type": "documentation", "scope": "Remove 'Q must remember for-q on snapshots' from Prime SI and Akara SI. Document auto-injection in Payload Discipline with trigger conditions and qualifying type table. Update tagging governance section. Reduce Q compliance surface.", "excluded": "No code changes.", "completion_condition": "SI compliance requirement removed. Auto-injection documented with trigger table. Tagging governance updated." }
+        ],
+        "sequencing": "Leaf 1 → Leaf 2 → Leaf 3 → Leaf 4(×N) → Leaf 5 → Leaf 6. Leaves 1-3 strictly sequential. Leaf 4 count unknown until Leaf 2 completes. Leaf 5 after ALL Leaf 4 instances. Leaf 6 can overlap with Leaf 5.",
+        "risks": [
+          "Qualifying semantic type set may need future expansion — design should make the set configurable or at least documented, not buried in workflow code.",
+          "Existing snapshots without for-q will not be retroactively tagged — this is forward-only. Backfill is a separate decision.",
+          "BlaggLife, Q@W, and Greg SIs don't have the for-q snapshot mandate at all — auto-injection handles this gap automatically.",
+          "Auto-injection is behavioral modification, not just validation — must be clearly documented to avoid confusion about where tags originate."
+        ]
+      }
+    }
+  },
+  {
+    "_comment": "SAPLING B: Gateway Strict Mode — Branch 6/8",
+    "_branch": "Execution Status Auto-Default (89626be2)",
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+    "artifact_type": "snapshot",
+    "title": "Leaf Plan — Execution Status Auto-Default",
+    "semantic_type_id": "governance",
+    "tags": ["for-q", "compliance-to-enforcement", "leaf-plan"],
+    "parent_artifact_id": "89626be2-5f22-43e2-b439-6e6f0cabed21",
+    "extension": {
+      "payload": {
+        "branch_title": "Execution Status Auto-Default",
+        "branch_id": "89626be2-5f22-43e2-b439-6e6f0cabed21",
+        "sapling": "Gateway Strict Mode",
+        "scope_boundary": "Sapling B governs input validation and deterministic mutation BEFORE sub-workflow execution. It does NOT govern response shaping, response contracts, or output authority. Those concerns are handled separately under read-path alignment (T168).",
+        "action_scope": "Save sub-workflow ONLY (execution-layer artifact types on insert)",
+        "gateway_boundary": {
+          "truth_rule": "Execution-layer artifact types (branch, limb, leaf, twig) MUST have execution_status set to not_started on save if no explicit value is provided. NULL execution_status on these types is forbidden after insert.",
+          "allowed_states": { "auto_defaulted": "No execution_status provided — set to not_started automatically", "explicit_preserved": "Caller provides execution_status — value used as-is (if valid per CHECK constraint)" },
+          "forbidden_states": ["Execution-layer artifact inserted with execution_status = NULL", "Auto-default overrides explicit caller-provided value", "Auto-default applied to non-execution types (project, journal, snapshot, etc.)", "ok:true with NULL execution_status on execution-layer type"]
+        },
+        "proposed_leaves": [
+          { "leaf": 1, "title": "Enumerate current execution_status behavior on insert", "type": "analysis", "scope": "For each execution-layer type (branch, limb, leaf, twig), trace the Save pipeline to determine: (1) is execution_status set in the DB insert node, (2) what value is used when caller omits it, (3) what is the actual DB state after insert without explicit status. Also check non-execution types to confirm they are NOT affected.", "excluded": "No fixes. Enumeration only.", "completion_condition": "Table: artifact_type → is_execution_type → current_default_behavior → actual_db_value_when_omitted." },
+          { "leaf": 2, "title": "Classify defaulting gaps", "type": "analysis", "scope": "For each execution type from Leaf 1, classify: correctly_defaulted (already sets not_started), null_on_insert (no default, NULL written), inconsistent (some code paths default, others don't). Verify by creating test artifacts without execution_status and querying DB.", "excluded": "No fixes. Classification only.", "completion_condition": "Every execution type classified. Gap count known." },
+          { "leaf": 3, "title": "Define execution_status auto-default contract", "type": "design", "scope": "Define: (1) execution-layer types: branch, limb, leaf, twig, (2) default value: not_started, (3) behavior: apply default ONLY when caller omits execution_status, (4) never override explicit value, (5) never apply to non-execution types. This becomes acceptance criteria.", "excluded": "No implementation. Contract only.", "completion_condition": "Written contract with: type list, default value, override rules, exclusion list, forbidden states, pass/fail criteria." },
+          { "leaf": 4, "title": "[DERIVED] Fix implementation leaves (one per type with gap)", "type": "implementation", "scope": "Each leaf adds auto-default for one execution type. Scope determined by Leaf 2.", "excluded": "No mixing of types.", "execution_rule": "Leaf 4 is not a single executable leaf. It is a generation step. After Leaf 2 completes, each type with null-on-insert behavior MUST be instantiated as its own leaf.", "decomposition_rule": "One leaf per type requiring fix. Title: 'Add execution_status auto-default — [artifact_type]'. If Leaf 2 finds 0 gaps, skip to Leaf 5.", "completion_condition": "Per leaf: that type inserts with not_started when no explicit status provided." },
+          { "leaf": 5, "title": "Validate execution_status defaulting", "type": "validation", "scope": "For each execution type: (1) save without execution_status — verify DB shows not_started (exact value check), (2) save with explicit execution_status='in_progress' — verify caller value preserved (not overridden), (3) save non-execution type (project) without execution_status — verify NULL preserved (no unwanted default), (4) test every forbidden state from gateway_boundary: NULL on execution type, override of explicit value, default on non-execution type, (5) verify correct DB state via post-save query.", "excluded": "No inline fixes. Failures create new implementation leaf.", "completion_condition": "All execution types tested. All default correctly. Non-execution types unaffected. All forbidden states confirmed absent." },
+          { "leaf": 6, "title": "Documentation update", "type": "documentation", "scope": "Document auto-default behavior in Quick Reference and Payload Discipline. Update CmdCtr docs if scan behavior changes (NULL no longer expected for execution types).", "excluded": "No code changes.", "completion_condition": "Auto-default documented. CmdCtr implications noted." }
+        ],
+        "sequencing": "Leaf 1 → Leaf 2 → Leaf 3 → Leaf 4(×N) → Leaf 5 → Leaf 6. Leaves 1-3 strictly sequential. Leaf 4 count unknown until Leaf 2 completes. Leaf 5 after ALL Leaf 4 instances. Leaf 6 can overlap with Leaf 5.",
+        "risks": [
+          "Existing artifacts with NULL execution_status will not be backfilled — forward-only change. CmdCtr scans may need adjustment.",
+          "Twig uses lifecycle_status (proposed/active/promoted/pruned) in addition to execution_status — must ensure auto-default doesn't conflict with twig lifecycle.",
+          "CHECK constraint allows NULL for execution_status — auto-default is workflow-level, not DB-level. DB still permits NULL for other insert paths (e.g., direct SQL)."
+        ]
+      }
+    }
+  },
+  {
+    "_comment": "SAPLING B: Gateway Strict Mode — Branch 7/8",
+    "_branch": "Enforce Parent Requirement for Child Types (d93ed8e7)",
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+    "artifact_type": "snapshot",
+    "title": "Leaf Plan — Enforce Parent Requirement for Child Types",
+    "semantic_type_id": "governance",
+    "tags": ["for-q", "compliance-to-enforcement", "leaf-plan"],
+    "parent_artifact_id": "d93ed8e7-2620-4fe7-9b9b-a17d42a5a472",
+    "extension": {
+      "payload": {
+        "branch_title": "Enforce Parent Requirement for Child Types",
+        "branch_id": "d93ed8e7-2620-4fe7-9b9b-a17d42a5a472",
+        "sapling": "Gateway Strict Mode",
+        "scope_boundary": "Sapling B governs input validation and deterministic mutation BEFORE sub-workflow execution. It does NOT govern response shaping, response contracts, or output authority. Those concerns are handled separately under read-path alignment (T168).",
+        "action_scope": "Save sub-workflow ONLY",
+        "gateway_boundary": {
+          "truth_rule": "Child artifact types (branch, leaf, limb, twig) MUST have parent_artifact_id on save. Orphaned child creation is forbidden.",
+          "allowed_states": { "parented": "parent_artifact_id provided and non-null, save proceeds", "rejected": "parent_artifact_id missing or null, PARENT_REQUIRED error returned with artifact_type in details" },
+          "forbidden_states": ["Child type saved with parent_artifact_id = NULL", "Child type saved with parent_artifact_id absent from payload", "ok:true returned for orphaned child creation", "ok:true with NULL parent_artifact_id on child type in DB"]
+        },
+        "proposed_leaves": [
+          { "leaf": 1, "title": "Enumerate current parent validation behavior per type", "type": "analysis", "scope": "For each child type (branch, leaf, limb, twig), test: (1) save with parent_artifact_id — succeeds, (2) save without parent_artifact_id — what happens? Also test non-child types (project, journal, snapshot) to confirm they allow null parent. Document current behavior.", "excluded": "No fixes. Enumeration only.", "completion_condition": "Table: artifact_type → is_child_type → parent_required_currently → behavior_when_missing." },
+          { "leaf": 2, "title": "Classify orphan creation gaps", "type": "analysis", "scope": "For each child type from Leaf 1, classify: enforced (already rejects null parent), unprotected (accepts null parent silently), partially_enforced (some code paths check, others don't). Document which types can currently create orphans.", "excluded": "No fixes. Classification only.", "completion_condition": "Every child type classified. Orphan-capable types identified." },
+          { "leaf": 3, "title": "Define parent requirement contract", "type": "design", "scope": "Define: (1) child types: branch, leaf, limb, twig, (2) parent_artifact_id must be present and non-null on save, (3) PARENT_REQUIRED error with artifact_type in details, (4) non-child types (project, journal, snapshot, restart, instruction_pack, person) explicitly exempt. This becomes acceptance criteria.", "excluded": "No implementation. Contract only.", "completion_condition": "Written contract with: child type list, validation rule, error code and shape, exemption list, forbidden states, pass/fail criteria." },
+          { "leaf": 4, "title": "[DERIVED] Fix implementation leaves (one per unprotected type)", "type": "implementation", "scope": "Each leaf adds parent validation for one child type. Scope determined by Leaf 2.", "excluded": "No mixing of types.", "execution_rule": "Leaf 4 is not a single executable leaf. It is a generation step. After Leaf 2 completes, each unprotected type MUST be instantiated as its own leaf.", "decomposition_rule": "One leaf per unprotected type. Title: 'Enforce parent_artifact_id on [artifact_type] save'. If Leaf 2 finds 0 gaps, skip to Leaf 5.", "completion_condition": "Per leaf: that type rejects null parent per Leaf 3 contract." },
+          { "leaf": 5, "title": "Validate parent enforcement", "type": "validation", "scope": "For each child type: (1) save with valid parent — verify succeeds, (2) save without parent — verify rejected with PARENT_REQUIRED, (3) save with parent=null explicitly — verify rejected, (4) verify error.details contains artifact_type (exact match). For each non-child type: (5) save without parent — verify still succeeds. Test every forbidden state from gateway_boundary: NULL parent on child, absent parent on child, ok:true for orphan.", "excluded": "No inline fixes. Failures create new implementation leaf.", "completion_condition": "All child types reject orphan creation. All non-child types unaffected. All forbidden states confirmed absent." },
+          { "leaf": 6, "title": "Documentation update", "type": "documentation", "scope": "Update Payload Discipline: document parent requirement as Gateway-enforced (not Q guidance). Add PARENT_REQUIRED to error inventory. Update Mother Tree topology docs.", "excluded": "No code changes.", "completion_condition": "Parent requirement documented as enforced. Error code documented." }
+        ],
+        "sequencing": "Leaf 1 → Leaf 2 → Leaf 3 → Leaf 4(×N) → Leaf 5 → Leaf 6. Leaves 1-3 strictly sequential. Leaf 4 count unknown until Leaf 2 completes. Leaf 5 after ALL Leaf 4 instances. Leaf 6 can overlap with Leaf 5.",
+        "risks": [
+          "Existing orphaned artifacts in DB will not be retroactively fixed — forward-only enforcement.",
+          "parent_artifact_id FK constraint exists at DB level but doesn't prevent NULL — this is workflow-level enforcement.",
+          "Some test/admin workflows may intentionally create unparented branches — must confirm no legitimate use case before blocking."
+        ]
+      }
+    }
+  },
+  {
+    "_comment": "SAPLING B: Gateway Strict Mode — Branch 8/8",
+    "_branch": "Twig Content Completeness (11f1e134)",
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+    "artifact_type": "snapshot",
+    "title": "Leaf Plan — Twig Content Completeness",
+    "semantic_type_id": "governance",
+    "tags": ["for-q", "compliance-to-enforcement", "leaf-plan"],
+    "parent_artifact_id": "11f1e134-e929-482f-8046-f3853d71a092",
+    "extension": {
+      "payload": {
+        "branch_title": "Twig Content Completeness",
+        "branch_id": "11f1e134-e929-482f-8046-f3853d71a092",
+        "sapling": "Gateway Strict Mode",
+        "scope_boundary": "Sapling B governs input validation and deterministic mutation BEFORE sub-workflow execution. It does NOT govern response shaping, response contracts, or output authority. Those concerns are handled separately under read-path alignment (T168).",
+        "action_scope": "Save sub-workflow ONLY (twig artifact type on insert)",
+        "gateway_boundary": {
+          "truth_rule": "Twig saves MUST include a content object with all required intent bundle keys. Title-only twigs are forbidden. The Gateway enforces content structure, not Q compliance.",
+          "allowed_states": { "complete": "Content object present with all required keys non-empty, save proceeds", "rejected": "Content missing or incomplete, TWIG_CONTENT_INCOMPLETE error returned with missing_keys array in details" },
+          "forbidden_states": ["Twig saved with no content object", "Twig saved with content but missing required keys", "Twig saved with required keys present but empty/null values", "ok:true returned for incomplete twig", "ok:true with incomplete twig content persisted to DB"]
+        },
+        "proposed_leaves": [
+          { "leaf": 1, "title": "Enumerate current twig content validation behavior", "type": "analysis", "scope": "Test current Save pipeline for twigs: (1) save with complete content (all 4 keys) — succeeds, (2) save with no content — what happens, (3) save with partial content (1-3 keys) — what happens, (4) save with empty-string values for keys — what happens. Document current behavior.", "excluded": "No fixes. Enumeration only.", "completion_condition": "Table: scenario → current_behavior → content_persisted → response." },
+          { "leaf": 2, "title": "Classify content completeness gaps", "type": "analysis", "scope": "From Leaf 1, classify each scenario: enforced (already rejected), unprotected (accepted without required keys), partially_enforced (some keys checked, others not). Confirm the canonical required key set: idea, why_now, problem_touched, future_hook.", "excluded": "No fixes. Classification only.", "completion_condition": "Gap analysis complete. Required key set confirmed or revised. Each scenario classified." },
+          { "leaf": 3, "title": "Define twig content completeness contract", "type": "design", "scope": "Define: (1) required keys: idea, why_now, problem_touched, future_hook (or revised set from Leaf 2), (2) all must be present and non-empty strings, (3) content object itself must be present, (4) TWIG_CONTENT_INCOMPLETE error with missing_keys array in details. This becomes acceptance criteria.", "excluded": "No implementation. Contract only.", "completion_condition": "Written contract with: required key list, validation rules, error code and shape, forbidden states, pass/fail criteria." },
+          { "leaf": 4, "title": "[DERIVED] Implementation leaves (one per gap scenario)", "type": "implementation", "scope": "Each leaf fixes one content validation gap. Scope determined by Leaf 2.", "excluded": "No mixing of scenarios.", "execution_rule": "Leaf 4 is not a single executable leaf. It is a generation step. After Leaf 2 completes, each unprotected scenario MUST be instantiated as its own leaf.", "decomposition_rule": "One leaf per gap scenario. Title: 'Enforce twig content — [missing_content/partial_content/empty_values]'. If Leaf 2 finds all scenarios already enforced, skip to Leaf 5.", "completion_condition": "Per leaf: the specific gap scenario is rejected per Leaf 3 contract." },
+          { "leaf": 5, "title": "Validate twig content enforcement", "type": "validation", "scope": "Test exhaustively: (1) complete twig (all 4 keys, non-empty) — verify succeeds, (2) no content object — verify rejected with TWIG_CONTENT_INCOMPLETE, (3) partial content (missing 1 key) — verify rejected with missing key listed in error.details.missing_keys, (4) empty-string value for a required key — verify rejected, (5) null value for a required key — verify rejected, (6) non-twig types with no content — verify unaffected, (7) test every forbidden state from gateway_boundary: no content, missing keys, empty values, ok:true for incomplete.", "excluded": "No inline fixes. Failures create new implementation leaf.", "completion_condition": "All scenarios tested. Complete twigs pass. Incomplete twigs rejected with correct error and missing_keys details. Non-twig types unaffected." },
+          { "leaf": 6, "title": "Documentation update", "type": "documentation", "scope": "Update QPM Build Process and Payload Discipline: document twig content as Gateway-enforced. Update fast-capture guidance to reflect required keys. Add TWIG_CONTENT_INCOMPLETE to error inventory.", "excluded": "No code changes.", "completion_condition": "Content requirement documented as enforced. Error code documented. Fast-capture guidance updated." }
+        ],
+        "sequencing": "Leaf 1 → Leaf 2 → Leaf 3 → Leaf 4(×N) → Leaf 5 → Leaf 6. Leaves 1-3 strictly sequential. Leaf 4 count unknown until Leaf 2 completes. Leaf 5 after ALL Leaf 4 instances. Leaf 6 can overlap with Leaf 5.",
+        "risks": [
+          "The 4-key intent bundle was defined in QPM Build Process but never formally ratified — Leaf 2 must confirm this is the right set.",
+          "Existing twigs without complete content will not be retroactively validated — forward-only.",
+          "Fast-capture UX may be impacted if users are accustomed to title-only twigs — must communicate change clearly."
+        ]
+      }
+    }
+  },
+  {
+    "_comment": "SAPLING C: Architectural Enforcement — Branch 1/3",
+    "_branch": "Merge-Safe Content Structure Pattern (a091e2fd)",
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+    "artifact_type": "snapshot",
+    "title": "Leaf Plan — Merge-Safe Content Structure Pattern",
+    "semantic_type_id": "governance",
+    "tags": ["for-q", "compliance-to-enforcement", "leaf-plan"],
+    "parent_artifact_id": "a091e2fd-7471-404c-bf86-8477a7c8d5c0",
+    "extension": {
+      "payload": {
+        "branch_title": "Merge-Safe Content Structure Pattern",
+        "branch_id": "a091e2fd-7471-404c-bf86-8477a7c8d5c0",
+        "sapling": "Architectural Enforcement",
+        "action_scope": "Update sub-workflow content merge path (design-first — affects all types using content merge)",
+        "gateway_boundary": {
+          "truth_rule": "Content fields that accumulate structured data MUST use keyed-object patterns where each entry is addressable by key. Array-based accumulation patterns are forbidden for fields that require incremental update. Deep merge on keyed objects must preserve existing keys when adding new ones.",
+          "allowed_states": { "keyed_merge": "New key added to content object via deep merge — existing keys preserved", "full_replace": "content_mode: replace used intentionally — caller owns entire content" },
+          "forbidden_states": ["Array replaced on merge (silent data loss)", "Keyed object merge overwrites existing keys unintentionally", "Mixed array/object types at same key across updates", "Duplicate keys within object", "Key mutation across updates (re-keying)", "Data loss during array-to-object migration", "Reliance on positional ordering for correctness"]
+        },
+        "proposed_leaves": [
+          { "leaf": 1, "title": "Enumerate content merge behavior by field and type", "type": "analysis", "scope": "For each artifact type that supports content updates, trace the Update sub-workflow content merge path. Document: (1) how deep merge works (operator, depth, array handling), (2) which content fields use arrays vs objects in practice, (3) what happens when array is merged with object at same key. Query existing artifacts to catalog real content shapes.", "excluded": "No fixes. Enumeration only.", "completion_condition": "Full trace of merge behavior documented. Content shape census by type. Array vs object distribution known." },
+          { "leaf": 2, "title": "Classify merge-safety violations", "type": "analysis", "scope": "From Leaf 1, classify each content field/pattern: merge_safe (keyed object, additive merge works), merge_unsafe (array, full replacement required), mixed_risk (inconsistent shapes across artifacts), unknown (insufficient data). Document which fields are at risk.", "excluded": "No fixes. Classification only.", "completion_condition": "Every content field classified. At-risk fields identified with concrete examples." },
+          { "leaf": 3, "title": "Define merge-safe content pattern contract", "type": "design", "scope": "Define: (1) keyed-object pattern specification (key naming: slugified, unique, stable), (2) which content fields must adopt the pattern, (3) migration strategy for existing array-based fields, (4) deep merge guarantees (existing keys preserved, new keys added, no array replacement), (5) backward compatibility approach. This becomes system-wide design doc for Team Qwrk review.", "excluded": "No implementation. Design only.", "key_constraints": { "deterministic": "Same input must always produce the same key (no random or timestamp-based keys)", "unique": "Keys must be unique within object — no duplicates", "stable": "Keys must not change across updates (no re-keying on mutation)", "order_independent": "Keys must NOT depend on array index or insertion order for correctness" }, "migration_rule": { "preservation": "Array-to-keyed-object transformation MUST preserve ALL entries — zero data loss", "key_generation": "Key generation must be deterministic (e.g., slugified name, composite key, content hash)", "no_data_loss": "No entry may be dropped, merged, or deduplicated during migration unless explicitly authorized", "ordering_independence": "Original array ordering must not be required for correctness after migration — keyed access replaces positional access" }, "completion_condition": "Written design document with: pattern spec, key constraints, migration rule, affected fields, migration plan, merge guarantees, review-ready for Q/Manus." },
+          { "leaf": 4, "title": "[DERIVED] Implementation leaves (one per field/type migration)", "type": "implementation", "scope": "Each leaf migrates one content field on one type from array to keyed-object pattern. Scope determined by Leaf 2.", "excluded": "No mixing of fields/types.", "execution_rule": "Generation step. After Leaf 2 and Leaf 3 review, each merge-unsafe field becomes its own leaf.", "decomposition_rule": "One leaf per field requiring migration. Title: 'Migrate [field_name] on [artifact_type] to keyed-object pattern'. Includes both data migration and validation.", "completion_condition": "Per leaf: that field uses keyed-object pattern. Merge adds key without replacing existing keys." },
+          { "leaf": 5, "title": "Validate merge-safe behavior", "type": "validation", "scope": "For each migrated field: (1) add single key via content merge — existing keys preserved, (2) add key that already exists — value updated not duplicated, (3) full replace via content_mode: replace — works correctly, (4) no array remnants, (5) forbidden states checked.", "excluded": "No inline fixes.", "completion_condition": "All migrated fields tested. Merge behavior confirmed additive. No data loss scenarios." },
+          { "leaf": 6, "title": "Documentation update", "type": "documentation", "scope": "Update Payload Discipline, Quick Reference, and CLAUDE.md with merge-safe content pattern as system invariant. Document key naming conventions. Add migration guide for future content fields.", "excluded": "No code changes.", "completion_condition": "Pattern documented as system invariant. Naming conventions documented. Migration guide available." }
+        ],
+        "sequencing": "Leaf 1 → Leaf 2 → Leaf 3 (+ Team review) → Leaf 4(×N) → Leaf 5 → Leaf 6. Leaf 3 requires Team Qwrk review gate before Leaf 4.",
+        "risks": [
+          "Migration of existing array-based content is a data mutation — must be carefully scoped and tested per field.",
+          "Deep merge implementation in n8n may not handle all edge cases — Leaf 1 must characterize exact behavior.",
+          "Some content fields may legitimately use arrays (e.g., non_goals list) — must distinguish accumulation arrays (merge-unsafe) from value arrays (acceptable).",
+          "This branch has the widest blast radius in the initiative — review gate is critical."
+        ]
+      }
+    }
+  },
+  {
+    "_comment": "SAPLING C: Architectural Enforcement — Branch 2/3",
+    "_branch": "Enforce Workspace Consistency for References (c7d5263f)",
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+    "artifact_type": "snapshot",
+    "title": "Leaf Plan — Enforce Workspace Consistency for References",
+    "semantic_type_id": "governance",
+    "tags": ["for-q", "compliance-to-enforcement", "leaf-plan"],
+    "parent_artifact_id": "c7d5263f-71e8-4359-975a-ef13feeb1b4c",
+    "extension": {
+      "payload": {
+        "branch_title": "Enforce Workspace Consistency for References",
+        "branch_id": "c7d5263f-71e8-4359-975a-ef13feeb1b4c",
+        "sapling": "Architectural Enforcement",
+        "action_scope": "Save sub-workflow ONLY (parent_artifact_id validation on insert)",
+        "gateway_boundary": {
+          "truth_rule": "All artifact references (parent_artifact_id, dependency IDs) within a payload MUST reference artifacts in the same workspace. Cross-workspace references are forbidden.",
+          "allowed_states": { "same_workspace": "Referenced artifact exists and belongs to same workspace — save proceeds", "rejected_mismatch": "Referenced artifact exists but in different workspace — REFERENCE_WORKSPACE_MISMATCH error", "rejected_not_found": "Referenced artifact does not exist — REFERENCE_NOT_FOUND error" },
+          "forbidden_states": ["Cross-workspace parent_artifact_id accepted silently", "Non-existent parent_artifact_id accepted (FK may catch but error is opaque)", "Dependency referencing artifact in different workspace"]
+        },
+        "proposed_leaves": [
+          { "leaf": 1, "title": "Enumerate reference validation behavior", "type": "analysis", "scope": "For each reference field (parent_artifact_id on save, depends_on_artifact_id on dependency creation), test: (1) valid same-workspace reference — succeeds, (2) valid cross-workspace reference — what happens, (3) non-existent reference — what happens. Document current behavior including whether FK constraint catches cross-workspace or just non-existent.", "excluded": "No fixes. Enumeration only.", "completion_condition": "Table: reference_field → scenario → current_behavior → error_returned (if any)." },
+          { "leaf": 2, "title": "Classify reference validation gaps", "type": "analysis", "scope": "From Leaf 1, classify each scenario: enforced (rejected correctly), unprotected_cross_workspace (accepted silently — FK passes because artifact exists in another workspace), unprotected_not_found (opaque DB error instead of clear Gateway error).", "excluded": "No fixes. Classification only.", "completion_condition": "Every reference scenario classified. Gap count known." },
+          { "leaf": 3, "title": "Define reference validation contract", "type": "design", "scope": "Define: (1) before DB insert, verify parent_artifact_id exists in same workspace via SELECT, (2) REFERENCE_WORKSPACE_MISMATCH error if wrong workspace, (3) REFERENCE_NOT_FOUND if not found at all, (4) performance budget: one additional query per save with parent, (5) scope: parent_artifact_id on save initially, dependency references as extension. This becomes acceptance criteria.", "excluded": "No implementation. Contract only.", "completion_condition": "Written contract with: validation query, error codes, performance budget, scope boundaries." },
+          { "leaf": 4, "title": "[DERIVED] Fix implementation leaves (one per reference type)", "type": "implementation", "scope": "Each leaf adds workspace validation for one reference field. Scope determined by Leaf 2.", "excluded": "No mixing of reference types.", "execution_rule": "Generation step. After Leaf 2, each unprotected reference type becomes its own leaf.", "decomposition_rule": "One leaf per reference field. Title: 'Add workspace validation for [field_name] on save'. If Leaf 2 finds 0 gaps, skip to Leaf 5.", "completion_condition": "Per leaf: that reference field validates workspace consistency per Leaf 3 contract." },
+          { "leaf": 5, "title": "Validate reference workspace enforcement", "type": "validation", "scope": "For parent_artifact_id: (1) same-workspace parent — succeeds, (2) cross-workspace parent — rejected with REFERENCE_WORKSPACE_MISMATCH, (3) non-existent parent — rejected with REFERENCE_NOT_FOUND, (4) null parent on non-child types — still allowed, (5) forbidden states checked.", "excluded": "No inline fixes.", "completion_condition": "All reference scenarios tested. Cross-workspace references rejected. Same-workspace references pass." },
+          { "leaf": 6, "title": "Documentation update", "type": "documentation", "scope": "Update Payload Discipline with workspace reference validation guarantees. Add REFERENCE_WORKSPACE_MISMATCH and REFERENCE_NOT_FOUND to error inventory.", "excluded": "No code changes.", "completion_condition": "Reference validation documented. Error codes documented." }
+        ],
+        "sequencing": "Leaf 1 → Leaf 2 → Leaf 3 → Leaf 4(×N) → Leaf 5 → Leaf 6.",
+        "risks": [
+          "Performance impact of additional SELECT per save — must be measured. Should be negligible for single-parent lookups but could matter at scale.",
+          "FK constraint already catches non-existent references with opaque DB error — new validation must fire BEFORE the DB insert to provide clear Gateway error.",
+          "Dependency references (T71) may have different workspace rules — initial scope is parent_artifact_id only."
+        ]
+      }
+    }
+  },
+  {
+    "_comment": "SAPLING C: Architectural Enforcement — Branch 3/3",
+    "_branch": "Enforce Idempotency (2ada1580)",
+    "gw_action": "artifact.save",
+    "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+    "artifact_type": "snapshot",
+    "title": "Leaf Plan — Enforce Idempotency",
+    "semantic_type_id": "governance",
+    "tags": ["for-q", "compliance-to-enforcement", "leaf-plan"],
+    "parent_artifact_id": "2ada1580-8347-47c8-92ed-d6f1279d136f",
+    "extension": {
+      "payload": {
+        "branch_title": "Enforce Idempotency",
+        "branch_id": "2ada1580-8347-47c8-92ed-d6f1279d136f",
+        "sapling": "Architectural Enforcement",
+        "action_scope": "Gateway-level (design-first — affects multiple actions once implemented)",
+        "gateway_boundary": {
+          "truth_rule": "Repeated identical requests within a deduplication window MUST NOT create duplicate state. The Gateway must either return the result of the first execution or reject the duplicate with an explicit idempotency response.",
+          "allowed_states": { "first_execution": "Request processed normally, result returned", "duplicate_detected": "Identical request within dedup window — original result returned without re-execution", "expired_window": "Same request after dedup window expired — treated as new request" },
+          "forbidden_states": ["Duplicate email sent on retry", "Duplicate snapshot created on retry", "Duplicate artifact created when client retries after timeout", "Idempotency key collision across different requests", "Duplicate execution with same idempotency key", "Inconsistent results for identical requests within dedup window", "Execution without idempotency tracking for scoped actions"]
+        },
+        "proposed_leaves": [
+          { "leaf": 1, "title": "Enumerate current retry/duplicate behavior per action", "type": "analysis", "scope": "For each Gateway action, test: (1) submit identical request twice in quick succession — does it create duplicates? (2) For messaging: does it send duplicate emails? (3) For save: does it create two artifacts? (4) For update/promote: is the second call a no-op or does it fail? Document current behavior per action.", "excluded": "No fixes. Enumeration only.", "completion_condition": "Table: action → duplicate_behavior → creates_duplicate_state (yes/no) → current_protection." },
+          { "leaf": 2, "title": "Classify idempotency risk by action", "type": "analysis", "scope": "From Leaf 1, classify each action: naturally_idempotent (update/promote — same state transition is no-op or fails gracefully), duplicate_risk (save/messaging — creates new state each time), low_risk (query/list — read-only). Identify which actions need idempotency protection.", "excluded": "No fixes. Classification only.", "completion_condition": "Every action classified. Priority-ordered list of actions needing protection." },
+          { "leaf": 3, "title": "Define idempotency strategy and contract", "type": "design", "scope": "Define: (1) idempotency key strategy (client-provided header vs content hash), (2) dedup window (TTL), (3) storage mechanism (in-memory vs DB table), (4) response behavior on duplicate (return original result vs specific idempotency response), (5) scope: which actions get protection first. This becomes design doc for Team Qwrk review.", "excluded": "No implementation. Design only.", "initial_scope": { "phase_1_actions": ["messaging.send_email", "artifact.save (snapshot only)"], "rationale": "Highest duplicate-risk actions. Controlled Phase 1 prevents system-wide rollout before validation." }, "key_strategy_decision": { "requirement": "Leaf 3 MUST choose ONE key strategy for Phase 1: client-provided idempotency key OR content-hash derived key. Phase 1 MUST NOT support both simultaneously.", "rationale": "Eliminates dual-mode ambiguity and simplifies initial implementation." }, "failure_modes": { "store_unavailable": "Define behavior when idempotency store is unreachable: fail closed (reject request) OR allow execution (degrade gracefully). Decision MUST be explicit in contract.", "original_result_missing": "Define fallback when duplicate detected but original result is no longer available in store: return idempotency acknowledgment without original data OR reject with specific error.", "partial_execution": "Define recovery when execution partially completed but idempotency record was not written: reject subsequent attempts OR allow re-execution with dedup on completion." }, "completion_condition": "Written design document with: single key strategy chosen, initial scope (2 actions), TTL, storage mechanism, response behavior, failure mode decisions, review-ready for Q/Manus." },
+          { "leaf": 4, "title": "[DERIVED] Implementation leaves (one per action/mechanism)", "type": "implementation", "scope": "Each leaf implements idempotency for one action or mechanism. Scope determined by Leaf 2 and Leaf 3 review.", "excluded": "No mixing of actions.", "execution_rule": "Generation step. After Leaf 3 review, each action needing protection becomes its own leaf.", "decomposition_rule": "One leaf per action. Title: 'Implement idempotency for [action]'. If design review determines no actions need protection, branch is complete.", "completion_condition": "Per leaf: duplicate requests for that action do not create duplicate state." },
+          { "leaf": 5, "title": "Validate idempotency behavior", "type": "validation", "scope": "For each protected action: (1) first request — normal response, (2) identical request within window — original result returned, no duplicate state, (3) request after window expires — treated as new, (4) different request with same key — rejected or handled per contract, (5) forbidden states checked.", "excluded": "No inline fixes.", "completion_condition": "All protected actions tested. Zero duplicate state created on retry." },
+          { "leaf": 6, "title": "Documentation update", "type": "documentation", "scope": "Update Gateway README with idempotency guarantees. Update QSB Payload Format and Messaging pack with idempotency key usage. Document dedup window and behavior.", "excluded": "No code changes.", "completion_condition": "Idempotency guarantees documented. Client-side key usage documented." }
+        ],
+        "sequencing": "Leaf 1 → Leaf 2 → Leaf 3 (+ Team review) → Leaf 4(×N) → Leaf 5 → Leaf 6. Leaf 3 requires Team Qwrk review gate before Leaf 4.",
+        "risks": [
+          "Idempotency key storage introduces new state — must decide persistence vs ephemeral (in-memory lost on restart).",
+          "Content-hash based dedup may produce false positives if payloads differ only in timestamp or metadata.",
+          "This is the highest-complexity branch in the initiative — review gate is essential before any implementation.",
+          "n8n execution model may complicate idempotency — each webhook call is a fresh execution. May need external state (Redis, DB table)."
+        ]
+      }
+    }
+  }
+]

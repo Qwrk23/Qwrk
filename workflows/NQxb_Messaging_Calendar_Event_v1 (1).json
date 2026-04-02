@@ -1,0 +1,447 @@
+{
+  "name": "NQxb_Messaging_Calendar_Event_v1",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -4400,
+        120
+      ],
+      "id": "ca100001-0001-4000-8000-000000000001",
+      "name": "NQxb_Messaging__In"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Messaging__Normalize_Request\n// Extract and normalize messaging.create_calendar_event fields\n// v1.0: Initial implementation\n// Per contract 963731f3 + field mapping c074f0e1\n\nconst raw = $json ?? {};\n\n// Generate trace_id (n8n sandbox does not expose crypto)\nconst trace_id = 'msg_' + 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {\n  const r = Math.random() * 16 | 0;\n  return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);\n});\n\n// Transform attendees: string[] → [{email: addr}] for Google Calendar API\nconst rawAttendees = Array.isArray(raw.attendees) ? raw.attendees : [];\nconst attendeesObjects = rawAttendees\n  .filter(a => typeof a === 'string' && a.trim() !== '')\n  .map(a => ({ email: a.trim() }));\n\nconst normalized = {\n  // Identity\n  gw_action: (raw.gw_action ?? '').toString().trim(),\n  gw_workspace_id: (raw.gw_workspace_id ?? '').toString().trim(),\n  trace_id: trace_id,\n\n  // Required fields\n  title: (raw.title ?? '').toString().trim(),\n  start: (raw.start ?? '').toString().trim(),\n  end: (raw.end ?? '').toString().trim(),\n\n  // Optional fields\n  description: raw.description ?? null,\n  location: raw.location ?? null,\n  attendees: rawAttendees,\n  attendees_objects: attendeesObjects,\n  attendees_csv: rawAttendees.join(', '),\n  tags: Array.isArray(raw.tags) ? raw.tags : [],\n  parent_artifact_id: raw.parent_artifact_id ?? null,\n\n  // Semantic type for artifact save\n  semantic_type_id: raw.semantic_type_id ?? 'f458c86a-e037-4c48-a4a2-ce228546957f',\n};\n\nreturn [{ json: normalized }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4176,
+        120
+      ],
+      "id": "ca100001-0002-4000-8000-000000000002",
+      "name": "NQxb_Messaging__Normalize_Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Messaging__Validate_Payload\n// Validation rules per contract 702b11e1\n// Fail-fast: returns first error only\n// v1.0: Initial implementation\n\nconst req = $json;\n\nconst uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\nconst emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\n\n// ISO 8601 datetime with timezone (basic check)\nconst isoRegex = /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}([+-]\\d{2}:\\d{2}|Z)$/;\n\n// --- Validation rules (fail-fast) ---\n\n// 1. gw_action\nif (req.gw_action !== 'messaging.create_calendar_event') {\n  return [{ json: { valid: false, error_code: 'VALIDATION_ERROR', error_message: 'invalid gw_action', error_field: 'gw_action', ...req } }];\n}\n\n// 2. gw_workspace_id\nif (!req.gw_workspace_id || !uuidRegex.test(req.gw_workspace_id)) {\n  return [{ json: { valid: false, error_code: 'VALIDATION_ERROR', error_message: 'missing or invalid gw_workspace_id', error_field: 'gw_workspace_id', ...req } }];\n}\n\n// 3. title — required, non-empty string\nif (typeof req.title !== 'string' || req.title.trim() === '') {\n  return [{ json: { valid: false, error_code: 'VALIDATION_ERROR', error_message: 'missing title', error_field: 'title', ...req } }];\n}\n\n// 4. start — required, valid ISO 8601 datetime with timezone\nif (typeof req.start !== 'string' || req.start.trim() === '') {\n  return [{ json: { valid: false, error_code: 'VALIDATION_ERROR', error_message: 'missing or invalid start datetime', error_field: 'start', ...req } }];\n}\nconst startDate = new Date(req.start);\nif (isNaN(startDate.getTime())) {\n  return [{ json: { valid: false, error_code: 'VALIDATION_ERROR', error_message: 'start is not a valid datetime', error_field: 'start', ...req } }];\n}\n\n// 5. end — required, valid ISO 8601 datetime, must be after start\nif (typeof req.end !== 'string' || req.end.trim() === '') {\n  return [{ json: { valid: false, error_code: 'VALIDATION_ERROR', error_message: 'missing or invalid end datetime', error_field: 'end', ...req } }];\n}\nconst endDate = new Date(req.end);\nif (isNaN(endDate.getTime())) {\n  return [{ json: { valid: false, error_code: 'VALIDATION_ERROR', error_message: 'end is not a valid datetime', error_field: 'end', ...req } }];\n}\nif (endDate <= startDate) {\n  return [{ json: { valid: false, error_code: 'VALIDATION_ERROR', error_message: 'end must be after start', error_field: 'end', ...req } }];\n}\n\n// 6. description — optional, must be string if present\nif (req.description !== null && req.description !== undefined) {\n  if (typeof req.description !== 'string') {\n    return [{ json: { valid: false, error_code: 'VALIDATION_ERROR', error_message: 'description must be a string', error_field: 'description', ...req } }];\n  }\n}\n\n// 7. location — optional, must be string if present\nif (req.location !== null && req.location !== undefined) {\n  if (typeof req.location !== 'string') {\n    return [{ json: { valid: false, error_code: 'VALIDATION_ERROR', error_message: 'location must be a string', error_field: 'location', ...req } }];\n  }\n}\n\n// 8. attendees — optional, valid emails if present\nif (req.attendees && req.attendees.length > 0) {\n  for (const addr of req.attendees) {\n    if (typeof addr !== 'string' || !emailRegex.test(addr.trim())) {\n      return [{ json: { valid: false, error_code: 'VALIDATION_ERROR', error_message: `attendees contains invalid email: ${addr}`, error_field: 'attendees', ...req } }];\n    }\n  }\n}\n\n// 9. tags — optional, must be array of strings\nif (req.tags && req.tags.length > 0) {\n  for (const t of req.tags) {\n    if (typeof t !== 'string') {\n      return [{ json: { valid: false, error_code: 'VALIDATION_ERROR', error_message: 'tags must be array of strings', error_field: 'tags', ...req } }];\n    }\n  }\n}\n\n// 10. parent_artifact_id — optional, valid UUID if present\nif (req.parent_artifact_id !== null && req.parent_artifact_id !== undefined) {\n  if (typeof req.parent_artifact_id !== 'string' || !uuidRegex.test(req.parent_artifact_id)) {\n    return [{ json: { valid: false, error_code: 'VALIDATION_ERROR', error_message: 'invalid parent_artifact_id format', error_field: 'parent_artifact_id', ...req } }];\n  }\n}\n\n// All valid\nreturn [{ json: { valid: true, ...req } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3952,
+        120
+      ],
+      "id": "ca100001-0003-4000-8000-000000000003",
+      "name": "NQxb_Messaging__Validate_Payload"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "check-valid",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -3728,
+        120
+      ],
+      "id": "ca100001-0004-4000-8000-000000000004",
+      "name": "NQxb_Messaging__Check_Validation"
+    },
+    {
+      "parameters": {
+        "resource": "event",
+        "operation": "create",
+        "calendar": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "id"
+        },
+        "start": "={{ $json.start }}",
+        "end": "={{ $json.end }}",
+        "additionalFields": {
+          "summary": "={{ $json.title }}",
+          "description": "={{ $json.description ?? '' }}",
+          "location": "={{ $json.location ?? '' }}",
+          "attendeesUi": {
+            "attendeesValues": "={{ $json.attendees_objects }}"
+          }
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.2,
+      "position": [
+        -3504,
+        48
+      ],
+      "id": "ca100001-0005-4000-8000-000000000005",
+      "name": "NQxb_Messaging__Calendar_Create",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "qwrk_as_qwrk_google_calendar"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Messaging__Build_Dispatch_Response\n// Build internal dispatch response per contract 721cfe50\n// Extract provider_metadata from Google Calendar response per c074f0e1\n// v1.0: Initial implementation\n\nconst calResponse = $json;\nconst request = $node['NQxb_Messaging__Normalize_Request'].json;\n\n// Check if Calendar returned an error\nif (calResponse.error || calResponse.statusCode >= 400) {\n  const errorMsg = calResponse.error?.message\n    ?? calResponse.message\n    ?? JSON.stringify(calResponse).substring(0, 500);\n\n  return [{ json: {\n    dispatch_ok: false,\n    gw_action: 'messaging.create_calendar_event',\n    provider: 'google_calendar',\n    error_code: 'PROVIDER_DISPATCH_FAILED',\n    error_message: `Google Calendar API error: ${errorMsg}`.substring(0, 500),\n    timestamp: new Date().toISOString(),\n    trace_id: request.trace_id,\n    _request: request,\n  }}];\n}\n\n// Success — extract provider metadata per c074f0e1\nconst event_id = calResponse.id ?? null;\nconst html_link = calResponse.htmlLink ?? null;\n\nreturn [{ json: {\n  dispatch_ok: true,\n  gw_action: 'messaging.create_calendar_event',\n  provider: 'google_calendar',\n  timestamp: new Date().toISOString(),\n  trace_id: request.trace_id,\n  provider_metadata: {\n    event_id: event_id,\n    html_link: html_link,\n  },\n  request_echo: {\n    title: request.title,\n    start: request.start,\n    end: request.end,\n  },\n  _request: request,\n}}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3280,
+        48
+      ],
+      "id": "ca100001-0006-4000-8000-000000000006",
+      "name": "NQxb_Messaging__Build_Dispatch_Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Messaging__Route_Dispatch\n// Route based on dispatch_ok: true → save artifact, false → error\n// v1.0\n\nconst dispatch = $json;\n\nif (dispatch.dispatch_ok === true) {\n  return [{ json: dispatch }];\n}\n\n// Dispatch failed — will be routed to error shaper via separate connection\nreturn [];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3056,
+        48
+      ],
+      "id": "ca100001-0007-4000-8000-000000000007",
+      "name": "NQxb_Messaging__Route_Dispatch",
+      "notes": "Routes dispatch_ok=true to save path, dispatch_ok=false handled by separate connection from Build_Dispatch_Response"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://npymhacpmxdnkqdzgxll.supabase.co/rest/v1/qxb_artifact",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"workspace_id\": \"{{ $json._request.gw_workspace_id }}\",\n  \"artifact_type\": \"snapshot\",\n  \"title\": \"Calendar Event — {{ $json.request_echo.title }}\",\n  \"tags\": {{ JSON.stringify([...($json._request.tags ?? []), 'communication']) }},\n  \"semantic_type_id\": \"{{ $json._request.semantic_type_id }}\",\n  \"parent_artifact_id\": {{ $json._request.parent_artifact_id ? '\"' + $json._request.parent_artifact_id + '\"' : 'null' }},\n  \"owner_user_id\": \"c52c7a57-74ad-433d-a07c-4dcac1778672\",\n  \"priority\": 3\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2832,
+        48
+      ],
+      "id": "ca100001-0008-4000-8000-000000000008",
+      "name": "NQxb_Messaging__Save_Spine",
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://npymhacpmxdnkqdzgxll.supabase.co/rest/v1/qxb_artifact_snapshot",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"artifact_id\": \"{{ $node['NQxb_Messaging__Save_Spine'].json[0]?.artifact_id ?? $node['NQxb_Messaging__Save_Spine'].json.artifact_id }}\",\n  \"payload\": {\n    \"messaging_action\": \"messaging.create_calendar_event\",\n    \"provider\": \"google_calendar\",\n    \"dispatch_timestamp\": \"{{ $node['NQxb_Messaging__Build_Dispatch_Response'].json.timestamp }}\",\n    \"trace_id\": \"{{ $node['NQxb_Messaging__Build_Dispatch_Response'].json.trace_id }}\",\n    \"request_echo\": {{ JSON.stringify($node['NQxb_Messaging__Build_Dispatch_Response'].json.request_echo) }},\n    \"provider_metadata\": {{ JSON.stringify($node['NQxb_Messaging__Build_Dispatch_Response'].json.provider_metadata) }}\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2608,
+        48
+      ],
+      "id": "ca100001-0009-4000-8000-000000000009",
+      "name": "NQxb_Messaging__Save_Extension",
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Messaging__Check_Save\n// Verify both spine and extension saves succeeded\n// v1.0\n\nconst spineResult = $node['NQxb_Messaging__Save_Spine'].json;\nconst extResult = $json;\nconst dispatch = $node['NQxb_Messaging__Build_Dispatch_Response'].json;\n\nconst spineData = Array.isArray(spineResult) ? spineResult[0] : spineResult;\nconst artifact_id = spineData?.artifact_id ?? null;\n\nif (!artifact_id) {\n  return [{ json: {\n    save_ok: false,\n    dispatch: dispatch,\n  }}];\n}\n\nconst extData = Array.isArray(extResult) ? extResult[0] : extResult;\nif (extData?.error || extData?.statusCode >= 400) {\n  return [{ json: {\n    save_ok: false,\n    dispatch: dispatch,\n    artifact_id: artifact_id,\n  }}];\n}\n\nreturn [{ json: {\n  save_ok: true,\n  artifact_id: artifact_id,\n  dispatch: dispatch,\n}}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2384,
+        48
+      ],
+      "id": "ca100001-0010-4000-8000-000000000010",
+      "name": "NQxb_Messaging__Check_Save"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "check-save-ok",
+              "leftValue": "={{ $json.save_ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2160,
+        48
+      ],
+      "id": "ca100001-0011-4000-8000-000000000011",
+      "name": "NQxb_Messaging__Route_Save"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Messaging__Shape_Success\n// Build Gateway success envelope per contract 963731f3\n// v1.0\n\nconst data = $json;\nconst dispatch = data.dispatch;\n\nreturn [{ json: {\n  ok: true,\n  gw_action: 'messaging.create_calendar_event',\n  artifact_id: data.artifact_id,\n  timestamp: new Date().toISOString(),\n  trace_id: dispatch.trace_id,\n  provider_metadata: dispatch.provider_metadata,\n}}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1936,
+        0
+      ],
+      "id": "ca100001-0012-4000-8000-000000000012",
+      "name": "NQxb_Messaging__Shape_Success"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Messaging__Shape_Error\n// Build Gateway error envelope\n// Handles: VALIDATION_ERROR, PROVIDER_DISPATCH_FAILED, ARTIFACT_SAVE_FAILED\n// v1.0\n\nconst data = $json;\n\n// Path 1: Validation error (from Check_Validation false branch)\nif (data.error_code === 'VALIDATION_ERROR') {\n  return [{ json: {\n    ok: false,\n    _gw_route: 'error',\n    error: {\n      code: 'VALIDATION_ERROR',\n      message: data.error_message,\n      details: {\n        gw_action: 'messaging.create_calendar_event',\n        field: data.error_field ?? null,\n        rule: data.error_message,\n        trace_id: data.trace_id,\n      },\n    },\n  }}];\n}\n\n// Path 2: Provider dispatch failed (dispatch_ok=false)\nif (data.dispatch_ok === false) {\n  return [{ json: {\n    ok: false,\n    _gw_route: 'error',\n    error: {\n      code: 'PROVIDER_DISPATCH_FAILED',\n      message: data.error_message,\n      details: {\n        gw_action: 'messaging.create_calendar_event',\n        provider: 'google_calendar',\n        provider_status: data.provider_status ?? null,\n        provider_message: (data.error_message ?? '').substring(0, 500),\n        trace_id: data.trace_id,\n      },\n    },\n  }}];\n}\n\n// Path 3: Artifact save failed (save_ok=false)\nif (data.save_ok === false) {\n  const dispatch = data.dispatch ?? {};\n  return [{ json: {\n    ok: false,\n    _gw_route: 'error',\n    error: {\n      code: 'ARTIFACT_SAVE_FAILED',\n      message: 'Calendar event created successfully but artifact record failed to save',\n      details: {\n        gw_action: 'messaging.create_calendar_event',\n        dispatch_succeeded: true,\n        provider_metadata: dispatch.provider_metadata ?? null,\n        trace_id: dispatch.trace_id ?? null,\n      },\n    },\n  }}];\n}\n\n// Fallback\nreturn [{ json: {\n  ok: false,\n  _gw_route: 'error',\n  error: {\n    code: 'UNKNOWN_ERROR',\n    message: 'Unexpected error in calendar event workflow',\n    details: data,\n  },\n}}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1936,
+        216
+      ],
+      "id": "ca100001-0013-4000-8000-000000000013",
+      "name": "NQxb_Messaging__Shape_Error"
+    }
+  ],
+  "pinData": {
+    "NQxb_Messaging__In": [
+      {
+        "json": {
+          "gw_action": "messaging.create_calendar_event",
+          "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+          "title": "Messaging Subsystem Test Event",
+          "start": "2026-03-15T09:00:00-05:00",
+          "end": "2026-03-15T10:00:00-05:00",
+          "description": "Test event from Qwrk Messaging Subsystem",
+          "tags": [
+            "messaging",
+            "test"
+          ]
+        }
+      }
+    ]
+  },
+  "connections": {
+    "NQxb_Messaging__In": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Messaging__Normalize_Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Messaging__Normalize_Request": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Messaging__Validate_Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Messaging__Validate_Payload": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Messaging__Check_Validation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Messaging__Check_Validation": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Messaging__Calendar_Create",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Messaging__Shape_Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Messaging__Calendar_Create": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Messaging__Build_Dispatch_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Messaging__Build_Dispatch_Response": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Messaging__Route_Dispatch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Messaging__Route_Dispatch": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Messaging__Save_Spine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Messaging__Save_Spine": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Messaging__Save_Extension",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Messaging__Save_Extension": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Messaging__Check_Save",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Messaging__Check_Save": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Messaging__Route_Save",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Messaging__Route_Save": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Messaging__Shape_Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Messaging__Shape_Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

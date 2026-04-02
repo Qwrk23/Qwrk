@@ -4,6 +4,28 @@
 -- Database: PostgreSQL 17.6
 --
 -- CHANGELOG:
+--   v2.10 (2026-03-22): T150 Person Artifact Type — Branch 2 Schema.
+--     - artifact_type CHECK v7 -> v8: added 'person' (15 types total)
+--     - New table: qxb_artifact_person (full extension, PK=FK, 27 columns)
+--       Identity: full_name, preferred_name, relationship_type, status, pronouns
+--       Contact: personal_email, work_email, mobile_phone, work_phone, home_phone,
+--         preferred_contact_method, preferred_contact_channel, timezone
+--       Professional: company, title, department, importance_level
+--       Interaction: interaction_frequency, last_contacted_at, next_follow_up_at, do_not_contact
+--       JSONB: address, communication_style, what_they_care_about, key_facts, preferences
+--     - 3 JSONB array shape CHECKs: key_facts, what_they_care_about, preferences
+--       (jsonb_typeof = 'array' or NULL)
+--     - semantic_type_required_for_top_level CHECK updated: 'person' added to required list
+--     - Type registry entry: person (enabled, has extension)
+--     - RLS: 3 policies (SELECT workspace-member via join, INSERT owner, UPDATE owner/admin)
+--       SELECT policy uses workspace_user join (not spine-only) per Q audit
+--     - Indexes: full_name (btree), relationship_type (btree), last_contacted_at (btree partial),
+--       key_facts (GIN partial), what_they_care_about (GIN partial), preferences (GIN partial)
+--     - Trigger: updated_at via shared qxb_set_updated_at()
+--     - No new semantic type created (person uses existing registry values)
+--     - Migration: migrations/2026-03-22__person_artifact_type__v1.sql (v1.1 patched)
+--     - Previous version: Archive/LIVE_DDL__Kernel_v1__2026-01-04__v2.9__2026-03-22.sql
+--
 --   v2.9 (2026-03-07): T80 Security Advisor Fixes.
 --     - qxb_artifact_rollup_view: added WITH (security_invoker = true)
 --       Ensures view runs with caller permissions, not creator permissions.
@@ -382,6 +404,7 @@ COMMENT ON TABLE public.qxb_workspace_user IS 'Kernel v1 workspace membership ta
 -- [UPDATED 2026-02-16] Phase 2 Completion: execution_status added, priority NOT NULL DEFAULT 3,
 --   artifact_type CHECK v6 (13 types), lifecycle_status CHECK, execution_status CHECK.
 -- [UPDATED 2026-03-06] T94: artifact_type CHECK v7 (14 types, twig added), twig lifecycle CHECK.
+-- [UPDATED 2026-03-22] T150: artifact_type CHECK v8 (15 types, person added). semantic_type_required updated.
 -- [UPDATED 2026-03-03] T69: semantic_type_id column + conditional NOT NULL CHECK.
 -- NOTE: 'video' is NOT in the CHECK despite qxb_artifact_video table existing.
 
@@ -403,12 +426,12 @@ CREATE TABLE public.qxb_artifact (
     deleted_at timestamptz,
     created_at timestamptz DEFAULT now() NOT NULL,
     updated_at timestamptz DEFAULT now() NOT NULL,
-    CONSTRAINT qxb_artifact_artifact_type_check_v7 CHECK ((artifact_type = ANY (ARRAY['project'::text, 'journal'::text, 'restart'::text, 'snapshot'::text, 'grass'::text, 'thorn'::text, 'forest'::text, 'thicket'::text, 'flower'::text, 'branch'::text, 'leaf'::text, 'instruction_pack'::text, 'limb'::text, 'twig'::text]))),
+    CONSTRAINT qxb_artifact_artifact_type_check_v8 CHECK ((artifact_type = ANY (ARRAY['project'::text, 'journal'::text, 'restart'::text, 'snapshot'::text, 'grass'::text, 'thorn'::text, 'forest'::text, 'thicket'::text, 'flower'::text, 'branch'::text, 'leaf'::text, 'instruction_pack'::text, 'limb'::text, 'twig'::text, 'person'::text]))),
     CONSTRAINT qxb_artifact_priority_check CHECK (((priority >= 1) AND (priority <= 5))),
     CONSTRAINT qxb_artifact_lifecycle_status_check CHECK (((artifact_type <> 'project'::text) OR (lifecycle_status = ANY (ARRAY['seed'::text, 'sapling'::text, 'tree'::text, 'archive'::text])))),
     CONSTRAINT qxb_artifact_execution_status_check CHECK ((execution_status IS NULL OR (execution_status = ANY (ARRAY['not_started'::text, 'in_progress'::text, 'blocked'::text, 'complete'::text])))),
     CONSTRAINT qxb_artifact_twig_lifecycle_check CHECK (((artifact_type <> 'twig'::text) OR (lifecycle_status = ANY (ARRAY['proposed'::text, 'active'::text, 'promoted'::text, 'pruned'::text])))),
-    CONSTRAINT qxb_artifact_semantic_type_required_for_top_level CHECK (((artifact_type NOT IN ('project', 'snapshot', 'journal', 'restart')) OR (semantic_type_id IS NOT NULL)))
+    CONSTRAINT qxb_artifact_semantic_type_required_for_top_level CHECK (((artifact_type NOT IN ('project', 'snapshot', 'journal', 'restart', 'person')) OR (semantic_type_id IS NOT NULL)))
 );
 
 COMMENT ON TABLE public.qxb_artifact IS 'Kernel v1 canonical spine. All record types spawn from this table and extend via PK=FK class-table inheritance. RLS enabled; policies added later (deny-by-default).';
@@ -585,6 +608,55 @@ CREATE TABLE public.qxb_artifact_limb (
 );
 
 COMMENT ON TABLE public.qxb_artifact_limb IS 'Limb type table extending qxb_artifact via PK=FK. Shell extension for class-table inheritance compliance. Execution state (execution_status, priority) tracked on spine. Phase 2 Completion (2026-02-16).';
+
+-- ============================================================================
+-- TABLE: qxb_artifact_person [2026-03-22] [T150 Person Artifact Type]
+-- ============================================================================
+-- Full extension table for person artifact type.
+-- Stores identity, contact, professional context, interaction tracking,
+-- and communication intelligence for real individuals in the operator's network.
+-- JSONB array fields (key_facts, what_they_care_about, preferences) have shape CHECKs.
+-- RLS SELECT uses workspace_user join (not spine-only) per Q audit.
+
+CREATE TABLE public.qxb_artifact_person (
+    artifact_id                uuid        NOT NULL,
+    full_name                  text        NOT NULL,
+    preferred_name             text        NOT NULL,
+    relationship_type          text        NOT NULL,
+    status                     text        NOT NULL DEFAULT 'active',
+    pronouns                   text,
+    personal_email             text,
+    work_email                 text,
+    mobile_phone               text,
+    work_phone                 text,
+    home_phone                 text,
+    preferred_contact_method   text,
+    preferred_contact_channel  text,
+    timezone                   text,
+    company                    text,
+    title                      text,
+    department                 text,
+    importance_level           text,
+    interaction_frequency      text,
+    last_contacted_at          timestamptz,
+    next_follow_up_at          timestamptz,
+    do_not_contact             boolean     NOT NULL DEFAULT false,
+    address                    jsonb,
+    communication_style        jsonb,
+    what_they_care_about       jsonb,
+    key_facts                  jsonb,
+    preferences                jsonb,
+    created_at                 timestamptz  NOT NULL DEFAULT now(),
+    updated_at                 timestamptz  NOT NULL DEFAULT now(),
+    CONSTRAINT qxb_artifact_person_key_facts_is_array
+      CHECK (key_facts IS NULL OR jsonb_typeof(key_facts) = 'array'),
+    CONSTRAINT qxb_artifact_person_what_they_care_about_is_array
+      CHECK (what_they_care_about IS NULL OR jsonb_typeof(what_they_care_about) = 'array'),
+    CONSTRAINT qxb_artifact_person_preferences_is_array
+      CHECK (preferences IS NULL OR jsonb_typeof(preferences) = 'array')
+);
+
+COMMENT ON TABLE public.qxb_artifact_person IS 'Person extension table. Extends qxb_artifact via PK=FK. Stores identity, contact, professional context, interaction tracking, and communication intelligence for real individuals in the operator''s network. T150 (2026-03-22).';
 
 -- ============================================================================
 -- TABLE: qxb_artifact_dependency [2026-03-01] [T71 Dependency Enforcement]
@@ -787,6 +859,10 @@ ALTER TABLE ONLY public.qxb_artifact_instruction_pack
 ALTER TABLE ONLY public.qxb_artifact_limb
     ADD CONSTRAINT qxb_artifact_limb_pkey PRIMARY KEY (artifact_id);
 
+-- [2026-03-22] T150 Person Artifact Type
+ALTER TABLE ONLY public.qxb_artifact_person
+    ADD CONSTRAINT qxb_artifact_person_pkey PRIMARY KEY (artifact_id);
+
 -- [2026-03-01] T71 Dependency Enforcement
 ALTER TABLE ONLY public.qxb_artifact_dependency
     ADD CONSTRAINT qxb_artifact_dependency_pkey PRIMARY KEY (dependency_id);
@@ -851,6 +927,14 @@ CREATE INDEX idx_qxb_artifact_semantic_type ON public.qxb_artifact USING btree (
 CREATE INDEX idx_qxb_semantic_type_audit_artifact ON public.qxb_semantic_type_audit USING btree (artifact_id, created_at DESC);
 
 -- [NEEDS VERIFICATION] New tables may have additional indexes not exposed by OpenAPI
+
+-- [2026-03-22] T150 Person Artifact Type
+CREATE INDEX idx_qxb_artifact_person_full_name ON public.qxb_artifact_person USING btree (full_name);
+CREATE INDEX idx_qxb_artifact_person_relationship_type ON public.qxb_artifact_person USING btree (relationship_type);
+CREATE INDEX idx_qxb_artifact_person_last_contacted_at ON public.qxb_artifact_person USING btree (last_contacted_at) WHERE last_contacted_at IS NOT NULL;
+CREATE INDEX idx_qxb_artifact_person_key_facts ON public.qxb_artifact_person USING gin (key_facts) WHERE key_facts IS NOT NULL;
+CREATE INDEX idx_qxb_artifact_person_what_they_care_about ON public.qxb_artifact_person USING gin (what_they_care_about) WHERE what_they_care_about IS NOT NULL;
+CREATE INDEX idx_qxb_artifact_person_preferences ON public.qxb_artifact_person USING gin (preferences) WHERE preferences IS NOT NULL;
 
 
 -- ============================================================================
@@ -917,6 +1001,10 @@ ALTER TABLE ONLY public.qxb_artifact_instruction_pack
 -- [2026-02-16] Phase 2 Completion
 ALTER TABLE ONLY public.qxb_artifact_limb
     ADD CONSTRAINT qxb_artifact_limb_fk FOREIGN KEY (artifact_id) REFERENCES public.qxb_artifact(artifact_id) ON DELETE CASCADE;
+
+-- [2026-03-22] T150 Person Artifact Type
+ALTER TABLE ONLY public.qxb_artifact_person
+    ADD CONSTRAINT qxb_artifact_person_fk FOREIGN KEY (artifact_id) REFERENCES public.qxb_artifact(artifact_id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.qxb_gateway_acl
     ADD CONSTRAINT qxb_gateway_acl_workspace_fk FOREIGN KEY (workspace_id) REFERENCES public.qxb_workspace(workspace_id);
@@ -988,6 +1076,9 @@ CREATE TRIGGER qxb_workspace_user_set_updated_at BEFORE UPDATE ON public.qxb_wor
 -- [2026-02-16] Phase 2 Completion
 CREATE TRIGGER qxb_artifact_limb_set_updated_at BEFORE UPDATE ON public.qxb_artifact_limb FOR EACH ROW EXECUTE FUNCTION public.qxb_set_updated_at();
 
+-- [2026-03-22] T150 Person Artifact Type
+CREATE TRIGGER qxb_artifact_person_set_updated_at BEFORE UPDATE ON public.qxb_artifact_person FOR EACH ROW EXECUTE FUNCTION public.qxb_set_updated_at();
+
 -- [2026-03-03] T69 — Append-only protection on semantic type audit
 CREATE TRIGGER qxb_semantic_type_audit_block_update BEFORE UPDATE ON public.qxb_semantic_type_audit FOR EACH ROW EXECUTE FUNCTION public.qxb_block_update_delete();
 CREATE TRIGGER qxb_semantic_type_audit_block_delete BEFORE DELETE ON public.qxb_semantic_type_audit FOR EACH ROW EXECUTE FUNCTION public.qxb_block_update_delete();
@@ -1014,6 +1105,8 @@ ALTER TABLE public.qxb_artifact_video ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.qxb_artifact_instruction_pack ENABLE ROW LEVEL SECURITY;
 -- [2026-02-16] Phase 2 Completion
 ALTER TABLE public.qxb_artifact_limb ENABLE ROW LEVEL SECURITY;
+-- [2026-03-22] T150 Person Artifact Type
+ALTER TABLE public.qxb_artifact_person ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.qxb_artifact_type_registry ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.qxb_artifact_type_registry_audit ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.qxb_gateway_acl ENABLE ROW LEVEL SECURITY;
@@ -1183,6 +1276,18 @@ CREATE POLICY qxb_artifact_limb_update_owner_or_admin ON public.qxb_artifact_lim
   USING ((EXISTS (SELECT 1 FROM public.qxb_artifact a WHERE ((a.artifact_id = qxb_artifact_limb.artifact_id) AND ((a.owner_user_id = public.qxb_current_user_id()) OR (EXISTS (SELECT 1 FROM public.qxb_workspace_user wsu WHERE ((wsu.workspace_id = a.workspace_id) AND (wsu.user_id = public.qxb_current_user_id()) AND (wsu.role = ANY (ARRAY['owner'::text, 'admin'::text]))))))))))
   WITH CHECK ((EXISTS (SELECT 1 FROM public.qxb_artifact a WHERE ((a.artifact_id = qxb_artifact_limb.artifact_id) AND ((a.owner_user_id = public.qxb_current_user_id()) OR (EXISTS (SELECT 1 FROM public.qxb_workspace_user wsu WHERE ((wsu.workspace_id = a.workspace_id) AND (wsu.user_id = public.qxb_current_user_id()) AND (wsu.role = ANY (ARRAY['owner'::text, 'admin'::text]))))))))));
 
+-- ============================================================================
+-- RLS POLICIES [2026-03-22] — T150 Person Artifact Type (qxb_artifact_person)
+-- ============================================================================
+-- SELECT uses workspace_user join (hardened per Q audit — not spine-only).
+-- INSERT/UPDATE follow standard spine delegation pattern.
+
+-- qxb_artifact_person: SELECT (workspace member) / INSERT (owner) / UPDATE (owner/admin)
+CREATE POLICY qxb_artifact_person_select_via_artifact ON public.qxb_artifact_person FOR SELECT TO authenticated USING ((EXISTS (SELECT 1 FROM public.qxb_artifact a JOIN public.qxb_workspace_user wsu ON wsu.workspace_id = a.workspace_id WHERE (a.artifact_id = qxb_artifact_person.artifact_id) AND (wsu.user_id = public.qxb_current_user_id()))));
+CREATE POLICY qxb_artifact_person_insert_owner_via_artifact ON public.qxb_artifact_person FOR INSERT TO authenticated WITH CHECK ((EXISTS (SELECT 1 FROM public.qxb_artifact a WHERE ((a.artifact_id = qxb_artifact_person.artifact_id) AND (a.owner_user_id = public.qxb_current_user_id())))));
+CREATE POLICY qxb_artifact_person_update_owner_or_admin ON public.qxb_artifact_person FOR UPDATE TO authenticated
+  USING ((EXISTS (SELECT 1 FROM public.qxb_artifact a WHERE ((a.artifact_id = qxb_artifact_person.artifact_id) AND ((a.owner_user_id = public.qxb_current_user_id()) OR (EXISTS (SELECT 1 FROM public.qxb_workspace_user wsu WHERE ((wsu.workspace_id = a.workspace_id) AND (wsu.user_id = public.qxb_current_user_id()) AND (wsu.role = ANY (ARRAY['owner'::text, 'admin'::text]))))))))))
+  WITH CHECK ((EXISTS (SELECT 1 FROM public.qxb_artifact a WHERE ((a.artifact_id = qxb_artifact_person.artifact_id) AND ((a.owner_user_id = public.qxb_current_user_id()) OR (EXISTS (SELECT 1 FROM public.qxb_workspace_user wsu WHERE ((wsu.workspace_id = a.workspace_id) AND (wsu.user_id = public.qxb_current_user_id()) AND (wsu.role = ANY (ARRAY['owner'::text, 'admin'::text]))))))))));
 
 
 -- ============================================================================

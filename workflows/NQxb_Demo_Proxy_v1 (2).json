@@ -1,0 +1,542 @@
+{
+  "name": "NQxb_Demo_Proxy_v1",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "/nqxb/demo/v1",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -832,
+        208
+      ],
+      "id": "935400d6-3da0-452b-8b2b-134f315ac10b",
+      "name": "NQxb_Demo_Proxy_v1__Webhook_In",
+      "webhookId": "d1a00001-wh01-4001-8001-000000000001"
+    },
+    {
+      "parameters": {
+        "jsCode": "const secret = $json.headers[\"x-qwrk-secret\"];\n\nif (!secret || secret !== \"bea86d2225924fc5accc3594a7e1fedc17162da7396145b4b48439c5858ff9c6\") {\n  return [{ json: { ok: false, error: { code: \"UNAUTHORIZED\", message: \"Invalid or missing authentication.\" } } }];\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -624,
+        208
+      ],
+      "id": "e9675b80-6b5e-4835-90c9-771c4dce8a5d",
+      "name": "NQxb_Demo_Proxy_v1__Auth_Check"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              },
+              "id": "auth-check-failed"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -432,
+        208
+      ],
+      "id": "a1b2c3d4-auth-gate-0001-demo-proxy",
+      "name": "NQxb_Demo_Proxy_v1__Auth_Gate"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -240,
+        0
+      ],
+      "id": "f5e6d7c8-auth-deny-0001-demo-proxy",
+      "name": "NQxb_Demo_Proxy_v1__Auth_Denied"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Demo_Proxy_v1__Enforce_And_Translate\n// Governance: docs/design/Design__Explore_Qwrk_Demo_Governance__v1.md v1.2\n// Purpose: All enforcement (rate limit, action/type allowlist, size limits,\n//          tag governance) + payload translation to Gateway canonical format.\n//\n// NOTE: parent_artifact_id is NOT supported in v1.\n//       Requests with parent_artifact_id are rejected.\n//       Parent-linked artifacts deferred to v2.\n//\n// FIX: Extension injection for type-specific required fields.\n//   - project: extension.lifecycle_stage = \"seed\" (NOT NULL in DDL)\n//   - snapshot: extension.payload = content or {} (NOT NULL in DDL)\n//   - journal: extension.entry_text = summary or null (nullable)\n\nconst DEMO_WS  = \"0af5712b-2534-47c1-8e28-45be4a2131dc\";\nconst OWNER    = \"c52c7a57-74ad-433d-a07c-4dcac1778672\";\nconst SEM_TYPE = \"exploratory\";\nconst MUST_TAGS = [\"demo-mode\", \"explore-qwrk\"];\nconst BAN_TAGS  = new Set([\"demo-seed\", \"for-q\", \"for-cc\"]);\n\nconst OK_ACTIONS = new Set([\"artifact.save\", \"artifact.list\", \"artifact.query\"]);\nconst OK_TYPES   = new Set([\"journal\", \"project\", \"snapshot\"]);\n\nfunction err(code, msg) {\n  return [{ json: { _route: \"error\", ok: false, error: { code, message: msg } } }];\n}\n\n// ── Rate Limiting (in-memory counters, per governance §11) ──\nconst sd = $getWorkflowStaticData(\"global\");\nconst now = Date.now();\nif (!sd.t || (now - sd.t) > 60000) {\n  sd.t = now;\n  sd.g = 0;\n  sd.ip = {};\n}\nconst ip = String($json.headers?.[\"x-forwarded-for\"] ?? \"\").split(\",\")[0].trim() || \"unknown\";\nsd.g = (sd.g || 0) + 1;\nsd.ip = sd.ip || {};\nsd.ip[ip] = (sd.ip[ip] || 0) + 1;\nif (sd.g > 50 || sd.ip[ip] > 10) {\n  return err(\"RATE_LIMIT_EXCEEDED\",\n    \"The demo is receiving a lot of activity right now. Please try again in a moment.\");\n}\n\n// ── Extract request body ──\nconst raw = $json.body ?? {};\nconst action = String(raw.action ?? \"\").trim();\nconst atype  = String(raw.artifact_type ?? \"\").trim();\n\nif (!action)\n  return err(\"VALIDATION_ERROR\", \"Missing action field.\");\nif (!OK_ACTIONS.has(action))\n  return err(\"ACTION_NOT_ALLOWED\", \"This action is not available in the demo environment.\");\n\n// ════════════ artifact.save ════════════\nif (action === \"artifact.save\") {\n  if (!atype)\n    return err(\"VALIDATION_ERROR\", \"Missing artifact_type. Allowed: journal, project, snapshot.\");\n  if (!OK_TYPES.has(atype))\n    return err(\"TYPE_NOT_ALLOWED\", \"This artifact type is not available in the demo environment.\");\n\n  const title   = String(raw.title ?? \"\");\n  const summary = String(raw.summary ?? \"\");\n\n  if (title.length > 200 || summary.length > 1000)\n    return err(\"FIELD_TOO_LONG\",\n      \"Titles must be under 200 characters and summaries under 1000 characters.\");\n\n  if (raw.content && JSON.stringify(raw.content).length > 4096)\n    return err(\"PAYLOAD_TOO_LARGE\",\n      \"The content exceeds the demo size limit. Please keep entries concise.\");\n\n  // Reject parent_artifact_id (not supported in v1)\n  if (raw.parent_artifact_id)\n    return err(\"PARENT_NOT_SUPPORTED\",\n      \"Parent-linked artifacts are not supported in the demo. Please create top-level artifacts.\");\n\n  // Tag governance: inject mandatory, strip forbidden, cap at 10\n  let userTags = Array.isArray(raw.tags)\n    ? raw.tags.filter(t => typeof t === \"string\" && !BAN_TAGS.has(t))\n    : [];\n  let tags = [...new Set([...MUST_TAGS, ...userTags])];\n  if (tags.length > 10) tags = tags.slice(0, 10);\n\n  // Build extension based on artifact_type (required fields per DDL)\n  let extension = {};\n  if (atype === \"project\") {\n    // lifecycle_stage is NOT NULL — demo projects always start as seed\n    extension = { lifecycle_stage: \"seed\" };\n  } else if (atype === \"snapshot\") {\n    // payload is NOT NULL jsonb — use content if provided, otherwise empty object\n    extension = { payload: raw.content ?? {} };\n  } else if (atype === \"journal\") {\n    // entry_text is nullable — use summary as entry text if no content provided\n    extension = { entry_text: summary || title };\n  }\n\n  return [{ json: {\n    _route: \"ok\",\n    gw_action: \"artifact.save\",\n    gw_workspace_id: DEMO_WS,\n    artifact_type: atype,\n    title,\n    summary: summary || null,\n    content: raw.content ?? null,\n    tags,\n    semantic_type_id: SEM_TYPE,\n    owner_user_id: OWNER,\n    parent_artifact_id: null,\n    extension,\n  }}];\n}\n\n// ════════════ artifact.list ════════════\nif (action === \"artifact.list\") {\n  if (!atype)\n    return err(\"VALIDATION_ERROR\",\n      \"Please specify an artifact type (journal, project, or snapshot).\");\n  if (!OK_TYPES.has(atype))\n    return err(\"TYPE_NOT_ALLOWED\", \"This artifact type is not available in the demo environment.\");\n\n  const limit  = Math.min(Math.max(Number(raw.limit) || 10, 1), 20);\n  const offset = Math.max(Number(raw.offset) || 0, 0);\n\n  return [{ json: {\n    _route: \"ok\",\n    gw_action: \"artifact.list\",\n    gw_workspace_id: DEMO_WS,\n    artifact_type: atype,\n    selector: { limit, offset },\n  }}];\n}\n\n// ════════════ artifact.query ════════════\nif (action === \"artifact.query\") {\n  if (!atype)\n    return err(\"VALIDATION_ERROR\",\n      \"Missing artifact_type for query. Allowed: journal, project, snapshot.\");\n  if (!OK_TYPES.has(atype))\n    return err(\"TYPE_NOT_ALLOWED\", \"This artifact type is not available in the demo environment.\");\n  if (!raw.artifact_id)\n    return err(\"VALIDATION_ERROR\", \"Missing artifact_id for query.\");\n\n  return [{ json: {\n    _route: \"ok\",\n    gw_action: \"artifact.query\",\n    gw_workspace_id: DEMO_WS,\n    artifact_type: atype,\n    artifact_id: raw.artifact_id,\n  }}];\n}\n\nreturn err(\"VALIDATION_ERROR\", \"Unhandled action.\");\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        304
+      ],
+      "id": "b9fc9d55-12fd-431e-83af-65a9a54dcf75",
+      "name": "NQxb_Demo_Proxy_v1__Enforce_And_Translate"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json._route }}",
+                    "rightValue": "error",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "demo-route-error"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json._route }}",
+                    "rightValue": "ok",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "demo-route-ok"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        0,
+        304
+      ],
+      "id": "4f4249cc-bfba-4ef1-99cb-0b90dda30948",
+      "name": "NQxb_Demo_Proxy_v1__Route"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        240,
+        96
+      ],
+      "id": "89a022ae-1ec1-425e-aba3-61df6b2e7d02",
+      "name": "NQxb_Demo_Proxy_v1__Error_Response"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.gw_action.trim() }}",
+                    "rightValue": "artifact.save",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "demo-action-save"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.gw_action.trim() }}",
+                    "rightValue": "artifact.list",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "demo-action-list"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.gw_action.trim() }}",
+                    "rightValue": "artifact.query",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "demo-action-query"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        400
+      ],
+      "id": "00da7375-c587-4588-be7c-585cdd62c2af",
+      "name": "NQxb_Demo_Proxy_v1__Switch_Action"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "ax8jeXK2gIVjXhFC",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/ax8jeXK2gIVjXhFC",
+          "cachedResultName": "NQxb_Artifact_Save_v1"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        528,
+        240
+      ],
+      "id": "e65e3d5e-607e-463a-bc23-88e8240c64ec",
+      "name": "NQxb_Demo_Proxy_v1__Call_Save",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "Cr4Jt7YNOx6SZpnE",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/Cr4Jt7YNOx6SZpnE",
+          "cachedResultName": "NQxb_Artifact_List_v1"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        528,
+        400
+      ],
+      "id": "6810973b-8bed-4b9e-aadf-4d4585964001",
+      "name": "NQxb_Demo_Proxy_v1__Call_List",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "27efKlNfdyu89YGD",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/27efKlNfdyu89YGD",
+          "cachedResultName": "NQxb_Artifact_Query_v1"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        528,
+        560
+      ],
+      "id": "dba2e474-74fb-4374-914e-8e3bcf2edd92",
+      "name": "NQxb_Demo_Proxy_v1__Call_Query",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Demo_Proxy_v1__Shape_Demo_Response\n// Purpose: Translate sub-workflow output into clean demo-friendly JSON.\n// Strips internal fields (workspace_id, owner_user_id, semantic_type_id).\n// Translates Gateway error codes to friendly messages.\n// Handles all 3 actions: save, list, query.\n\nconst j = $json ?? {};\nconst enforce = $node[\"NQxb_Demo_Proxy_v1__Enforce_And_Translate\"].json;\nconst action = enforce.gw_action;\n\n// ── Internal fields to strip ──\nconst STRIP = new Set([\n  \"workspace_id\", \"owner_user_id\", \"semantic_type_id\",\n  \"gw_workspace_id\", \"gw_action\", \"_gw_route\", \"_gw_debug\",\n  \"_merge_role\", \"_frozen_artifact_type\", \"_frozen_workspace_id\",\n  \"_frozen_extension\", \"_owner_source\", \"_route\",\n]);\n\n// ── Friendly error messages ──\nconst FRIENDLY = {\n  \"TYPE_MISMATCH\":     \"That artifact is a different type than requested.\",\n  \"NOT_FOUND\":         \"I couldn't find that artifact. It may have been cleaned up.\",\n  \"VALIDATION_ERROR\":  \"Something wasn't quite right with that request. Let me try again.\",\n};\n\n// ── Recursive field stripper ──\nfunction clean(obj) {\n  if (Array.isArray(obj)) return obj.map(clean);\n  if (obj && typeof obj === \"object\") {\n    const out = {};\n    for (const [k, v] of Object.entries(obj)) {\n      if (!STRIP.has(k)) out[k] = clean(v);\n    }\n    return out;\n  }\n  return obj;\n}\n\n// ── Error handling ──\nif (j.ok === false || (j.error && typeof j.error === \"object\")) {\n  const code = j.error?.code ?? \"UNKNOWN\";\n  return [{ json: {\n    ok: false,\n    error: {\n      code,\n      message: FRIENDLY[code] ?? \"Something unexpected happened. Let's try something else.\"\n    }\n  }}];\n}\n\n// ── Save response ──\nif (action === \"artifact.save\") {\n  const artifact_id =\n    j.artifact_id ?? j.saved_artifact_id ??\n    j.data?.artifact_id ?? j.data?.artifact?.artifact_id ?? null;\n\n  return [{ json: {\n    ok: true,\n    artifact_id,\n    artifact_type: enforce.artifact_type,\n    title: enforce.title,\n    message: \"Your artifact has been saved to the demo workspace.\"\n  }}];\n}\n\n// ── List response ──\nif (action === \"artifact.list\") {\n  // List sub-workflow may return canonical envelope or raw rows\n  let artifacts = [];\n  if (j.data?.artifacts && Array.isArray(j.data.artifacts)) {\n    // Canonical envelope: { ok, data: { artifacts: [...] } }\n    artifacts = j.data.artifacts;\n  } else if (Array.isArray(j.artifacts)) {\n    artifacts = j.artifacts;\n  } else if (Array.isArray(j)) {\n    artifacts = j;\n  }\n\n  return [{ json: {\n    ok: true,\n    artifacts: clean(artifacts),\n    count: artifacts.length,\n  }}];\n}\n\n// ── Query response ──\nif (action === \"artifact.query\") {\n  // Query sub-workflow may return: { ok, data: { artifact } } or raw artifact\n  let artifact = null;\n  if (j.data?.artifact && typeof j.data.artifact === \"object\") {\n    artifact = j.data.artifact;\n  } else if (j.artifact && typeof j.artifact === \"object\") {\n    artifact = j.artifact;\n  } else {\n    // Raw artifact at top level\n    artifact = j;\n  }\n\n  return [{ json: {\n    ok: true,\n    artifact: clean(artifact),\n  }}];\n}\n\n// Fallback\nreturn [{ json: { ok: true, ...clean(j) } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        768,
+        400
+      ],
+      "id": "fe27a275-9ec7-4661-b976-c14c4f0f12af",
+      "name": "NQxb_Demo_Proxy_v1__Shape_Demo_Response"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1008,
+        400
+      ],
+      "id": "7781500f-79b4-477b-a3e4-2936791b42ce",
+      "name": "NQxb_Demo_Proxy_v1__Demo_Response"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "NQxb_Demo_Proxy_v1__Webhook_In": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Demo_Proxy_v1__Auth_Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Demo_Proxy_v1__Auth_Check": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Demo_Proxy_v1__Auth_Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Demo_Proxy_v1__Auth_Gate": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Demo_Proxy_v1__Auth_Denied",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Demo_Proxy_v1__Enforce_And_Translate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Demo_Proxy_v1__Enforce_And_Translate": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Demo_Proxy_v1__Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Demo_Proxy_v1__Route": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Demo_Proxy_v1__Error_Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Demo_Proxy_v1__Switch_Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Demo_Proxy_v1__Switch_Action": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Demo_Proxy_v1__Call_Save",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Demo_Proxy_v1__Call_List",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Demo_Proxy_v1__Call_Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Demo_Proxy_v1__Call_Save": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Demo_Proxy_v1__Shape_Demo_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Demo_Proxy_v1__Call_List": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Demo_Proxy_v1__Shape_Demo_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Demo_Proxy_v1__Call_Query": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Demo_Proxy_v1__Shape_Demo_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Demo_Proxy_v1__Shape_Demo_Response": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Demo_Proxy_v1__Demo_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "9b56e0eb-82b2-4de4-8116-73de5e272380",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "154f6928422db881044f8d1647b40fc389c59337d14356c0ee681d50ffb55d7e"
+  },
+  "id": "rpIsn3YToc0I1BQD",
+  "tags": []
+}

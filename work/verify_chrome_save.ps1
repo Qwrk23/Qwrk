@@ -8,7 +8,7 @@ $body = @{
 } | ConvertTo-Json -Depth 10
 
 $response = Invoke-RestMethod `
-    -Uri "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1" `
+    -Uri "https://n8n.halosparkai.com/webhook/nqxb/gateway/v2" `
     -Method POST `
     -Headers @{ Authorization = "Basic $cred"; "Content-Type" = "application/json" } `
     -Body $body

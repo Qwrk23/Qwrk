@@ -1,1 +1,1 @@
-﻿{"ok":true,"gw_action":"artifact.save","artifact_id":"7e8d6a67-3c70-40ba-b9c8-db9d795f9faa","artifact_type":"project","workspace_id":"be0d3a48-c764-44f9-90c8-e846d9dbbd0a","operation":"INSERT","_owner_source":"mvp_service_principal","timestamp":"2026-03-06T12:20:26.759Z"}
+﻿{"ok":true,"_gw_route":"ok","gw_action":"artifact.save","artifact_id":"d017afa4-7e8d-4a85-9ea5-b516be0615c9","artifact_type":"project","workspace_id":"be0d3a48-c764-44f9-90c8-e846d9dbbd0a","operation":"INSERT","version":1,"extension":{"lifecycle_stage":"seed"},"timestamp":"2026-04-01T19:40:48.903Z"}

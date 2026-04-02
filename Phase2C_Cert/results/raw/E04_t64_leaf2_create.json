@@ -1,1 +1,1 @@
-﻿{"ok":true,"gw_action":"artifact.save","artifact_id":"d9b46737-342a-4fb5-b893-006f233aa0aa","artifact_type":"leaf","workspace_id":"be0d3a48-c764-44f9-90c8-e846d9dbbd0a","operation":"INSERT","_owner_source":"mvp_service_principal","timestamp":"2026-03-06T12:19:25.669Z"}
+﻿{"ok":true,"_gw_route":"ok","gw_action":"artifact.save","artifact_id":"6951d79e-6522-4fa1-9147-d5a49724aa6c","artifact_type":"leaf","workspace_id":"be0d3a48-c764-44f9-90c8-e846d9dbbd0a","operation":"INSERT","version":1,"extension":{},"timestamp":"2026-04-01T19:39:31.839Z"}

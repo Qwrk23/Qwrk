@@ -1,12 +1,21 @@
-{
-  "name": "E01 — T64 Create Branch for Spine-Field Tests",
-  "expected": { "ok": true, "error_code": null },
-  "capture": { "T64_BRANCH_ID": "artifact_id" },
-  "payload": {
-    "gw_action": "artifact.save",
-    "gw_workspace_id": "{{WORKSPACE_ID}}",
-    "artifact_type": "branch",
-    "title": "[T64-CERT] Branch — Spine Field Update Tests",
-    "tags": ["t64-cert"]
-  }
+﻿{
+    "name":  "E01 â€” T64 Create Branch for Spine-Field Tests",
+    "expected":  {
+                     "ok":  true,
+                     "error_code":  null
+                 },
+    "capture":  {
+                    "T64_BRANCH_ID":  "artifact_id"
+                },
+    "payload":  {
+                    "gw_action":  "artifact.save",
+                    "gw_workspace_id":  "{{WORKSPACE_ID}}",
+                    "artifact_type":  "branch",
+                    "title":  "[T64-CERT] Branch â€” Spine Field Update Tests",
+                    "tags":  [
+                                 "t64-cert",
+                                 "{{RUN_TAG}}"
+                             ],
+                    "parent_artifact_id":  "{{PROJECT_ID}}"
+                }
 }

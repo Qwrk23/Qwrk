@@ -211,6 +211,37 @@ Use Qwrk Personal unless Joel specifies otherwise.
 }
 ```
 
+### Content merge (T140 — mutable types)
+
+```json
+{
+  "gw_action": "artifact.update",
+  "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+  "artifact_type": "twig",
+  "artifact_id": "<uuid>",
+  "content": {
+    "status": "updated",
+    "notes": "deep merges into existing content"
+  }
+}
+```
+
+### Content append (T140 — immutable types only)
+
+```json
+{
+  "gw_action": "artifact.update",
+  "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+  "artifact_type": "snapshot",
+  "artifact_id": "<uuid>",
+  "content_append": {
+    "entries": [
+      { "note": "supplementary context", "actor": "joel" }
+    ]
+  }
+}
+```
+
 ### Promote a project
 
 ```json
@@ -240,6 +271,9 @@ Use Qwrk Personal unless Joel specifies otherwise.
 - **Do NOT combine spine fields + extension in one call** — use separate requests (T87)
 - **Do NOT update title on tree-lifecycle projects** — returns `FIELD_FROZEN` (T87)
 - **Do NOT attempt any update on archived projects** — returns `ARCHIVE_IMMUTABLE` (T87)
+- **Do NOT use `content` on immutable types** (snapshot, journal, restart) — use `content_append` instead (T140)
+- **Do NOT combine `content` and `content_append`** in one call — mutually exclusive modes (T140)
+- **Do NOT include `append_log`** in `content` payloads — reserved system namespace (T140)
 
 ---
 
@@ -255,6 +289,13 @@ Use Qwrk Personal unless Joel specifies otherwise.
 ---
 
 ## CHANGELOG
+
+### v4 — 2026-03-26
+
+- T140 Content Update
+- New "Content merge" and "Content append" action examples
+- "What NOT To Do" expanded: content/content_append mode rules, append_log protection
+- Previous version: `Archive/Instruction_Pack__QSB_Payload_Format__v3__2026-03-26.md`
 
 ### v3 — 2026-03-06
 

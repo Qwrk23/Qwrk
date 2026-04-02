@@ -1,6 +1,8 @@
 Generate a Gateway write payload for the user to execute via Chrome Extension.
 
-Source: CLAUDE.md §2.5, §6 — last synced 2026-03-10
+Source: CLAUDE.md §2.5, §6
+Authoritative contract: phase1.5-chat-gateway/Chat Project Files/Qwrk_Gateway_Payload_Canonical_v5.md
+Last reconciled against Canonical: 2026-03-25 (promote fields corrected — reason Required, transition values aligned)
 
 ## Context
 
@@ -51,8 +53,9 @@ CC has READ-ONLY Gateway access. All write operations (save, update, promote) mu
 **Mutability rules (CRITICAL):**
 - **project:** `operational_state`, `state_reason`, `design_spine` only. `lifecycle_stage` is PROMOTE_ONLY.
 - **journal:** INSERT-ONLY — no updates allowed (permanent, locked by T87)
-- **snapshot/restart:** IMMUTABLE — no updates allowed
+- **snapshot/restart:** Extension payload is IMMUTABLE. Spine-level operations allowed: `tags` (add/remove) and `content_append` (timestamped append_log entries). Original extension payload is never modified.
 - **ALL types:** `tags` can be updated via spine-level `tags` field (add/remove semantics, Update v11)
+- **ALL types:** `content_append` can add timestamped entries to spine `content.append_log` (including immutable types)
 
 **Tags update format** (spine-level, works on ALL types including immutable):
 
@@ -88,8 +91,8 @@ Both `add` and `remove` can be combined in one payload. Omit whichever is not ne
 | `gw_workspace_id` | Always | Same default |
 | `artifact_type` | Always | `"project"` (only projects have lifecycle) |
 | `artifact_id` | Always | UUID of project to promote |
-| `transition` | Always | `seed_to_sapling`, `sapling_to_tree`, `tree_to_retired`, `retired_to_tree` |
-| `reason` | Optional | 1-280 chars explaining why |
+| `transition` | Always | `seed_to_sapling`, `sapling_to_tree`, `tree_to_archive` |
+| `reason` | Always | 1-280 chars explaining why promotion is happening |
 
 3. **Before generating the payload:**
    - Read `docs/schema/LIVE_DDL__Kernel_v1__2026-01-04.sql` if you need to verify column names or constraints

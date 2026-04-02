@@ -1,13 +1,24 @@
-{
-  "name": "A01 — Journal INSERT Valid",
-  "expected": { "ok": true, "error_code": null },
-  "capture": { "JOURNAL_ID": "artifact_id" },
-  "payload": {
-    "gw_action": "artifact.save",
-    "gw_workspace_id": "{{WORKSPACE_ID}}",
-    "artifact_type": "journal",
-    "title": "[P2C-CERT] Journal INSERT Test",
-    "tags": ["phase2c-cert"],
-    "extension": { "entry_text": "Phase 2C certification — journal insert test entry." }
-  }
+﻿{
+    "name":  "A01 â€” Journal INSERT Valid",
+    "expected":  {
+                     "ok":  true,
+                     "error_code":  null
+                 },
+    "capture":  {
+                    "JOURNAL_ID":  "artifact_id"
+                },
+    "payload":  {
+                    "gw_action":  "artifact.save",
+                    "gw_workspace_id":  "{{WORKSPACE_ID}}",
+                    "artifact_type":  "journal",
+                    "title":  "[P2C-CERT] Journal INSERT Test",
+                    "tags":  [
+                                 "phase2c-cert",
+                                 "{{RUN_TAG}}"
+                             ],
+                    "extension":  {
+                                      "entry_text":  "Phase 2C certification â€” journal insert test entry."
+                                  },
+                    "semantic_type_id":  "infrastructure"
+                }
 }

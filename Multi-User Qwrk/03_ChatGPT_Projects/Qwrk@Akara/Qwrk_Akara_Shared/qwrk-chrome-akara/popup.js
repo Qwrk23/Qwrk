@@ -1,8 +1,8 @@
 // Qwrk Chrome Extension — Akara
 // Single-workspace JSON Command Console
 
-const ENDPOINT = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1/akara";
-const CREDENTIAL = "cXdyay1ndy1ha2FyYTpzYTtsODIzNGh0MjkxJilramxoZGFoIWUzODBkamthaHQqdWhrd2U=";
+const ENDPOINT = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v2";
+const CREDENTIAL = "cXdyay1nYXRld2F5OmFzbGZqYSd3d2UqKCNmaHdvSUk4NDNnaGx3X2VrMmw=";
 
 const payloadEl = document.getElementById("payload");
 const sendBtn = document.getElementById("send");

@@ -1,12 +1,22 @@
-{
-  "name": "E02 — Leaf INSERT (Phase 2 Walk Type, Spine-Only)",
-  "expected": { "ok": true, "error_code": null },
-  "capture": { "LEAF_ID": "artifact_id" },
-  "payload": {
-    "gw_action": "artifact.save",
-    "gw_workspace_id": "{{WORKSPACE_ID}}",
-    "artifact_type": "leaf",
-    "title": "[P2-CERT] Leaf Insert Test",
-    "tags": ["p2-cert", "leaf-test"]
-  }
+﻿{
+    "name":  "E02 â€” Leaf INSERT (Phase 2 Walk Type, Spine-Only)",
+    "expected":  {
+                     "ok":  true,
+                     "error_code":  null
+                 },
+    "capture":  {
+                    "LEAF_ID":  "artifact_id"
+                },
+    "payload":  {
+                    "gw_action":  "artifact.save",
+                    "gw_workspace_id":  "{{WORKSPACE_ID}}",
+                    "artifact_type":  "leaf",
+                    "title":  "[P2-CERT] Leaf Insert Test",
+                    "tags":  [
+                                 "p2-cert",
+                                 "leaf-test",
+                                 "{{RUN_TAG}}"
+                             ],
+                    "parent_artifact_id":  "{{PROJECT_ID}}"
+                }
 }

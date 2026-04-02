@@ -46,13 +46,14 @@ All execution uses JSON Gateway payloads. One payload per execution. Raw JSON on
 
 **Use for:** Initiatives, features, work items, goals
 
-**Simple (seed):**
+**Direct Seed (single payload — default when intent is clear):**
 ```json
 {
   "gw_action": "artifact.save",
   "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
   "artifact_type": "project",
   "title": "Seed - Auth Gate MVP",
+  "semantic_type_id": "execution-core",
   "priority": 3,
   "tags": ["seed", "auth"],
   "extension": {
@@ -61,7 +62,7 @@ All execution uses JSON Gateway payloads. One payload per execution. Raw JSON on
 }
 ```
 
-**With companion journal (Two-Step Pattern — REQUIRED for rich content):**
+**With companion journal (Two-Step Pattern — optional, for exploratory context):**
 
 Step 1 — Create the project:
 ```json
@@ -93,7 +94,7 @@ Step 2 — Save content as companion journal (after confirming Step 1 artifact_i
 }
 ```
 
-**Why two steps:** Projects track lifecycle (seed -> sapling -> tree). The companion journal holds the actual content.
+**Why two steps:** Projects track lifecycle (seed -> sapling -> tree). A companion journal is useful when rich exploratory context preceded the decision to create a seed. For direct seeds where intent is already clear, the single-payload pattern above is sufficient.
 
 ---
 
@@ -193,6 +194,57 @@ Step 2 — Save content as companion journal (after confirming Step 1 artifact_i
 
 ---
 
+## Content Update (T140)
+
+**Use for:** Updating content on mutable types, appending context to immutable types
+
+**Content merge (mutable types — deep merge, default):**
+```json
+{
+  "gw_action": "artifact.update",
+  "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+  "artifact_type": "twig",
+  "artifact_id": "[UUID]",
+  "content": {
+    "progress": "Phase 2 complete",
+    "metrics": { "tests_passed": 17 }
+  }
+}
+```
+Existing keys preserved. New keys added. Nested objects merge recursively. Arrays replace entirely.
+
+**Content replace (explicit — wipes all existing content):**
+```json
+{
+  "gw_action": "artifact.update",
+  "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+  "artifact_type": "project",
+  "artifact_id": "[UUID]",
+  "content": { "replaced": true, "reason": "scope changed" },
+  "content_mode": "replace"
+}
+```
+
+**Content append (immutable types — snapshot, journal, restart):**
+```json
+{
+  "gw_action": "artifact.update",
+  "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+  "artifact_type": "snapshot",
+  "artifact_id": "[UUID]",
+  "content_append": {
+    "entries": [
+      { "note": "Follow-up context from session 113", "actor": "joel" }
+    ]
+  }
+}
+```
+Entries are stamped with server timestamp + actor. Appended to `append_log` array (system-managed, max 100 entries).
+
+**Rules:** `content` and `content_append` are mutually exclusive. `append_log` is reserved — never include in `content`. Archived artifacts block all content operations.
+
+---
+
 ## List Examples
 
 **List journals:**
@@ -233,4 +285,4 @@ Step 2 — Save content as companion journal (after confirming Step 1 artifact_i
 
 ---
 
-*CHANGELOG: v2 (2026-02-18): Converted all examples from Telegram NL format to JSON Gateway payloads. Removed plain-text/single-paragraph constraints. Added `priority` field to all examples. Added list, promote, and instruction_pack examples. Removed "oak" stage (not in canonical lifecycle). Previous version: Telegram-format examples (archived).*
+*CHANGELOG: v3 (2026-03-26): Added Content Update section (T140) — merge, replace, and append examples with rules. Previous: `Archive/PAYLOAD_EXAMPLES__v2__2026-03-26.md`. v2 (2026-02-18): Converted all examples from Telegram NL format to JSON Gateway payloads. Removed plain-text/single-paragraph constraints. Added `priority` field to all examples. Added list, promote, and instruction_pack examples. Removed "oak" stage (not in canonical lifecycle). Previous version: Telegram-format examples (archived).*

@@ -1,13 +1,21 @@
-{
-  "name": "B02 — Fuzz: Tags as Comma String (normalizeTags recovery)",
-  "expected": { "ok": true, "error_code": null },
-  "capture": { "FUZZ_PROJECT_ID": "artifact_id" },
-  "payload": {
-    "gw_action": "artifact.save",
-    "gw_workspace_id": "{{WORKSPACE_ID}}",
-    "artifact_type": "project",
-    "title": "[P2C-CERT] Fuzz — Tags as Comma String",
-    "tags": "phase2c-cert,fuzz,comma-string",
-    "extension": { "lifecycle_stage": "seed" }
-  }
+﻿{
+    "name":  "B02 â€” Fuzz: Tags as Comma String (normalizeTags recovery)",
+    "expected":  {
+                     "ok":  true,
+                     "error_code":  null
+                 },
+    "capture":  {
+                    "FUZZ_PROJECT_ID":  "artifact_id"
+                },
+    "payload":  {
+                    "gw_action":  "artifact.save",
+                    "gw_workspace_id":  "{{WORKSPACE_ID}}",
+                    "artifact_type":  "project",
+                    "title":  "[P2C-CERT] Fuzz â€” Tags as Comma String",
+                    "tags":  "phase2c-cert,fuzz,comma-string",
+                    "extension":  {
+                                      "lifecycle_stage":  "seed"
+                                  },
+                    "semantic_type_id":  "infrastructure"
+                }
 }

@@ -11,7 +11,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-> **Last verified against live system:** 2026-03-06 · **Gateway:** v59 · **DDL:** v2.7 · **Last reconciliation:** 2026-03-06
+> **Last verified against live system:** 2026-03-26 · **Gateway:** v2 (build 2) · **DDL:** v2.10 · **Last reconciliation:** 2026-03-26
 
 ## Instruction File Drift Rule
 
@@ -36,9 +36,9 @@ No architectural or governance edits may be made during drift reconciliation. Th
 - Project ref: `npymhacpmxdnkqdzgxll`
 - Authentication: Supabase Auth integrated with custom user mapping
 
-**Gateway Layer: n8n Workflows (v58)**
-- Workflow: `NQxb_Gateway_v1` handles all artifact operations
-- Implements: `artifact.save`, `artifact.query`, `artifact.list`, `artifact.update`, `artifact.promote`, `artifact.delete`, `artifact.restore`, `artifact.list_deleted`
+**Gateway Layer: n8n Workflows (v2)**
+- Workflow: `NQxb_Gateway_v2` handles all artifact and messaging operations (v1 decommissioned 2026-03-26)
+- Implements: `artifact.save`, `artifact.query`, `artifact.list`, `artifact.update`, `artifact.promote`, `artifact.delete`, `artifact.restore`, `artifact.list_deleted`, `messaging.send_email`, `messaging.create_calendar_event`
 
 ### Database Schema Architecture
 
@@ -54,6 +54,7 @@ No architectural or governance edits may be made during drift reconciliation. Th
   - `qxb_artifact_thorn` - exception tracking
   - `qxb_artifact_instruction_pack` - instruction pack storage
   - `qxb_artifact_limb` - shell extension for execution anatomy (Phase 2)
+  - `qxb_artifact_person` - identity, contact, professional, interaction tracking (T150)
 - `qxb_artifact_event` - append-only audit log (protected by triggers)
 
 **Core Tables Dependency Order:**
@@ -63,7 +64,7 @@ No architectural or governance edits may be made during drift reconciliation. Th
 4. `qxb_artifact` (spine)
 5. Type tables + event log
 
-**Artifact Types (CHECK v7 — 14 types):**
+**Artifact Types (CHECK v8 — 15 types):**
 - `project` - lifecycle_stage: seed → sapling → tree → archive
 - `journal` - owner-private reflective entries (RLS: owner-only)
 - `snapshot` - immutable lifecycle snapshots
@@ -74,6 +75,7 @@ No architectural or governance edits may be made during drift reconciliation. Th
 - `leaf` - execution anatomy (North Star v0.4)
 - `limb` - execution anatomy (North Star v0.4, Phase 2)
 - `instruction_pack` - instruction pack storage
+- `person` - real individuals in operator's network (T150, full extension table)
 - `forest`, `thicket`, `flower` - in CHECK constraint; no extension tables
 - `twig` - experimental micro-initiative (T94, pilot: Mother Tree)
 
@@ -91,6 +93,14 @@ No architectural or governance edits may be made during drift reconciliation. Th
 - Fixed by creating self-only select policy: `qxb_workspace_user_select_self`
 - Workspace policy updated to use direct membership check
 
+**Access Control Model — Qwrk v2 (Decision locked 2026-03-22, T150):**
+- Gateway (n8n) is the **primary access control layer**, using `service_role` credentials
+- `service_role` **bypasses RLS by design** — database RLS is not enforced at runtime
+- RLS policies exist for: structural correctness, defense-in-depth, future JWT-based access
+- `qxb_current_user_id()` returns NULL in SQL Editor / service_role context — this is expected
+- Testing RLS enforcement requires an authenticated JWT context (not SQL Editor)
+- **Future:** if PostgREST or direct client access is introduced, validate RLS with real JWT context
+
 ### n8n Gateway Workflow Rules
 
 **Hard Rules (CRITICAL - DO NOT VIOLATE):**
@@ -100,6 +110,32 @@ No architectural or governance edits may be made during drift reconciliation. Th
 3. **Node naming discipline:** Use `Qxb`-prefixed names consistently
 4. **Switch comparison safety:** Guard against hidden whitespace/newlines using `.trim()`
 5. **No guessing:** Do not guess schemas, enums, endpoints, or commands. Stop and ask for canonical source if unclear.
+6. **No manual expression edits:** Do NOT edit n8n expressions directly in the UI for production workflows. All expression changes must go through a build script or auditable patch artifact that verifies intended-diff-only. Manual UI edits require explicit Joel approval. Source: T165 (`3def7e3b`).
+
+### Next-Touch Hardening Check
+
+Before modifying any of the following workflows:
+- NQxb_Artifact_Save_*
+- Update sub-workflows (T140+)
+- Query sub-workflows
+
+You MUST:
+
+1. Search for artifacts tagged:
+   - "hardening"
+   - "next-touch"
+
+2. Review any matching twigs or snapshots
+
+3. Determine whether a required hardening fix applies to the workflow being modified
+
+4. If applicable:
+   - Include the hardening fix in the same change set
+   - OR explicitly document why it is being deferred
+
+This check is mandatory and must occur before implementation begins.
+
+Rationale: Prevents known non-blocking defects from persisting due to lack of recall. Source: T165 risk sweep (2026-03-29).
 
 **Gateway Architecture:**
 - **Spine-first pattern:** Fetch `qxb_artifact` by `workspace_id + artifact_id` first
@@ -147,7 +183,7 @@ When updating ANY sub-workflow called by Gateway (Save, Query, List, Update, Pro
 1. **Archive current version** to `workflows/Archive/`
 2. **Apply fix and save** with incremented version number (e.g., `(24)` → `(25)`)
 3. **Update Gateway workflow** — The Gateway's "Execute Workflow" node must point to the new version
-   - Example: If Save goes from `(24)` → `(25)`, update `NQxb_Gateway_v1` node `call_save` to reference `(25)`
+   - Example: If Save goes from `(24)` → `(25)`, update `NQxb_Gateway_v2` node `call_save` to reference `(25)`
    - The Gateway workflow ID references are in the "Execute Workflow" nodes
 4. **Export updated Gateway** with incremented version
 5. **Import BOTH workflows** to n8n (sub-workflow first, then Gateway)
@@ -246,7 +282,7 @@ Before writing ANY SQL:
 
 ### Supporting Documentation
 
-- **Human-readable reference:** `docs/schema/Schema_Reference__Kernel_v1__v2.9.md`
+- **Human-readable reference:** `docs/schema/Schema_Reference__Kernel_v1__v2.10.md`
 - **SQL templates:** `docs/sql_templates/Kernel_v1__NoFail_Inserts__v1.md`
 - **Historical schemas:** `docs/schema/AAA_New_Qwrk__Schema__*.sql` (reference only)
 
@@ -267,36 +303,19 @@ Violating DDL-as-Truth results in:
 
 This applies to:
 - Changes to `docs/schema/LIVE_DDL__Kernel_v1__2026-01-04.sql` (DDL source)
-- Must be accompanied by update to `docs/schema/Schema_Reference__Kernel_v1__v2.9.md` (or successor)
+- Must be accompanied by update to `docs/schema/Schema_Reference__Kernel_v1__v2.10.md` (or successor)
 
 Rationale: Schema Reference v1.2 drifted from DDL for 7 weeks (2026-01-04 to 2026-02-20), accumulating 13 discrepancies. Co-committing prevents recurrence.
 
 ---
 
-## Database Commands
-
-**Schema Execution Order:**
-```bash
-# Execute in QXB Table Design Files directory
-# 1. Run bundle (includes pgcrypto extension + all tables)
-psql -f "AAA_New_Qwrk__Schema__Kernel_v1__BUNDLE__v1.0__2025-12-30.sql"
-
-# 2. Apply RLS policies (latest patch version)
-psql -f "AAA_New_Qwrk__RLS_Patch__Kernel_v1__v1.2__2025-12-30.sql"
-
-# 3. Run KGB (Known Good Baseline) validation
-psql -f "AAA_New_Qwrk__KGB__Kernel_v1__SQL_Pack__v1.0__2025-12-30.sql"
-```
-
-**Safe dependency order (if running individual files):**
-See `docs/schema/AAA_New_Qwrk__Execution_Order__Kernel_v1__v1.0__2025-12-30.md`
-
 ## Known-Good State (KGB)
 
-**Current MVP Status (Gateway v58):**
-- All 8 Gateway actions operational: save, query, list, update, promote, delete, restore, list_deleted
+**Current MVP Status (Gateway v2):**
+- All 10 Gateway actions operational: save, query, list, update, promote, delete, restore, list_deleted, messaging.send_email, messaging.create_calendar_event
 - Spine-first architecture validated
 - Type mismatch guards in place
+- Messaging sub-workflows: Gmail Send + Calendar Event (self-shaped responses, no Gateway reshaping)
 
 **KGB Test IDs (workspace_id: be0d3a48-c764-44f9-90c8-e846d9dbbd0a):**
 - journal: `db428a32-1afa-4e6b-a649-347b0bffd46c`
@@ -339,17 +358,49 @@ When user's **first message** contains any of these phrases (or close variations
 - "Let's go"
 - "Starting fresh"
 
+### Subsession Trigger Phrases (Quick Start)
+
+When user's **first message** contains any of these phrases:
+- "nsub"
+- "sub"
+- "newsub"
+- "go" (without "let's" — "let's go" remains a full session trigger)
+
+### Required Behavior on Subsession Trigger
+
+1. **Read `sessions/OPEN_THREADS.md`** — active surface table only
+2. **Present lightweight context:**
+   - Active surface thread table
+   - Last session ID + date (from `LATEST_END_SESSION.md` header — do NOT read full file)
+3. **Ask for session intent** — or jump directly to referenced thread if user included a T-number (e.g., "go T150")
+
+**Skipped (daily items — run only on full session):**
+- CmdCtr briefing (MCP queries + snapshot payloads)
+- Rolling memory sync
+- for-cc work queue sweep
+- CC memory harvest
+
+**Disambiguation:** If uncertain whether user wants full session or subsession, ask: "Full session or quick start?"
+
 ### Required Behavior on Session Trigger
 
 1. **Read prior context:**
    - Load `sessions/OPEN_THREADS.md` (canonical thread list)
    - Load `sessions/LATEST_END_SESSION.md` (last session details)
-2. **Present handoff summary:**
-   - Open threads from `OPEN_THREADS.md`
+2. **Run `/cmdctr-briefing` for Qwrk Prime and Q@W:**
+   - Execute `cmdctr_operator_briefing()` for Prime (`be0d3a48-...`)
+   - Execute `cmdctr_operator_briefing('635bb8d7-...')` for Q@W
+   - Present forest health, active surface (blocked/stalled/ready), and delta summary
+   - Generate QSB-ready snapshot save payload for each workspace (see CmdCtr Snapshot Contract below)
+   - If briefing reveals structural issues (cycles, stalls, orphans), flag before asking for session intent
+   - If MCP/SQL unavailable: skip silently (non-blocking), note in handoff summary
+3. **Present handoff summary:**
    - Last session summary (from `LATEST_END_SESSION.md`)
+   - Open threads from `OPEN_THREADS.md`
+   - CmdCtr briefing highlights (from step 2)
    - Any blockers or carry-over reminders
-3. **Ask for session intent** — Offer options derived from open threads
-4. **Rolling Memory Sync Check** — Compare `for-q` tagged artifacts against current rolling files for **each active workspace**:
+4. **Ask for session intent** — Offer options derived from open threads + CmdCtr active surface
+5. **Rolling Memory Sync Check** — Compare `for-q` tagged artifacts against current rolling files for **each active workspace**:
 
    **Prime (Qwrk Personal — `be0d3a48-...`):**
    - Read latest `Qwrk_RollingMem/Qwrk_Rolling_Memory__for-q__*.md` (by date)
@@ -362,7 +413,7 @@ When user's **first message** contains any of these phrases (or close variations
    - If new artifacts exist not in rolling file: report delta, offer to regenerate
 
    If Gateway/MCP unavailable: skip silently (non-blocking)
-5. **for-cc Work Queue Sweep** — Process artifacts tagged `for-cc` as pre-execution work queue items
+6. **for-cc Work Queue Sweep** — Process artifacts tagged `for-cc` as pre-execution work queue items
 
    **Protocol:**
    1. Query all artifacts where tags contains `for-cc`
@@ -384,7 +435,8 @@ When user's **first message** contains any of these phrases (or close variations
    - Non-blocking: if query fails, log warning and continue session
    - No rolling memory file required (OPEN_THREADS.md is the tracking surface)
    - No compaction logic required (thread lifecycle governs cleanup)
-6. **CC Memory Harvest** — For each **new** for-q artifact found in the delta (step 4), scan for operational data relevant to CC's persistent memory (`~/.claude/projects/.../memory/MEMORY.md`):
+   - **Structured Handoffs:** Artifacts with BOTH `for-cc` AND `cc-handoff` tags are structured Q → CC work packets. Follow `docs/design/Design__Artifact_Handoff_Protocol__v1.md` for retrieval, execution, and response protocol.
+7. **CC Memory Harvest** — For each **new** for-q artifact found in the delta (step 5), scan for operational data relevant to CC's persistent memory (`~/.claude/projects/.../memory/MEMORY.md`):
 
    **Tier 1 — Auto-save (no human gate required):**
    The following categories are purely factual and low-risk. CC may write these to MEMORY.md immediately upon detection:
@@ -402,10 +454,36 @@ When user's **first message** contains any of these phrases (or close variations
    - Anything ambiguous or interpretive
 
    **Common rules (both tiers):**
-   - If no delta in step 4, skip silently
+   - If no delta in step 5, skip silently
    - **Do NOT duplicate governance rules** — those belong in CLAUDE.md, not MEMORY.md
    - Auto-saved entries should be logged in the session summary (so Joel can audit)
    - If an auto-save contradicts an existing MEMORY.md entry, **delete the old entry and write the new one** (delete-on-contradiction, not accumulate)
+
+### CmdCtr Snapshot Contract (Locked)
+
+After each CmdCtr briefing run (step 2), CC generates a QSB-ready snapshot save payload per workspace.
+
+**Payload rules (non-negotiable):**
+
+| Field | Value |
+|-------|-------|
+| `gw_action` | `artifact.save` |
+| `artifact_type` | `snapshot` |
+| `semantic_type_id` | `40a5060b-1a80-4e8b-b7b7-1e102026efc0` (governance) |
+| `tags` | `["cmdctr", "session-context", "for-q"]` |
+| `title` | `CmdCtr Session Context — <YYYY-MM-DD>` |
+| `gw_workspace_id` | Workspace-specific (Prime or Q@W) |
+| `extension.payload` | Full structured JSONB session context from `cmdctr_build_session_context()` |
+| `artifact_id` | NEVER included (server generates) |
+| `priority` | `3` |
+
+**Execution:** Joel executes via QSB. CC does NOT execute Gateway saves (Section 2.5).
+
+**Delta baseline:** Each saved snapshot becomes the comparison baseline for the next session's `cmdctr_build_session_context()` call. First-run delta is empty (expected).
+
+**Workspaces in scope:**
+- Qwrk Prime: `be0d3a48-c764-44f9-90c8-e846d9dbbd0a`
+- Q@W: `635bb8d7-7b93-4bea-8ca6-ee2c924c9557`
 
 ### Uncertainty Rule
 
@@ -555,95 +633,9 @@ Tier A memory is split into two layers:
 
 **Current state:** ~100kb / 29 entries — under threshold, headroom remains.
 
-#### Compaction Eligibility
+#### Compaction Detail (Archived)
 
-**Schema field:** `compaction_eligible: boolean` (optional in `for_q_*` payload)
-
-**Precedence rules:**
-1. If `compaction_eligible` is present → use it explicitly
-2. If absent → infer from `priority` + `scope`:
-   - `priority = critical` AND `scope = global` → NOT eligible (Protected Core)
-   - All others → eligible (Rotating Shell)
-
-No requirement to backfill legacy entries — inference fallback handles them.
-
-#### Compaction Algorithm (Authoritative)
-
-When compaction is triggered:
-
-1. **Partition** Tier A entries into Protected Core and Rotating Shell
-2. **Check threshold** — if total entries < 50, exit (no-op)
-3. **Lock Protected Core** — these entries are excluded from removal
-4. **Sort Rotating Shell** by:
-   - Priority (lowest first)
-   - Age (oldest first, by `created_at`)
-5. **Remove entries** from Rotating Shell until:
-   - Total Tier A entries ≤ 35, OR
-   - Rotating Shell is exhausted
-6. **Archive removed entries** to Section C as index-only references
-7. **Protected Core overflow** — if Protected Core alone exceeds 35:
-   - Allow overflow (do NOT remove Protected Core entries)
-   - Emit governance alert
-   - Do NOT halt compaction or auto-raise ceilings
-
-#### Protected Core Classification (Locked)
-
-The following entries are **Protected Core** (never compacted):
-
-1. Qwrk Naming and Identity Lock
-2. Phase 1 Lock — Kernel v1 Governance
-3. Production Implies Tree
-4. System Instructions — Read Access Only
-5. North Star v0.4 — Execution Anatomy
-6. Chrome Extension Raw JSON Invariant
-7. Governance / Execution Milestones
-
-The following are **Rotating Shell** (eligible for compaction):
-
-- Memory Load vs Addressable Registry
-- Snapshots at Sapling-to-Tree Transition
-- T15 Completion Milestone
-- Future tactical/contextual entries
-
-#### Supersession Handling
-
-When creating a new Tier A entry:
-1. If overlap detected (same scope + similar tags) → prompt user:
-   > "Does this supersede an existing entry?"
-2. If confirmed → mark older entry with `superseded_by: [artifact_id]`
-3. No auto-supersession without explicit confirmation
-
-#### Thrashing Detection
-
-Detect oscillation when:
-- An entry type is compacted
-- Same type is recreated within **5 sessions**
-
-**Response:** Governance alert only — no automatic blocking or mutation.
-
-Session boundaries may be inferred from restart artifacts.
-
-#### Audit Requirements
-
-Every compaction event MUST create a snapshot artifact containing:
-
-| Field | Content |
-|-------|---------|
-| timestamp | When compaction occurred |
-| trigger_reason | Why compaction was triggered (e.g., "entry_count >= 50") |
-| removed_artifact_ids | List of artifact_ids removed from active window |
-| retained_artifact_ids | List of artifact_ids kept in active window |
-
-**Required tags:** `memory-compaction`, `for-q`
-
-Snapshot payload may be minimal but must be complete.
-
-#### Explicit Non-Goals
-
-- No auto-merging of Protected Core entries
-- No background or silent compaction
-- No mutation of Tier B or registry-only memory
-- No automatic ceiling raises
+Full compaction algorithm, eligibility rules, protected core classification, supersession handling, thrashing detection, and audit requirements are preserved in `Archive/CLAUDE__v26__2026-03-24.md` and git history. Restore if entry count ≥ 40 OR compaction is being considered.
 
 ## Artifact Registry Discipline (Operational Index)
 
@@ -702,9 +694,10 @@ This SQL must not drift unless DDL schema changes require it.
 ## Important Constraints
 
 **Immutability Rules:**
-- Snapshot and Restart artifacts are immutable (no UPDATE policies)
+- Snapshot and Restart **extension tables** are immutable (no UPDATE policies on `qxb_artifact_snapshot` / `qxb_artifact_restart`)
+- Spine-level `content_append` and `tags` updates ARE allowed on these types — append_log entries are timestamped, preserving original extension payload integrity
 - Event log is append-only (triggers block UPDATE/DELETE)
-- Do NOT create UPDATE/DELETE policies for these tables
+- Do NOT create UPDATE/DELETE policies for extension tables of immutable types
 
 **Schema Integrity:**
 - Always validate workspace membership before artifact operations
@@ -1136,472 +1129,127 @@ Do NOT silently deviate from an approved plan.
 
 ## CHANGELOG - CLAUDE.md Updates
 
-### v23 - 2026-03-11
-**What changed:** Three new governance patterns inspired by industry agent prompt analysis (Devin, Cursor, Windsurf)
+### v29 - 2026-03-26
+**What changed:** Gateway v1 decommissioned — all references updated to Gateway v2
 
 **Why:**
-- Research of 30+ AI agent system prompts revealed patterns Qwrk can adopt
-- Retry cap prevents CC from spinning on failures (industry standard: 3 attempts)
-- Auto-save operational facts reduces session start friction without sacrificing safety
-- Planning Gate formalizes the gather→plan→execute cycle for complex threads
+- Gateway v2 has been the active production gateway across all 6 workspaces since T122
+- v1 was single-workspace (Prime-only), hardcoded, and no longer aligned with multi-forest architecture
+- Mobile Qx was the last remaining v1 consumer — migrated to v2 (Option A: clean cut)
+- 37 historical test scripts in `work/` still referenced v1 endpoints — bulk-updated to prevent debugging friction
 
 **Scope of impact:**
-- New Section 2.7: Retry Cap Rule — 3 attempts max, each must differ, then STOP and report
-- Step 6 (CC Memory Harvest): split into Tier 1 (auto-save factual data) and Tier 2 (human-gated interpretive data). Delete-on-contradiction for auto-saved entries.
-- New Section 11: Planning Gate for Complex Threads — required when touching 3+ files or 2+ structural surfaces. Two-phase protocol: Gather (no mutations) → Propose Plan → wait for approval.
+- Header: Gateway v68 → v2 (build 2), reconciliation date 2026-03-26
+- Core Architecture: `NQxb_Gateway_v1` → `NQxb_Gateway_v2` with decommission note
+- Workflow Deployment Checklist: v1 node reference → v2
+- KGB: `Gateway v68` → `Gateway v2`
+- Archived: `workflows/NQxb_Gateway_v1 (68).json` → `workflows/Archive/NQxb_Gateway_v1__v68__2026-03-26.json`
+- Updated: 37 `work/*.ps1` scripts (v1 → v2 endpoint), `qwrk-prime-sidebar/README.md` (v1 → v2)
+- Unchanged: All governance rules (1–11), session protocol, DDL-as-Truth, schema references
 
 **How to validate:**
-- On repeated failures, CC stops after 3 attempts and reports (not infinite loop)
-- On session start with new for-q artifacts containing workspace IDs or version bumps, CC auto-saves to MEMORY.md without asking
-- On complex for-cc items, CC presents a plan before executing
-- Simple single-file tasks proceed without planning gate overhead
+- Zero `gateway/v1` references in active scripts (`scripts/`, `work/`)
+- Chrome extensions (QX, QSB) confirmed on v2
+- v1 workflow archived, v2 active in n8n
+- `grep -r "gateway/v1" work/ scripts/` returns zero matches
 
-**Previous version:** `Archive/CLAUDE__v22__2026-03-09.md`
+**Previous version:** v28
 
-### v22 - 2026-03-09
-**What changed:** Multi-workspace support for Rolling Memory Sync, Registry Refresh, and CmdCtr briefing
+### v28 - 2026-03-25
+**What changed:** Added Subsession Quick-Start protocol — lightweight session entry path
 
 **Why:**
-- Q@W (Work / Resolve) workspace now has its own rolling memory and registry files
-- Session start must sync for-q artifacts across both Prime and Q@W workspaces
-- Registry refresh must generate CSV for both workspaces to their respective folders
-- CmdCtr briefing is now workspace-parameterized (Block 0 of Q@W Feature Parity Sprint)
+- Multi-tab CC usage requires a fast entry path that skips daily operational loop (CmdCtr, rolling mem sync, for-cc sweep, memory harvest)
+- Full 7-step session protocol is correct for first-of-day sessions but excessive for subsequent tabs
+- Joel requested; plan reviewed and approved
 
 **Scope of impact:**
-- Step 4 (Rolling Memory Sync Check): now covers Prime + Q@W with workspace-specific paths
-- Rolling Memory Sync Protocol: duplicated process for each workspace with explicit workspace_id filters
-- Artifact Registry Discipline: parameterized SQL, dual save paths (Prime → `Qwrk_RollingMem/`, Q@W → `Qwrk@Wrk/Q@W Rolling Mem/`)
-- No existing governance rules changed — additive only
+- Added: "Subsession Trigger Phrases" section (triggers: nsub, sub, newsub, go)
+- Added: "Required Behavior on Subsession Trigger" section (3-step lightweight protocol)
+- Unchanged: Full session protocol, all governance rules (1–11), all other session management
+- Disambiguation: "go" (subsession) vs "let's go" (full session) — documented
 
 **How to validate:**
-- On "new session", CC syncs rolling memory for both workspaces
-- On "Registry refresh", CC generates CSV for both workspaces
-- Rolling memory paths: Prime in `Qwrk_RollingMem/`, Q@W in `Multi-User Qwrk/03_ChatGPT_Projects/Qwrk@Wrk/Q@W Rolling Mem/`
+- Say "nsub" or "go" — CC loads OPEN_THREADS active surface + last session header only, no CmdCtr/sync
+- Say "new session" — full 7-step protocol runs as before
+- "let's go" still triggers full session (not subsession)
 
-**Previous version:** `Archive/CLAUDE__v21__2026-03-09.md`
+**Previous version:** v27
 
-### v21 - 2026-02-22
-**What changed:** Added Phase 2C Certification Harness subsection under Workflow Deployment Checklist
+### v27 - 2026-03-24
+**What changed:** Cognitive load reduction — removed ~590 lines of dormant/historical content
 
 **Why:**
-- Phase 2C black-box certification harness (26 tests) was built and executed successfully (26/26 PASS)
-- Need governance documentation linking the harness to the deployment lifecycle
-- Harness validates Gateway + Save + Update + Promote contract surfaces via live endpoint testing
-- Mandatory gating deferred to QBeta; current phase is advisory post-deployment
+- CLAUDE.md was 1723 lines. ~34% was dormant compaction algorithm detail, one-time database setup commands, and changelog entries v2–v24 that had zero operational value
+- Every conversation paid the full governance tax regardless of session type
+- Design analysis (session 110) identified Load Distribution as primary friction category
+- Content removal chosen over structural splitting — simpler, no path-loading assumptions
 
 **Scope of impact:**
-- New subsection "Phase 2C — Certification Harness (Gateway Contract Protection)" under n8n Gateway Workflow Rules
-- Inserted after Workflow Deployment Checklist, before Schema Truth Policy
-- Documentation only — no workflow, schema, or runtime changes
+- Removed: CHANGELOG entries v2–v24 (~490 lines) — audit trail, not operational guidance
+- Removed: Database Commands section (~17 lines) — one-time setup, already executed
+- Removed: Compaction algorithm detail (~83 lines) — dormant (29 entries, threshold 50), replaced with archive pointer
+- Kept: All governance rules (Sections 1–11), session protocol, safety-critical constraints, KGB, DDL-as-Truth
+- Kept: Tier A2 Active Operational Contexts, Size Governance thresholds, Two-Layer Model summary
+- Compaction restore trigger: entry count ≥ 40 OR compaction is being considered
 
 **How to validate:**
-- Subsection appears under n8n Gateway Workflow Rules after the 6-step deployment checklist
-- Harness path references `Phase2C_Cert/Run-Phase2C-Cert.ps1`
-- PASS standard and trigger conditions documented
-- Future state (QBeta gating) documented as deferred
+- All governance sections 1–11 present and unchanged
+- Session startup protocol (steps 1–7) present and unchanged
+- Safety-critical rules present: DDL-as-Truth, Read-Only (2.5), No-Guessing (2), No-Overwrite (3)
+- CmdCtr Snapshot Contract present
+- KGB test IDs present
+- Full pre-reduction content in `Archive/CLAUDE__v26__2026-03-24.md`
 
-**Previous version:** `Archive/CLAUDE__v20__2026-02-22.md`
+**Previous version:** `Archive/CLAUDE__v26__2026-03-24.md`
 
-### v20 - 2026-02-22
-**What changed:** Added Artifact Registry Discipline section (operational index)
+### v26 - 2026-03-24
+**What changed:** CmdCtr integrated into session start protocol with snapshot persistence contract
 
 **Why:**
-- Introduced explicit command to refresh local CSV mirror of qxb_artifact spine
-- Intentionally lean model — no session hooks, no automation, no staleness checks
-- Registry is operational index only and not a governance surface or system-of-record
+- CmdCtr was fully deployed (T100) but invisible at session start — never ran automatically
+- Delta was hollow because no prior snapshot existed to diff against
+- Joel experienced CmdCtr as non-functional despite full infrastructure being in place
+- Two changes approved: auto-run at session start + snapshot persistence for delta continuity
 
 **Scope of impact:**
-- New section "Artifact Registry Discipline (Operational Index)" before Important Constraints
-- New command trigger: `Registry refresh`
-- No session lifecycle changes
-- No rolling memory changes
-- No workflow changes
+- Session start protocol: new step 2 (`Run /cmdctr-briefing for Qwrk Prime and Q@W`), subsequent steps renumbered (old 3→4, old 4→5, old 5→6, old 6→7)
+- Handoff summary (step 3): now includes CmdCtr briefing highlights
+- Session intent (step 4): now informed by CmdCtr active surface
+- New subsection: "CmdCtr Snapshot Contract (Locked)" — defines payload rules for snapshot persistence
+- `/cmdctr-briefing` skill updated: generates QSB-ready snapshot payload after presenting briefing
+- Scoped to Qwrk Prime + Q@W only (not generalized)
 
 **How to validate:**
-- Say "Registry refresh" — CC outputs SQL and save instructions
-- CC does NOT check registry at session start
-- CC does NOT offer registry refresh at session end
+- Say "new session" — CC runs `/cmdctr-briefing` for both workspaces before asking for session intent
+- CmdCtr briefing appears in startup summary with forest health + active surface + delta
+- CC generates QSB-ready snapshot save payload for each workspace
+- Joel executes payload via QSB — snapshot saved with tags `["cmdctr", "session-context", "for-q"]`
+- Next session: delta compares against saved snapshot and shows real changes
 
-**Previous version:** `Archive/CLAUDE__v19__2026-02-18.md`
+**Previous version:** `Archive/CLAUDE__v25__2026-03-24.md`
 
-### v19 - 2026-02-18
-**What changed:** Added Section 10: Parallel Mutation Guardrail
+### v25 - 2026-03-22
+**What changed:** T150 Person Artifact Type — Branch 2 schema deployed, DDL v2.9→v2.10, CHECK v7→v8 (15 types), Access Control Model decision locked
 
 **Why:**
-- Q drafted Parallel Workstream Governance Protocol (project `6cd0fb6e`, companion journal `54f6fb61`) defining rules for concurrent Q/CC sessions
-- CC needed codified governance for structural mutation serialization
-- Complements Section 9 (Parallel Build Safety Rule) — Section 9 governs parallel feature builds; Section 10 governs parallel session mutation discipline
+- T150 Branch 2 (Schema) fully implemented and validated: `qxb_artifact_person` extension table with 27 columns, JSONB array shape CHECKs, hardened RLS (workspace-member SELECT), 6 indexes, updated_at trigger
+- Access Control Model formally documented after Q audit revealed `qxb_current_user_id()` returns NULL in SQL Editor — confirmed as expected behavior under trusted backend model
+- Drift reconciliation: header updated to DDL v2.10, reconciliation date 2026-03-22
 
 **Scope of impact:**
-- New section 10 with 4 subsections: Session Scope Declaration, Structural Surfaces, Serialized Mutation Rule, Merge Order Doctrine
-- No existing sections modified
-- No automation, marker files, or workflow changes introduced
-- Governance clarification only
+- Header: DDL v2.9→v2.10, reconciliation date updated
+- Database Schema Architecture: `qxb_artifact_person` added to extension table list
+- Artifact Types: CHECK v7→v8, 14→15 types, `person` added
+- RLS Model: new "Access Control Model — Qwrk v2" subsection (decision locked)
+- No Gateway, workflow, or governance changes
 
 **How to validate:**
-- CC sessions should declare mutation surface at start of implementation work
-- CC should pause and confirm if overlap with parallel session is suspected
-- Merge order: governance first, workflow/code second, deployment last
+- `person` appears in artifact type list (15 types)
+- `qxb_artifact_person` in extension table list
+- Access Control Model section present under RLS Model
+- DDL v2.10 matches `docs/schema/LIVE_DDL__Kernel_v1__2026-01-04.sql`
 
-**Previous version:** `Archive/CLAUDE__v18__2026-02-17.md`
+**Previous version:** `Archive/CLAUDE__v24__2026-03-22.md`
 
-### v18 - 2026-02-17
-**What changed:** Removed CURRENT_SESSION.md from session protocol (orphan check, create marker, delete on end)
-
-**Why:**
-- Marker file provided orphan detection for a failure mode that never fired
-- Session continuation is fully covered by OPEN_THREADS.md + LATEST_END_SESSION.md
-- Proven unnecessary: this session completed T38 Phase 2 without the file
-- Removes 3 file operations per session for negligible safety gain
-
-**Scope of impact:**
-- Session start: removed steps 1 (orphan check) and 5 (create marker), renumbered remaining to 1-6
-- Session end: removed step 4 (delete marker), now 3 steps
-- Step references updated (old step 6 → step 4, old step 6.5 → step 5, old step 7 → step 6)
-- No other governance changed
-
-**How to validate:**
-- Session start no longer checks for or creates CURRENT_SESSION.md
-- Session end no longer deletes CURRENT_SESSION.md
-- All other session protocol steps execute unchanged
-
-**Previous version:** `Archive/CLAUDE__v17__2026-02-17.md`
-
-### v17 - 2026-02-17
-**What changed:** Formalized for-cc Work Queue Sweep protocol (step 6.5) with numbered steps; companion Loose-Thread Safety Rail added to Q system instructions
-
-**Why:**
-- Step 6.5 existed as bullet-point format — upgraded to numbered protocol for deterministic execution
-- Q needed explicit trigger rules: WHEN to suggest `for-cc` (artifact creation time only, specific types)
-- Loose-Thread Safety Rail ensures Q asks "Tag for-cc?" at the right moment without over-triggering
-
-**Scope of impact:**
-- CLAUDE.md step 6.5 reformatted to 7-step numbered protocol (substance unchanged, structure tightened)
-- Q system instructions: new "Loose-Thread Safety Rail" subsection under Artifact Tagging Governance
-- Safety Rail scoped to artifact creation of snapshot/project/restart only
-- Excludes journals, execution-layer artifacts (leaf/branch/limb), reflective/strategic artifacts
-- No existing governance overridden — Safety Rail complements existing for-cc Tagging Doctrine
-
-**How to validate:**
-- On session start, CC executes for-cc sweep following numbered protocol steps 1-7
-- Q suggests "Tag for-cc?" only at snapshot/project/restart creation when implementation work or unoperationalized decisions are detected
-- Q does NOT suggest for-cc on journal, branch, leaf, limb, or reflective artifacts
-- No auto-tagging — Joel must confirm
-
-**Previous version:** `Archive/CLAUDE__v16__2026-02-17.md`
-
-### v16 - 2026-02-17
-**What changed:** Added for-cc Work Queue Sweep (step 6.5) to session start protocol
-
-**Why:**
-- Q and Joel need an asynchronous channel to queue work items for CC
-- `for-cc` tagged artifacts signal pre-execution tasks that CC should register as open threads
-- Unlike `for-q` (governance memory), `for-cc` is a work queue — items become OPEN_THREADS entries
-- Human-gated: CC presents new for-cc items, Joel approves before thread creation or execution
-
-**Scope of impact:**
-- New step 6.5 in "Required Behavior on Session Trigger": for-cc Work Queue Sweep
-- Runs after for-q sync (step 6), before CC Memory Harvest (step 7)
-- Queries by tag only — no artifact type hardcoding
-- Deduplication via artifact_id in OPEN_THREADS Notes column
-- No rolling memory file needed (OPEN_THREADS.md is tracking surface)
-- Companion Q instruction update: for-cc Tagging Doctrine added to Q system instructions
-
-**How to validate:**
-- On "new session" with new for-cc artifacts, CC should present them to Joel with title/type/summary
-- CC should NOT auto-create threads — Joel must approve
-- CC should NOT execute for-cc work without separate Joel approval
-- Already-referenced artifact_ids should not re-surface
-
-**Previous version:** `Archive/CLAUDE__v15__2026-02-08.md`
-
-### v15 - 2026-02-08
-**What changed:** Added CC Memory Harvest step (step 7) to session start protocol
-
-**Why:**
-- CC loses operational state between sessions (workspace IDs, deployed versions, schema drift)
-- Q's for-q artifacts often contain operational data CC should persist (new tables, workspace IDs, principal names)
-- Without this step, CC re-discovers facts it knew last session, wasting 3-5 minutes of context and tool calls
-
-**Scope of impact:**
-- New step 7 in "Required Behavior on Session Trigger": CC Memory Harvest
-- Runs only on delta (new for-q artifacts from step 6) — zero cost if no new artifacts
-- Human-gated: CC proposes MEMORY.md changes, user confirms before write
-- Does NOT duplicate governance rules (CLAUDE.md's job)
-
-**How to validate:**
-- On "new session" with new for-q artifacts, CC should propose MEMORY.md updates if operational data is found
-- CC should NOT propose adding governance rules that belong in CLAUDE.md
-- CC should skip silently if no delta in step 6
-
-**Previous version:** `Archive/CLAUDE__v14__2026-02-05.md`
-
-### v14 - 2026-02-05
-**What changed:** Added Tier A2: Active Operational Contexts specification
-
-**Why:**
-- T17 implementation: Active X Contexts enable seamless continuation of ongoing activities (reading journals, projects)
-- Eliminates friction from repeated database queries when resuming work
-- Extends rolling memory with explicit, snapshot-backed engagement state
-
-**Scope of impact:**
-- New "Tier A2: Active Operational Contexts" subsection in Tier A Memory Compaction Protocol
-- Defines Active X Context lifecycle: OPEN → UPDATE → CLOSE
-- Specifies required tags (`for-q`, `active-context`, `active-{type}`) and extension fields
-- Documents rolling memory regeneration logic (additive only)
-- Compaction rules: active = protected, finished = eligible
-
-**How to validate:**
-- Create Active Book Context snapshot with required fields
-- Verify it appears in rolling memory Section A2
-- Continue reading journal without querying prior entries
-- Close context and verify compaction eligibility
-
-**Previous version:** `Archive/CLAUDE__v13__2026-02-05.md`
-
-### v13 - 2026-02-05
-**What changed:** Added CC Gateway Query Script documentation (Section 2.6)
-
-**Why:**
-- CC was failing to query database due to PowerShell escaping issues when invoking inline through Bash
-- Inline PowerShell commands with complex credentials and JSON payloads break through bash shell
-- Need documented, working pattern for CC to query Gateway
-
-**Scope of impact:**
-- New script: `scripts/CC-Gateway-Query.ps1` provides clean interface for CC queries
-- New section 2.6 documents usage with examples
-- CC should NEVER use inline PowerShell Gateway calls — use the script instead
-
-**How to validate:**
-- Run: `powershell -File "scripts/CC-Gateway-Query.ps1" -Action list -ArtifactType snapshot -Limit 3`
-- Should return list of snapshots without escaping errors
-- Query action requires `-ArtifactType` parameter (Gateway contract requirement)
-
-**Previous version:** `Archive/CLAUDE__v12__2026-02-05.md`
-
-### v12 - 2026-02-05
-**What changed:** Added Tier A Memory Compaction Protocol (full specification)
-
-**Why:**
-- T16 complete: Q provided final answers to 6 open questions
-- Need deterministic compaction rules to maintain bounded memory window
-- Protected Core must never be compacted; Rotating Shell may be aged out
-
-**Scope of impact:**
-- New "Tier A Memory Compaction Protocol" subsection in Session Management
-- Defines two-layer model: Protected Core / Rotating Shell
-- Compaction algorithm with explicit precedence rules
-- `compaction_eligible` field added to for_q_* schema
-- Protected Core classification locked (7 entries)
-- Supersession handling, thrashing detection, audit requirements documented
-
-**How to validate:**
-- Rolling memory file shows Protected Core / Rotating Shell markers
-- When entry count >= 50, CC runs compaction algorithm
-- Compaction creates audit snapshot with removed/retained lists
-- Protected Core entries are never removed
-
-**Previous version:** `Archive/CLAUDE__v11__2026-02-05.md`
-
-### v11 - 2026-02-05
-**What changed:** Added Parallel Build Safety Rule (Section 9)
-
-**Why:**
-- Phase 1 successfully used parallel workflows to develop new functionality without breaking live systems
-- This pattern must become permanent governance, not ad-hoc
-- Protects production from regression during feature development
-
-**Scope of impact:**
-- New section 9 in "New Qwrk Governance Rules for CC"
-- CC must now default to parallel builds when adding features to live systems
-- Merge-back requires explicit approval
-
-**How to validate:**
-- When asked to add features to a live workflow, CC should propose parallel build
-- CC should not modify live paths directly unless explicitly authorized
-- Validation step must confirm live path still works
-
-**Previous version:** `Archive/CLAUDE__v10__2026-02-05.md`
-
-### v10 - 2026-02-05
-**What changed:** Added Rolling Memory Sync Protocol to Session Management
-
-**Why:**
-- CC should automatically detect new `for-q` artifacts at session start
-- Rolling memory file needs to stay current with Supabase truth
-- Size governance needed for future when entry count grows
-
-**Scope of impact:**
-- New step 6 in "Required Behavior on Session Trigger": Rolling Memory Sync Check
-- New subsection "Rolling Memory Sync Protocol" with full process
-- Size thresholds: 50 entries trigger, 35 entries target (monitor only for now)
-- Roll-off procedure documented for when limits are hit
-
-**How to validate:**
-- On "new session", CC should check for new for-q artifacts
-- If new artifacts found, CC reports delta and offers regeneration
-- If Gateway unavailable, CC continues silently (non-blocking)
-
-**Previous version:** `Archive/CLAUDE__v9__2026-02-05.md`
-
-### v9 - 2026-02-04
-**What changed:** Added Restart Protocol Format to Session End section
-
-**Why:**
-- Designed robust Conversation Restart Protocol for Qwrk (ChatGPT)
-- CC should use same structured format for session continuity
-- Thread inventory, decisions locked, constraints, files touched ensure complete handoff
-
-**Scope of impact:**
-- Session End now references Restart Protocol Format
-- New subsection documents required sections for LATEST_END_SESSION.md restart prompt
-- References `CONVERSATION_RESTART_PROTOCOL.md` for full template
-
-**How to validate:**
-- On "end session", CC writes LATEST_END_SESSION.md with Thread Inventory table
-- Restart prompt includes: Session Context, Decisions Locked, Constraints, Files Touched, Resume Instructions
-- Next session can resume with full context preserved
-
-**Previous version:** `Archive/CLAUDE__v8__2026-02-04.md`
-
-### v8 - 2026-02-04
-**What changed:** Added Database Read-Only Rule (Section 2.5)
-
-**Why:**
-- CC was executing Gateway write operations (save, promote, update) via PowerShell
-- Write/delete operations are irreversible and require human oversight
-- Need explicit governance preventing CC from modifying database state
-
-**Scope of impact:**
-- CC can ONLY use `artifact.query` and `artifact.list` via Gateway
-- All write operations must be provided as SQL/payload for user to execute manually
-- CC verifies results via read query after user confirms execution
-
-**How to validate:**
-- CC should never execute artifact.save, artifact.promote, or artifact.update
-- CC should present SQL or Gateway payloads for user review
-- CC should only run PowerShell for query/list operations
-
-**Previous version:** `Archive/CLAUDE__v7__2026-02-03.md`
-
-### v7 - 2026-02-03
-**What changed:** Added Workflow Deployment Checklist to n8n Gateway Workflow Rules section
-
-**Why:**
-- When updating sub-workflows (Save, Query, List, etc.), the Gateway must also be updated to point to the new version
-- Forgetting this step means the fix appears to have no effect (Gateway still calls old workflow)
-- User identified this as a recurring risk during BUG-020 fix deployment
-
-**Scope of impact:**
-- New subsection under "n8n Gateway Workflow Rules"
-- CC must now remind user to update Gateway when any sub-workflow is modified
-- 6-step checklist ensures complete deployment
-
-**How to validate:**
-- When CC updates a sub-workflow, it should remind user about Gateway update
-- Checklist appears in CLAUDE.md under n8n Gateway section
-
-**Previous version:** `Archive/CLAUDE__v6__2026-02-03.md`
-
-### v6 - 2026-02-03
-**What changed:** Added OPEN_THREADS.md as single source of truth for cross-session thread tracking
-
-**Why:**
-- Open threads were scattered across end session docs
-- Carry-over threads could get lost if one session's handoff was incomplete
-- Needed single canonical list for unresolved work
-
-**Scope of impact:**
-- New file: `sessions/OPEN_THREADS.md`
-- Session start now reads OPEN_THREADS.md + LATEST_END_SESSION.md
-- Session end now updates OPEN_THREADS.md before writing end session record
-
-**How to validate:**
-- On "new session", CC presents threads from OPEN_THREADS.md
-- On "end session", CC updates OPEN_THREADS.md (adds new, closes resolved)
-- Threads persist correctly across multiple sessions
-
-**Previous version:** `Archive/CLAUDE__v5__2026-02-03.md`
-
-### v5 - 2026-02-03
-**What changed:** Added Session Checkpoint Protocol to Session Management section
-
-**Why:**
-- Need documented guidance on when to proactively save session state
-- Planning work degrades as context fills — need thresholds
-- 70-75% identified as optimal checkpoint window through usage
-
-**Scope of impact:**
-- New subsection in Session Management: "Session Checkpoint Protocol"
-- CC should now be aware of context thresholds and offer checkpoints
-- Mid-session staleness rule documented (governance changes take effect next session)
-
-**How to validate:**
-- CC should proactively mention context usage when approaching 70%
-- CC should offer to checkpoint before major new topics at high usage
-- Planning continuity should improve across session boundaries
-
-**Previous version:** `Archive/CLAUDE__v4__2026-02-03.md`
-
-### v4 - 2026-02-02
-**What changed:** Added Session Management section with trigger phrase recognition
-
-**Why:**
-- CC failed to recognize "New session" as session start trigger
-- User had to explicitly remind CC to enter session mode
-- Need deterministic behavior when session phrases are detected
-
-**Scope of impact:**
-- New section added after "Development Workflow", before "Important Constraints"
-- CC must now check for session triggers on first message of conversation
-- If uncertain, CC must ask before proceeding with other work
-
-**How to validate:**
-- Say "New session" as first message — CC should read LATEST_END_SESSION.md and present handoff
-- CC should create CURRENT_SESSION.md and ask for session intent
-- On "end session", CC should archive and write new end session record
-
-**Previous version:** `Archive/CLAUDE__v3__2026-02-02.md`
-
-### v3 - 2026-01-03
-**What changed:** Added Pattern C (Archive-based versioning) as preferred default
-
-**Why:**
-- Cleaner folder structure - active folders only contain current versions
-- Canonical filenames stay consistent (no version number guessing)
-- Full version history preserved in Archive/ subfolders
-- Better aligns with git versioning and discovery patterns
-
-**Scope of impact:**
-- Section 3 (Absolute No-Overwrite Rule) now has 3 patterns (C is preferred)
-- Section 4 (Pre-Write Confirmation Gate) updated to mention Archive operations
-- Section 5 (Changelog) updated with Archive folder changelog behavior
-- All future file updates should use Pattern C unless specific need for A or B
-
-**Pattern C details:**
-- Archive folder naming: `Archive/` (capitalized, per directory)
-- Archived filename format: `<filename>__v<VERSION>__<DATE>.<ext>`
-- Current file uses canonical name (no version suffix)
-
-**How to validate:**
-- Review Section 3 for Pattern C definition
-- Confirm Pre-Write Confirmation Gate mentions Archive operations
-- Check Changelog section for Archive behavior
-- Verify this file itself follows Pattern C (v2 in Archive/, v3 is current)
-
-**Previous version:** `Archive/CLAUDE__v2__2026-01-03.md`
-
-### v2 - 2026-01-01
-**What changed:** Added "New Qwrk Governance Rules for CC" section
-
-**Why:** Establish strict governance for file versioning, truth hierarchy, and workflow editing to prevent accidental overwrites and maintain Known-Good baseline integrity
-
-**Scope of impact:** All future Claude Code operations in this repository must follow these rules
-
-**How to validate:**
-- Review governance rules section
-- Confirm Pre-Write Confirmation Gate is clear
-- Verify no-overwrite rule is absolute and unambiguous
-- Check that truth hierarchy is established
-
-**Previous version:** `CLAUDE__vPREV__2026-01-01.md` (location unknown, predates Archive pattern)
+> **Changelog entries v2–v24 archived.** Full history preserved in `Archive/CLAUDE__v26__2026-03-24.md` and git.

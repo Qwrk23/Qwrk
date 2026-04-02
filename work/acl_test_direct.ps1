@@ -9,12 +9,12 @@ $headers = @{
 $body = '{"gw_action":"artifact.list","gw_workspace_id":"be0d3a48-c764-44f9-90c8-e846d9dbbd0a","artifact_type":"project","selector":{"limit":1}}'
 
 Write-Host "Credential (first 20 chars of base64): $($credential.Substring(0,20))..."
-Write-Host "URL: https://n8n.halosparkai.com/webhook/nqxb/gateway/v1/acl-test"
+Write-Host "URL: https://n8n.halosparkai.com/webhook/nqxb/gateway/v2"
 Write-Host "Body: $body"
 Write-Host ""
 
 try {
-    $response = Invoke-WebRequest -Uri "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1/acl-test" -Method POST -Body $body -Headers $headers -UseBasicParsing
+    $response = Invoke-WebRequest -Uri "https://n8n.halosparkai.com/webhook/nqxb/gateway/v2" -Method POST -Body $body -Headers $headers -UseBasicParsing
     Write-Host "SUCCESS - Status: $($response.StatusCode)"
     Write-Host "Body: $($response.Content)"
 }
@@ -38,7 +38,7 @@ catch {
 Write-Host ""
 Write-Host "--- Now testing production for comparison ---"
 try {
-    $response2 = Invoke-WebRequest -Uri "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1" -Method POST -Body $body -Headers $headers -UseBasicParsing
+    $response2 = Invoke-WebRequest -Uri "https://n8n.halosparkai.com/webhook/nqxb/gateway/v2" -Method POST -Body $body -Headers $headers -UseBasicParsing
     Write-Host "PRODUCTION - Status: $($response2.StatusCode)"
     Write-Host "Body (first 100): $($response2.Content.Substring(0, [Math]::Min(100, $response2.Content.Length)))"
 }

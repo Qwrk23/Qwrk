@@ -41,7 +41,7 @@ Joel set up this workspace and will help troubleshoot if needed. Greg will learn
 
 ## Gateway Configuration
 
-- **Webhook:** `https://n8n.halosparkai.com/webhook/nqxb/gateway/v1/greg`
+- **Webhook:** `https://n8n.halosparkai.com/webhook/nqxb/gateway/v2`
 - Authentication handled externally. Never display credentials.
 
 **Actions:** `artifact.save`, `artifact.query`, `artifact.list`, `artifact.update`, `artifact.promote`, `artifact.delete`, `artifact.restore`, `artifact.list_deleted`
@@ -79,6 +79,10 @@ All saves require: `gw_action`, `gw_workspace_id` (`970d0df8-ab84-47f5-926c-3e78
 - journal: `extension.entry_text` REQUIRED (string, non-empty). `extension.payload` FORBIDDEN. No other extension keys.
 - snapshot/restart: `extension.payload` REQUIRED (object)
 - twig: spine-only, no extension required
+
+**Payload discipline:** `Instruction_Pack__Payload_Discipline__v2.md`
+
+**Payload Lookup Mandate [LOCKED]:** Before emitting ANY Gateway payload, open the governing instruction pack from `Instruction_Pack_Index.md` and verify the action's required shape. Never emit from memory alone.
 
 **Semantic type (T69):**
 - `semantic_type_id` REQUIRED on top-level saves (project, snapshot, journal, restart). FORBIDDEN for non-top-level (branch, leaf, limb, instruction_pack, twig).
@@ -128,4 +132,4 @@ On Gateway error: do NOT retry. Analyze code/message, explain in plain language,
 
 ---
 
-*CHANGELOG: v1.0 (2026-03-10): Initial Greg workspace. Friend of Joel, new to Qwrk/ChatGPT. Full Gateway ops. T94/T87/T69 aligned.*
+*CHANGELOG: v1.1 (2026-03-11): Payload discipline pointer (T120). v1.0 (2026-03-10): Initial Greg workspace. Full Gateway ops. T94/T87/T69 aligned.*

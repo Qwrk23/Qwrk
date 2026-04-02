@@ -13,7 +13,7 @@ If the user specified a workspace (`prime`, `qw`, or `all`), use that. Default: 
 | Workspace | ID | CSV Path |
 |-----------|-----|----------|
 | **Prime** | `be0d3a48-c764-44f9-90c8-e846d9dbbd0a` | `Qwrk_RollingMem/artifact_registry__YYYY-MM-DD.csv` |
-| **Q@W** | `635bb8d7-7b93-4bea-8ca6-ee2c924c9557` | `Multi-User Qwrk/03_ChatGPT_Projects/Qwrk@Wrk/RollingMem/artifact_registry__qw__YYYY-MM-DD.csv` |
+| **Q@W** | `635bb8d7-7b93-4bea-8ca6-ee2c924c9557` | `Multi-User Qwrk/03_ChatGPT_Projects/Qwrk@Wrk/Q@W Rolling Mem/artifact_registry__qw__YYYY-MM-DD.csv` |
 
 ### Step 2: Execute Canonical SQL via MCP
 
@@ -57,23 +57,32 @@ For each workspace's query results:
 3. Quote fields containing commas (especially `title` and `tags`)
 4. Preserve NULL values as empty strings
 
-### Step 4: Save CSV Files
+### Step 4: Archive Previous CSV Files
 
-Write using today's date. Use bash `cat >` with quoted paths (OneDrive EEXIST workaround).
+Before writing new CSV files, move any existing CSV files (from previous dates) into an `Archive/` subfolder:
+
+- **Prime:** Move `Qwrk_RollingMem/artifact_registry__*.csv` (excluding today's date) → `Qwrk_RollingMem/Archive/`
+- **Q@W:** Move `Multi-User Qwrk/03_ChatGPT_Projects/Qwrk@Wrk/Q@W Rolling Mem/artifact_registry__qw__*.csv` (excluding today's date) → `Multi-User Qwrk/03_ChatGPT_Projects/Qwrk@Wrk/Q@W Rolling Mem/Archive/`
+
+Create `Archive/` subfolder if it doesn't exist. Do NOT delete archived files.
+
+### Step 5: Save CSV Files
+
+Write using today's date. Use the Write tool (not bash heredoc — avoids shell escaping issues with special characters in titles/tags).
 
 - **Prime:** `Qwrk_RollingMem/artifact_registry__YYYY-MM-DD.csv`
-- **Q@W:** `Multi-User Qwrk/03_ChatGPT_Projects/Qwrk@Wrk/RollingMem/artifact_registry__qw__YYYY-MM-DD.csv`
+- **Q@W:** `Multi-User Qwrk/03_ChatGPT_Projects/Qwrk@Wrk/Q@W Rolling Mem/artifact_registry__qw__YYYY-MM-DD.csv`
 
-Do NOT delete or overwrite previous dated files. Each refresh produces a new dated file.
 Same-day refresh overwrites the current date's file only.
 
-### Step 5: Confirm Completion
+### Step 6: Confirm Completion
 
 Output:
 ```
 Registry refresh complete:
   Prime: artifact_registry__YYYY-MM-DD.csv (N rows)
   Q@W:   artifact_registry__qw__YYYY-MM-DD.csv (N rows)
+  Archived: [list any files moved to Archive/]
 ```
 
 ## Error Handling
@@ -88,5 +97,7 @@ Registry refresh complete:
 ## NEVER DO
 
 - Never auto-trigger at session start or end (explicit command only)
-- Never delete previous dated CSV files
+- Never delete archived CSV files
 - Never execute SQL through bash/heredoc — use MCP directly
+- Never write CSV via bash heredoc — use the Write tool (shell escaping breaks on special characters in titles/tags)
+- Never leave previous dated CSV files in the main folder — archive them first

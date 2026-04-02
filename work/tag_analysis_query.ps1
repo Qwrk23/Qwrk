@@ -1,7 +1,7 @@
 # Tag Analysis Queries for Backfill Planning
 # DO NOT EXECUTE ANY UPDATES - READ ONLY
 
-$gateway = 'https://n8n.halosparkai.com/webhook/nqxb/gateway/v1'
+$gateway = 'https://n8n.halosparkai.com/webhook/nqxb/gateway/v2'
 $cred = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("qwrk-gateway:aslfja'wwe*(#fhwoII843ghlw_ek2l"))
 $workspace = 'be0d3a48-c764-44f9-90c8-e846d9dbbd0a'
 

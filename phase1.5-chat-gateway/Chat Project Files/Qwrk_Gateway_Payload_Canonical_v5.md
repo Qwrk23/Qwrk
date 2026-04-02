@@ -1,14 +1,27 @@
-# Qwrk Gateway Payload Canonical Reference v5.1
+# Qwrk Gateway Payload Canonical Reference v5.2
 
-**Date:** 2026-03-09
+**Date:** 2026-04-01
 **Status:** Authoritative
 **Gateway:** v59
 **DDL:** v2.9
-**Supersedes:** Qwrk_Gateway_Payload_Canonical_v5 (v5)
+**Supersedes:** Qwrk_Gateway_Payload_Canonical_v5.1 (v5.1)
 
 ---
 
 ## CHANGELOG
+
+### v5.2 (2026-04-01) — T140 Content Update Section
+
+- **Content update modes** added to `artifact.update`: `content` (merge/replace) for mutable types, `content_append` for immutable types
+- Section 6.2 mode selection table updated with 3 new modes: `content`, `content_replace`, `content_append`
+- Section 6.6 corrected: `content` removed from "NOT updateable" list
+- New Section 6.9: Content Updates (T140) — full behavioral specification
+- Section 6.7: 3 content update examples + 2 would-fail examples added
+- 5 new error codes: `CONTENT_UPDATE_NOT_ALLOWED`, `CONTENT_APPEND_NOT_ALLOWED`, `RESERVED_NAMESPACE`, `APPEND_LIMIT_EXCEEDED`, `ARCHIVE_FROZEN`
+- Section 10.1: content update version increment rules added
+- Section 10.2: Content column added to immutability matrix
+- Section 10.3: `content` row updated to include `artifact.update` content modes
+- Previous version: `Archive/Qwrk_Gateway_Payload_Canonical_v5__v5.1__2026-04-01.md`
 
 ### v5.1 (2026-03-09) — T112 List Filter Enhancement
 
@@ -701,12 +714,18 @@ The workflow determines update mode automatically based on which fields are pres
 | `extension` | `extension` has key(s) other than `semantic_type_id` | Extension fields only |
 | `semantic_type` | `extension` contains `semantic_type_id` key | Semantic type only (dedicated path, see 6.5) |
 | `extension` (with tags) | `extension` + `tags` both present | Extension + tags (two separate DB writes) |
+| `content` | `content` present, no `content_mode` | Content deep merge (mutable types only). See 6.9. |
+| `content_replace` | `content` + `content_mode: "replace"` present | Content full replacement (mutable types only). See 6.9. |
+| `content_append` | `content_append` present | Append entries to `append_log` (immutable types only). See 6.9. |
 
 **Combination rules:**
 - Spine fields + tags = allowed (atomic `mixed` mode)
 - Spine fields + extension = **NOT allowed** (`MIXED_UPDATE_NOT_ALLOWED`)
 - Extension + tags = allowed (sequential writes)
 - Semantic type + anything else = **NOT allowed** (`MIXED_UPDATE_NOT_ALLOWED`)
+- Content + tags = allowed (can combine in a single call on mutable types)
+- Content + spine fields = allowed (can combine in a single call on mutable types)
+- `content` and `content_append` = **mutually exclusive** — never combine in one call
 
 ### 6.3 Tags-Only Update
 
@@ -835,7 +854,9 @@ The following spine fields are now updateable via `artifact.update` in `spine_on
 | `summary` | text | Nullable. |
 | `priority` | integer 1-5 | DB CHECK enforces range. |
 
-**NOT updateable via artifact.update:** `execution_status`, `parent_artifact_id`, `lifecycle_status`, `content`. These remain accessible only via `artifact.save` UPDATE path (not recommended) or dedicated actions (promote).
+**NOT updateable via artifact.update:** `execution_status`, `parent_artifact_id`, `lifecycle_status`. These remain accessible only via `artifact.save` UPDATE path (not recommended) or dedicated actions (promote).
+
+**Note:** `content` IS updateable via `artifact.update` content modes (see Section 6.9).
 
 **Lifecycle restrictions (see 6.8):**
 - `archive`: ALL spine field updates blocked (`ARCHIVE_IMMUTABLE`)
@@ -930,6 +951,73 @@ The following spine fields are now updateable via `artifact.update` in `spine_on
   }
 }
 ```
+
+**Content merge (T140 — mutable types, default deep merge):**
+```json
+{
+  "gw_action": "artifact.update",
+  "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+  "artifact_type": "twig",
+  "artifact_id": "<uuid>",
+  "content": {
+    "new_key": "value",
+    "nested": { "updated": true }
+  }
+}
+```
+
+**Content replace (T140 — explicit full replacement):**
+```json
+{
+  "gw_action": "artifact.update",
+  "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+  "artifact_type": "twig",
+  "artifact_id": "<uuid>",
+  "content": { "clean_slate": true },
+  "content_mode": "replace"
+}
+```
+
+**Content append (T140 — immutable types only):**
+```json
+{
+  "gw_action": "artifact.update",
+  "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+  "artifact_type": "snapshot",
+  "artifact_id": "<uuid>",
+  "content_append": {
+    "entries": [
+      { "note": "supplementary context", "actor": "joel" }
+    ]
+  }
+}
+```
+
+**Would-fail example — content merge on immutable type:**
+```json
+{
+  "gw_action": "artifact.update",
+  "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+  "artifact_type": "snapshot",
+  "artifact_id": "<uuid>",
+  "content": { "attempt": "merge" }
+}
+```
+*Fails with:* `CONTENT_UPDATE_NOT_ALLOWED` — content merge/replace is blocked for immutable types (snapshot, journal, restart). Use `content_append` instead.
+
+**Would-fail example — content_append on mutable type:**
+```json
+{
+  "gw_action": "artifact.update",
+  "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+  "artifact_type": "project",
+  "artifact_id": "<uuid>",
+  "content_append": {
+    "entries": [{ "note": "attempt" }]
+  }
+}
+```
+*Fails with:* `CONTENT_APPEND_NOT_ALLOWED` — content_append is only available for immutable types (snapshot, journal, restart). Use `content` merge/replace instead.
 
 **Would-fail example — updating snapshot extension:**
 ```json
@@ -1051,6 +1139,65 @@ Mutation permissions vary by the artifact's current `lifecycle_status`:
 - These checks apply to ALL artifact types that have lifecycle_status (primarily projects, but the guard is generic).
 
 **QPM interaction:** Promotion guards (Section 7.3) are unaffected. Lifecycle-scoped mutability governs updates, not promotions.
+
+### 6.9 Content Updates (T140)
+
+The `content` field on the artifact spine is a JSONB object. T140 introduces three update modes via `artifact.update`, with type-based routing.
+
+#### 6.9.1 Content Merge (Default — Mutable Types)
+
+**Applies to:** `project`, `branch`, `leaf`, `limb`, `twig`
+
+Deep merge of the provided `content` object into the existing `content`. Existing keys are preserved; new keys are added; nested objects are merged recursively. Arrays are replaced entirely (not element-merged).
+
+**Trigger:** `content` field present, no `content_mode` field.
+
+**Can combine with:** tags, spine field updates (in a single call).
+
+#### 6.9.2 Content Replace (Explicit — Mutable Types)
+
+**Applies to:** `project`, `branch`, `leaf`, `limb`, `twig`
+
+Full replacement of the existing `content` with the provided object. All prior content is wiped.
+
+**Trigger:** `content` field present AND `content_mode: "replace"`.
+
+#### 6.9.3 Content Append (Immutable Types)
+
+**Applies to:** `snapshot`, `journal`, `restart`
+
+Append-only additions to a system-managed `append_log` array inside `content`. Each entry is auto-stamped with server timestamp and actor.
+
+**Trigger:** `content_append` field present with `entries` array.
+
+**Field shape:**
+```json
+{
+  "content_append": {
+    "entries": [
+      { "note": "supplementary context", "actor": "joel" }
+    ]
+  }
+}
+```
+
+#### 6.9.4 Type-Based Content Mutability
+
+| Type | Allowed Operations | Blocked Operations |
+|------|-------------------|-------------------|
+| `project`, `branch`, `leaf`, `limb`, `twig` | `content` (merge/replace) | `content_append` → `CONTENT_APPEND_NOT_ALLOWED` |
+| `snapshot`, `journal`, `restart` | `content_append` | `content` → `CONTENT_UPDATE_NOT_ALLOWED` |
+
+#### 6.9.5 Rules
+
+- `content` and `content_append` are **mutually exclusive** — never combine in one call.
+- `append_log` is a **reserved namespace** — never include it in `content` payloads. Violation returns `RESERVED_NAMESPACE`.
+- `append_log` maximum: **100 entries** per artifact. Exceeding returns `APPEND_LIMIT_EXCEEDED`.
+- Archived artifacts: ALL content operations blocked (`ARCHIVE_FROZEN`).
+
+#### 6.9.6 Version Behavior
+
+Content merge, content replace, and content append all increment `version` by 1 on success.
 
 ---
 
@@ -1322,6 +1469,11 @@ Lists soft-deleted artifacts of a given type.
 | `ARCHIVE_IMMUTABLE` | Update | Any mutation attempted on an archived artifact |
 | `FIELD_FROZEN` | Update | Spine field frozen at current lifecycle stage (e.g., title at tree) |
 | `INVALID_TRANSITION` | Update | Twig lifecycle transition not allowed (e.g., promoted→active, pruned→anything) |
+| `CONTENT_UPDATE_NOT_ALLOWED` | Update | `content` merge/replace attempted on immutable type (snapshot, journal, restart) |
+| `CONTENT_APPEND_NOT_ALLOWED` | Update | `content_append` attempted on mutable type (project, branch, leaf, limb, twig) |
+| `RESERVED_NAMESPACE` | Update | `append_log` key included in `content` payload |
+| `APPEND_LIMIT_EXCEEDED` | Update | `append_log` would exceed 100 entries |
+| `ARCHIVE_FROZEN` | Update | Content operation attempted on archived artifact |
 | `INTERNAL_ERROR` | Any | Catch-all for unrecognized errors |
 
 ### 9.3 Error Envelope Shape
@@ -1354,6 +1506,9 @@ Lists soft-deleted artifacts of a given type.
 | Update spine-only | +1 |
 | Update mixed (spine + tags) | +1 |
 | Update project extension | +1 |
+| Update content (merge) | +1 |
+| Update content (replace) | +1 |
+| Update content_append | +1 |
 | Update semantic_type_id (true change) | +1 (via RPC) |
 | Update semantic_type_id (noop) | No change |
 | Update branch/limb/leaf extension | **No change** (ack without DB write) |
@@ -1362,23 +1517,23 @@ Lists soft-deleted artifacts of a given type.
 
 ### 10.2 Lifecycle-Scoped Immutability Matrix
 
-| Type | Lifecycle | Spine Update | Extension Update | Semantic Type | Tags |
-|------|-----------|-------------|-----------------|---------------|------|
-| `project` | seed/sapling | title, summary, priority | operational_state, state_reason, design_spine | Yes | Yes |
-| `project` | tree | summary, priority (title FROZEN) | operational_state, state_reason, design_spine | Yes | Yes |
-| `project` | archive | **ALL BLOCKED** | **ALL BLOCKED** | **BLOCKED** | **BLOCKED** |
-| `journal` | any non-archive | title, summary, priority | **BLOCKED** (INSERT_ONLY) | Yes | Yes |
-| `journal` | archive | **ALL BLOCKED** | **ALL BLOCKED** | **BLOCKED** | **BLOCKED** |
-| `snapshot` | any non-archive | title, summary, priority | **BLOCKED** (CREATE_ONLY) | Yes | Yes |
-| `snapshot` | archive | **ALL BLOCKED** | **ALL BLOCKED** | **BLOCKED** | **BLOCKED** |
-| `restart` | any non-archive | title, summary, priority | **BLOCKED** (CREATE_ONLY) | Yes | Yes |
-| `restart` | archive | **ALL BLOCKED** | **ALL BLOCKED** | **BLOCKED** | **BLOCKED** |
-| `instruction_pack` | any | title, summary, priority | **BLOCKED** (CREATE_ONLY) | N/A | Yes |
-| `branch` | any | title, summary, priority | Ack without write | N/A | Yes |
-| `leaf` | any | title, summary, priority | Ack without write | N/A | Yes |
-| `limb` | any | title, summary, priority | Ack without write | N/A | Yes |
-| `twig` | proposed/active | title, summary, priority | Ack (lifecycle via Check_Mutability_Rules) | N/A | Yes |
-| `twig` | promoted/pruned | **ALL BLOCKED** (`INVALID_TRANSITION`) | **BLOCKED** | N/A | **BLOCKED** |
+| Type | Lifecycle | Spine Update | Extension Update | Content | Semantic Type | Tags |
+|------|-----------|-------------|-----------------|---------|---------------|------|
+| `project` | seed/sapling | title, summary, priority | operational_state, state_reason, design_spine | merge/replace | Yes | Yes |
+| `project` | tree | summary, priority (title FROZEN) | operational_state, state_reason, design_spine | merge/replace | Yes | Yes |
+| `project` | archive | **ALL BLOCKED** | **ALL BLOCKED** | **BLOCKED** (`ARCHIVE_FROZEN`) | **BLOCKED** | **BLOCKED** |
+| `journal` | any non-archive | title, summary, priority | **BLOCKED** (INSERT_ONLY) | `content_append` only | Yes | Yes |
+| `journal` | archive | **ALL BLOCKED** | **ALL BLOCKED** | **BLOCKED** (`ARCHIVE_FROZEN`) | **BLOCKED** | **BLOCKED** |
+| `snapshot` | any non-archive | title, summary, priority | **BLOCKED** (CREATE_ONLY) | `content_append` only | Yes | Yes |
+| `snapshot` | archive | **ALL BLOCKED** | **ALL BLOCKED** | **BLOCKED** (`ARCHIVE_FROZEN`) | **BLOCKED** | **BLOCKED** |
+| `restart` | any non-archive | title, summary, priority | **BLOCKED** (CREATE_ONLY) | `content_append` only | Yes | Yes |
+| `restart` | archive | **ALL BLOCKED** | **ALL BLOCKED** | **BLOCKED** (`ARCHIVE_FROZEN`) | **BLOCKED** | **BLOCKED** |
+| `instruction_pack` | any | title, summary, priority | **BLOCKED** (CREATE_ONLY) | merge/replace | N/A | Yes |
+| `branch` | any | title, summary, priority | Ack without write | merge/replace | N/A | Yes |
+| `leaf` | any | title, summary, priority | Ack without write | merge/replace | N/A | Yes |
+| `limb` | any | title, summary, priority | Ack without write | merge/replace | N/A | Yes |
+| `twig` | proposed/active | title, summary, priority | Ack (lifecycle via Check_Mutability_Rules) | merge/replace | N/A | Yes |
+| `twig` | promoted/pruned | **ALL BLOCKED** (`INVALID_TRANSITION`) | **BLOCKED** | **BLOCKED** | N/A | **BLOCKED** |
 
 ### 10.3 Spine Field Mutability
 
@@ -1395,7 +1550,7 @@ Lists soft-deleted artifacts of a given type.
 | `updated_at` | Database trigger (automatic) | N/A |
 | `execution_status` | artifact.save UPDATE path only (NOT via artifact.update) | N/A |
 | `parent_artifact_id` | artifact.save UPDATE path only | N/A |
-| `content` | artifact.save UPDATE path only | N/A |
+| `content` | artifact.update: `content` merge/replace (mutable types), `content_append` (immutable types). Also: artifact.save UPDATE path. | Blocked at `archive` (`ARCHIVE_FROZEN`) |
 | `artifact_type` | **NEVER** (immutable identity) | N/A |
 | `workspace_id` | **NEVER** (immutable identity) | N/A |
 | `owner_user_id` | **NEVER** (immutable identity) | N/A |
@@ -1438,4 +1593,4 @@ Lists soft-deleted artifacts of a given type.
 
 ---
 
-**End of Canonical Reference v5**
+**End of Canonical Reference v5.2**

@@ -8,7 +8,8 @@
     "artifact_type": "journal",
     "title": "[P2C-CERT] Child Journal for QPM Gate",
     "parent_artifact_id": "{{PROJECT_ID}}",
-    "tags": ["phase2c-cert"],
+    "tags": ["phase2c-cert", "{{RUN_TAG}}"],
+    "semantic_type_id": "infrastructure",
     "extension": { "entry_text": "Linked journal child — satisfies QPM seed_to_sapling gate." }
   }
 }

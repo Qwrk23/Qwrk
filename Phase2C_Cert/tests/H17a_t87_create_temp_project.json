@@ -13,7 +13,8 @@
     "artifact_type": "project",
     "title": "[T87-CERT] Temp Project for Delete Test",
     "tags": [
-      "t87-cert-temp"
+      "t87-cert-temp",
+      "{{RUN_TAG}}"
     ],
     "extension": {
       "lifecycle_stage": "seed"

@@ -6,7 +6,7 @@ $headers = @{
     "Content-Type"  = "application/json"
 }
 
-$cloneUrl = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1/acl-test"
+$cloneUrl = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v2"
 
 function Run-Test {
     param([string]$Name, [string]$Body, [int]$ExpectedStatus)

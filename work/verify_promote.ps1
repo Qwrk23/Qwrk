@@ -18,7 +18,7 @@ foreach ($artifact in $artifacts) {
         hydrate = $true
     } | ConvertTo-Json
 
-    $response = Invoke-RestMethod -Uri "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1" -Method POST -Body $queryBody -ContentType "application/json" -Headers $headers
+    $response = Invoke-RestMethod -Uri "https://n8n.halosparkai.com/webhook/nqxb/gateway/v2" -Method POST -Body $queryBody -ContentType "application/json" -Headers $headers
     $a = $response.data.artifact
 
     Write-Host "Artifact: $($a.title)"

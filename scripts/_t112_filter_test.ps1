@@ -1,7 +1,7 @@
 # T112 Filter Validation Tests
 param([string]$Test = "all")
 
-$gatewayUrl = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1"
+$gatewayUrl = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v2"
 $workspaceId = "be0d3a48-c764-44f9-90c8-e846d9dbbd0a"
 $credential = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("qwrk-gateway:aslfja'wwe*(#fhwoII843ghlw_ek2l"))
 $headers = @{ "Authorization" = "Basic $credential"; "Content-Type" = "application/json" }

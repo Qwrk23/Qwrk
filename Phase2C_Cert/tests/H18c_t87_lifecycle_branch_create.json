@@ -10,7 +10,8 @@
     "artifact_type": "branch",
     "title": "[T87-CERT] Lifecycle Branch",
     "tags": [
-      "t87-lifecycle-cert"
+      "t87-lifecycle-cert",
+      "{{RUN_TAG}}"
     ],
     "parent_artifact_id": "{{H_LIFE_PROJECT_ID}}"
   }

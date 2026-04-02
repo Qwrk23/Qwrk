@@ -7,7 +7,7 @@ $before = $resp1.data.Count
 Write-Host "Branch count BEFORE: $before" -ForegroundColor Cyan
 
 # Run A3 save
-$GatewayUrl = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1"
+$GatewayUrl = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v2"
 $Credential = [System.Convert]::ToBase64String(
     [System.Text.Encoding]::ASCII.GetBytes("qwrk-gateway:aslfja'wwe*(#fhwoII843ghlw_ek2l")
 )

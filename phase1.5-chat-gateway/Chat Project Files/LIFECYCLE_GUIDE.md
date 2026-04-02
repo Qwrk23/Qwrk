@@ -87,6 +87,19 @@ The Gateway will:
 
 ---
 
+## Content Mutability by Stage (T140)
+
+| Stage | `content` (merge/replace) | `content_append` | Tags/Spine |
+|-------|--------------------------|-------------------|------------|
+| Seed | Mutable types only | Immutable types only | Allowed |
+| Sapling | Mutable types only | Immutable types only | Allowed |
+| Tree | Mutable types only | Immutable types only | Allowed (title frozen) |
+| Archive | **BLOCKED** | **BLOCKED** | **BLOCKED** |
+
+Archive = fully frozen. No content mutations of any kind.
+
+---
+
 ## Best Practices
 
 1. **Don't rush promotions** - Let projects earn their stage
@@ -112,4 +125,4 @@ The extension will show current `lifecycle_stage`.
 
 ---
 
-*CHANGELOG: v2 (2026-02-18): Removed "Oak" stage (not in canonical lifecycle — stages are seed/sapling/tree/archive). Replaced Telegram NL promote commands with JSON Gateway payloads. Replaced "Telegram bot" references with "Gateway". Added JSON list/query examples. Previous version: included 5 stages and Telegram command syntax.*
+*CHANGELOG: v3 (2026-03-26): Added Content Mutability by Stage table (T140) — archive freeze covers content and content_append. Previous: `Archive/LIFECYCLE_GUIDE__v2__2026-03-26.md`. v2 (2026-02-18): Removed "Oak" stage (not in canonical lifecycle — stages are seed/sapling/tree/archive). Replaced Telegram NL promote commands with JSON Gateway payloads. Replaced "Telegram bot" references with "Gateway". Added JSON list/query examples. Previous version: included 5 stages and Telegram command syntax.*

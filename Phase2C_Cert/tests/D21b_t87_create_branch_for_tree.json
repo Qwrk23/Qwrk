@@ -10,7 +10,8 @@
     "artifact_type": "branch",
     "title": "[T87-CERT] Design Spine Branch",
     "tags": [
-      "t87-design-spine-cert"
+      "t87-design-spine-cert",
+      "{{RUN_TAG}}"
     ],
     "parent_artifact_id": "{{D_DS_PROJECT_ID}}"
   }

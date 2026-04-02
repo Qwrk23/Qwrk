@@ -13,7 +13,7 @@ param(
     [string]$Test = "all"  # all, S1, S2, S3, S4, S5, S6
 )
 
-$GatewayUrl = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1"
+$GatewayUrl = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v2"
 $WorkspaceId = "be0d3a48-c764-44f9-90c8-e846d9dbbd0a"
 $Credential = [System.Convert]::ToBase64String(
     [System.Text.Encoding]::ASCII.GetBytes("qwrk-gateway:aslfja'wwe*(#fhwoII843ghlw_ek2l")

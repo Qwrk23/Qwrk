@@ -5,7 +5,7 @@
 
 param([switch]$CleanupOnly)
 
-$gatewayUrl = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1"
+$gatewayUrl = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v2"
 $workspaceId = "be0d3a48-c764-44f9-90c8-e846d9dbbd0a"
 $semTypeId = "f65bd1a8-7720-4d7b-942c-ce8e2132b365"
 $cred = "qwrk-gateway:aslfja'wwe*(#fhwoII843ghlw_ek2l"

@@ -4,54 +4,59 @@
 
 | Field | Value |
 |-------|-------|
-| Session ID | 080 |
-| Date | 2026-03-11 |
-| Type | Execution (Frita Voice Enhancement) |
+| Session ID | 124 |
+| Date | 2026-04-01 |
+| Type | Subsession — Thread Triage, Documentation Alignment & Closures |
 | Execution Surface | Claude Code (VSCode) |
 
 ## Session Context
 
-Light session. Ran full session start protocol (rolling memory sync for both workspaces, for-cc sweep). Main work: added employee ID gather step to Frita Voice Handle v5 password reset path. Reviewed workflow, planned change, executed, Joel tested and confirmed working.
+Quick-start subsession. Focused on thread hygiene (6 closures) and two documentation handoff executions (T160, T166). No Gateway, schema, or workflow changes. All work was instruction pack and canonical doc alignment.
 
 ## Thread Inventory
 
-| ID | Thread | Status | Notes |
-|----|--------|--------|-------|
-| T22 | Frita Voice — WALK Identity-First | In-Progress | Employee ID gather step added to password reset path. Handle v5 updated and tested. |
-| -- | for-cc: Unified Gateway Identity & Workspace Resolution | Presented | 4 artifacts (`3d9427d2`, `d774c054`, `fff468af`, `56020679`). Presented at session start; not converted to thread (Joel did not act on it). |
+| Thread | Status | Resolution |
+|--------|--------|------------|
+| T171 — Destructive Operation Safety | **Complete** | 3-layer defense model verified and closed |
+| T160 — Canonical v5 Content Update | **Complete** | Canonical v5.1→v5.2. T140 content system documented (9 surgical edits). Archived v5.1. |
+| T140 — Gateway Content Field Update Path | **Complete** | All 4 branches certified, 8/8 doc packs aligned. Last dependency (T160) shipped. |
+| T168 — Gateway Read Path Alignment | **Closed** | Deferred without implementation. WSY complete, Option A documented. Closure snapshot `0c50c7e0`. |
+| T133 — Gateway UPDATE Failure | **Closed** | Stale — source artifact soft-deleted, no reproduction context. Bug class likely resolved by hardening sprint. |
+| T166 — Navigation Snapshot for Sapling Hydration | **Complete** | Discovery Playbook v1.1→v1.2 (MUST-use enforcement). Quick Reference v8→v9 (deterministic hydration note). QPM Build Process already at v1.2 (no changes needed). |
 
 ## Decisions Locked
 
-1. **Employee ID gather uses query param `step` for callback routing** — Handle v5 re-enters itself with `?step=empid_collected` to bypass the Switch node on the second roundtrip.
-2. **Any employee ID input passes** — no validation, purely for demo UX flow.
-3. **TwiML Ask Employee ID is a terminal node** — no side-effects after the gather response; side-effects (SMS) happen on the callback roundtrip.
+- T168 closed without implementation — architectural hygiene only, no user impact, can rehydrate if needed
+- T133 closed as stale — no reproduction context, bug class addressed by hardening
 
 ## Constraints Discovered
 
-None new this session.
+- QPM Build Process v1.2 already had T166 governance applied (by Q in session 117) — only Discovery Playbook and Quick Reference needed updates
 
 ## Files Touched
 
 ### Created
-- `Frita_Voice/Workflows/Archive/Frita – Voice Handle v5__pre-empid__2026-03-11.json` (archived pre-edit version)
-- `sessions/Archive/LATEST_END_SESSION__079.md`
+- `phase1.5-chat-gateway/Chat Project Files/Archive/Qwrk_Gateway_Payload_Canonical_v5__v5.1__2026-04-01.md`
+- `phase1.5-chat-gateway/Chat Project Files/Archive/Instruction_Pack__Artifact_Discovery_Playbook__v1.1__2026-04-01.md`
+- `phase1.5-chat-gateway/Chat Project Files/Archive/QUICK_REFERENCE__v8__2026-04-01.md`
 
 ### Modified
-- `Frita_Voice/Workflows/Frita – Voice Handle v5.json` (added Step Check? IF node, TwiML Ask Employee ID node, step field in Extract State)
-- `sessions/OPEN_THREADS.md` (T22 updated)
-- `sessions/LATEST_END_SESSION.md` (this file)
+- `phase1.5-chat-gateway/Chat Project Files/Qwrk_Gateway_Payload_Canonical_v5.md` (v5.1→v5.2)
+- `phase1.5-chat-gateway/Chat Project Files/Instruction_Pack__Artifact_Discovery_Playbook__v1.md` (v1.1→v1.2)
+- `phase1.5-chat-gateway/Chat Project Files/QUICK_REFERENCE.md` (v8→v9)
+- `sessions/OPEN_THREADS.md` (6 threads closed)
 
 ## Open Questions
 
-- for-cc Unified Gateway Identity workstream (`3d9427d2` + 3 snapshots) — convert to thread next session?
-- Prime rolling memory stale by 25 artifacts — regenerate next session if governance work planned
+None.
 
 ## Resume Instructions
 
-**Option A (Directed):** Await direction from Joel.
+**Option B — Open.** No directed next action. Active surface has 16 open threads remaining (6 High, 7 Medium, 1 Low, plus 2 completed-but-not-yet-cleaned strikethroughs).
 
-**Option B (T120):** Execute SI Update — Extension Persistence Rule + Seed Planting Protocol across 5 workspace SIs. Approved and ready.
+**Pending uploads to ChatGPT project files:**
+- Canonical v5.2
+- Discovery Playbook v1.2
+- Quick Reference v9
 
-**Option C (T118 Debug):** Resume parent_artifact_id Update Path debug — Joel needs to verify Normalize_Request code in n8n UI first.
-
-**Option D (Maintenance):** Regenerate Prime rolling memory (25 artifacts behind). Or convert Unified Gateway Identity for-cc items to thread.
+**Previous session:** `sessions/Archive/LATEST_END_SESSION__123.md`

@@ -28,11 +28,12 @@
     Path to results output directory. Default: ./results/t51
 #>
 param(
-    [string]$GatewayUrl = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1",
+    [string]$GatewayUrl = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v2",
     [string]$WorkspaceId = "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
     [string]$CredentialString = $env:QWRK_GW_CREDENTIAL,
     [string]$TestDir = "$PSScriptRoot/tests",
-    [string]$ResultDir = "$PSScriptRoot/results/t51"
+    [string]$ResultDir = "$PSScriptRoot/results/t51",
+    [switch]$RetainArtifacts
 )
 
 # --- Credential Setup ---
@@ -59,7 +60,9 @@ if (-not (Test-Path $rawDir)) {
 
 # --- Runtime State ---
 $RunTimestamp = (Get-Date).ToString("yyyy-MM-dd_HH-mm-ss")
-$captured = @{ "WORKSPACE_ID" = $WorkspaceId }
+$RunId = "t51-cert-$RunTimestamp"
+$captured = @{ "WORKSPACE_ID" = $WorkspaceId; "RUN_TAG" = "run:$RunId" }
+$createdArtifactIds = @()
 $results = @()
 $aborted = $false
 $abortReason = ""
@@ -221,6 +224,7 @@ if ($needsSnapshot) {
     $snapshotResp = Invoke-GatewayCall $snapshotPayload
     if ($snapshotResp.Body.ok) {
         $captured["SNAPSHOT_ID"] = $snapshotResp.Body.artifact_id
+        $createdArtifactIds += $snapshotResp.Body.artifact_id.ToString()
         Write-Host "  Snapshot created: $($captured['SNAPSHOT_ID'])" -ForegroundColor DarkGreen
     }
     else {
@@ -288,6 +292,9 @@ foreach ($file in $testFiles) {
             $val = Get-ResponseField $resp.Body $prop.Value
             if ($val) {
                 $captured[$prop.Name] = $val.ToString()
+                if ($prop.Value -eq "artifact_id") {
+                    $createdArtifactIds += $val.ToString()
+                }
             }
         }
     }
@@ -410,6 +417,134 @@ foreach ($target in $verifyTargets) {
         $failCount++
         $totalTests++
     }
+}
+
+# ============================================================
+# Cleanup Phase — Soft-Delete Test Artifacts
+# ============================================================
+
+if (-not $RetainArtifacts) {
+    Write-Host ""
+    Write-Host "--- Cleanup Phase ---" -ForegroundColor Cyan
+
+    if ($createdArtifactIds.Count -eq 0) {
+        Write-Host "  No artifacts to clean up." -ForegroundColor DarkGray
+    }
+    else {
+        Write-Host "  Cleaning up $($createdArtifactIds.Count) test artifacts..." -ForegroundColor Yellow
+        $cleanupPass = 0
+        $cleanupFail = 0
+
+        foreach ($artifactId in $createdArtifactIds) {
+            $deletePayload = @{
+                gw_action       = "artifact.delete"
+                gw_workspace_id = $WorkspaceId
+                artifact_id     = $artifactId
+            } | ConvertTo-Json -Depth 5
+
+            $deleteResult = Invoke-GatewayCall $deletePayload
+
+            if ($deleteResult.Body.ok) {
+                $cleanupPass++
+                $shortId = $artifactId.Substring(0, 8)
+                Write-Host "    [DEL] $shortId" -ForegroundColor DarkGray
+            }
+            else {
+                $cleanupFail++
+                $errCode = if ($deleteResult.Body.error) { $deleteResult.Body.error.code } else { "UNKNOWN" }
+                $shortId = $artifactId.Substring(0, 8)
+                Write-Host "    [FAIL] $shortId ($errCode)" -ForegroundColor Red
+            }
+
+            Start-Sleep -Milliseconds 300
+        }
+
+        Write-Host "  [CLEANUP] Primary cleanup complete: $cleanupPass artifacts deleted" -ForegroundColor $(
+            if ($cleanupFail -eq 0) { "Green" } else { "Yellow" }
+        )
+        if ($cleanupFail -gt 0) {
+            Write-Host "  [CLEANUP] Primary cleanup failures: $cleanupFail" -ForegroundColor Yellow
+        }
+    }
+
+    # --- Fallback Cleanup by RUN_TAG ---
+    Write-Host ""
+    Write-Host "  --- Fallback Cleanup (RUN_TAG sweep) ---" -ForegroundColor Cyan
+
+    $runTag = $captured["RUN_TAG"]
+    $fallbackTypes = @("journal", "project", "snapshot", "instruction_pack")
+    $fallbackDeleted = 0
+    $fallbackErrors = 0
+
+    foreach ($aType in $fallbackTypes) {
+        $listPayload = @{
+            gw_action       = "artifact.list"
+            gw_workspace_id = $WorkspaceId
+            artifact_type   = $aType
+            selector        = @{
+                tags  = @($runTag)
+                limit = 100
+            }
+        } | ConvertTo-Json -Depth 5
+
+        $listResult = Invoke-GatewayCall $listPayload
+
+        # Extract artifacts from response (handle both envelope shapes)
+        $artifacts = @()
+        if ($listResult.Body.data -and $listResult.Body.data.artifacts) {
+            $artifacts = @($listResult.Body.data.artifacts)
+        }
+        elseif ($listResult.Body.artifacts) {
+            $artifacts = @($listResult.Body.artifacts)
+        }
+
+        foreach ($art in $artifacts) {
+            $artId = if ($art.artifact_id) { $art.artifact_id.ToString() } else { $null }
+            if (-not $artId) { continue }
+
+            $deletePayload = @{
+                gw_action       = "artifact.delete"
+                gw_workspace_id = $WorkspaceId
+                artifact_id     = $artId
+            } | ConvertTo-Json -Depth 5
+
+            $deleteResult = Invoke-GatewayCall $deletePayload
+
+            if ($deleteResult.Body.ok) {
+                $fallbackDeleted++
+                $shortId = $artId.Substring(0, 8)
+                Write-Host "    [FALLBACK-DEL] $shortId ($aType)" -ForegroundColor DarkYellow
+            }
+            else {
+                $fallbackErrors++
+                $errCode = if ($deleteResult.Body.error) { $deleteResult.Body.error.code } else { "UNKNOWN" }
+                if ($errCode -eq "ALREADY_DELETED" -or $errCode -eq "NOT_FOUND") {
+                    $fallbackErrors--
+                }
+                else {
+                    $shortId = $artId.Substring(0, 8)
+                    Write-Host "    [FALLBACK-FAIL] $shortId ($errCode)" -ForegroundColor Red
+                }
+            }
+
+            Start-Sleep -Milliseconds 200
+        }
+    }
+
+    if ($fallbackDeleted -eq 0) {
+        Write-Host "  [CLEANUP] Fallback: no residual artifacts found" -ForegroundColor Green
+    }
+    else {
+        Write-Host "  [CLEANUP] Fallback removed $fallbackDeleted additional artifacts" -ForegroundColor DarkYellow
+        if ($fallbackErrors -gt 0) {
+            Write-Host "  [CLEANUP] Fallback errors: $fallbackErrors" -ForegroundColor Red
+        }
+    }
+}
+else {
+    Write-Host ""
+    Write-Host "--- Cleanup SKIPPED (-RetainArtifacts) ---" -ForegroundColor Yellow
+    Write-Host "  Run tag: $($captured['RUN_TAG'])" -ForegroundColor DarkGray
 }
 
 # ============================================================

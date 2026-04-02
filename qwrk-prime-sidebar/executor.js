@@ -44,11 +44,72 @@ QSB.executor = {
       "Payload action: " + (payload.gw_action || "unknown")
     );
 
+    // Inject workspace_id from profile if present (beta profiles)
+    var sendPayload = {};
+    for (var key in payload) {
+      if (payload.hasOwnProperty(key)) {
+        sendPayload[key] = payload[key];
+      }
+    }
+    if (profile.workspace_id && !sendPayload.gw_workspace_id) {
+      sendPayload.gw_workspace_id = profile.workspace_id;
+    }
+
+    // --- Cross-Workspace Write Gate -------------------------------------------
+    // If the payload targets a workspace other than the profile's home workspace
+    // AND the action is a write, require explicit user confirmation before send.
+    var writeActions = [
+      "artifact.save",
+      "artifact.update",
+      "artifact.promote",
+      "artifact.delete",
+      "artifact.restore",
+      "messaging.send_email",
+      "messaging.create_calendar_event"
+    ];
+
+    var payloadAction = (sendPayload.gw_action || "").trim();
+    var targetWorkspace = (sendPayload.gw_workspace_id || "").trim();
+    var homeWorkspace = (profile.home_workspace_id || "").trim();
+
+    if (
+      homeWorkspace &&
+      targetWorkspace &&
+      targetWorkspace !== homeWorkspace &&
+      writeActions.indexOf(payloadAction) !== -1
+    ) {
+      var targetName = (QSB.workspaceNames && QSB.workspaceNames[targetWorkspace])
+        ? QSB.workspaceNames[targetWorkspace] + " (" + targetWorkspace + ")"
+        : targetWorkspace;
+
+      var approved = confirm(
+        "Cross-workspace write detected.\n\n" +
+        "Action: " + payloadAction + "\n" +
+        "Target: " + targetName + "\n\n" +
+        "Approve?"
+      );
+
+      if (!approved) {
+        QSB.state.logEntry({
+          timestamp: new Date(),
+          success: false,
+          action: payloadAction,
+          message: "Cross-workspace write BLOCKED by user",
+          rawResponse: null
+        });
+
+        QSB.state.isExecuting = false;
+        QSB.ui.render();
+        return;
+      }
+    }
+    // --- End Cross-Workspace Write Gate ---------------------------------------
+
     // Send to background service worker
     chrome.runtime.sendMessage(
       {
         type: "QSB_EXECUTE",
-        payload: payload,
+        payload: sendPayload,
         profile: {
           endpoint: profile.endpoint,
           credential: profile.credential,

@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Continue'
-$gatewayUrl = 'https://n8n.halosparkai.com/webhook/nqxb/gateway/v1'
+$gatewayUrl = 'https://n8n.halosparkai.com/webhook/nqxb/gateway/v2'
 $cred = "qwrk-gateway:aslfja'wwe*(#fhwoII843ghlw_ek2l"
 $b64 = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($cred))
 $headers = @{ Authorization = "Basic $b64" }

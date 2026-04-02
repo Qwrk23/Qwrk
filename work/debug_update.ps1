@@ -1,5 +1,5 @@
 # Debug: test artifact.update on snapshot with tags.add
-$gatewayUrl = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1"
+$gatewayUrl = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v2"
 $credential = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("qwrk-gateway:aslfja'wwe*(#fhwoII843ghlw_ek2l"))
 
 $body = @{

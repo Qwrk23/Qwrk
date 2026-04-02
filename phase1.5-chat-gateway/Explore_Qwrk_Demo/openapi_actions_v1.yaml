@@ -1,0 +1,156 @@
+openapi: 3.1.0
+info:
+  title: Explore Qwrk Demo API
+  description: >
+    API for the Explore Qwrk demo CustomGPT. Supports saving, listing,
+    and querying artifacts in an isolated demo workspace.
+  version: "1.0.0"
+
+servers:
+  - url: https://n8n.halosparkai.com
+    description: Qwrk n8n webhook host
+
+paths:
+  /webhook/nqxb/demo/v1:
+    post:
+      operationId: demoAction
+      summary: Execute a demo action (save, list, or query artifacts)
+      description: >
+        Single endpoint for all demo operations. The `action` field
+        determines the operation. All artifacts are scoped to the
+        isolated demo workspace automatically.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum:
+                    - artifact.save
+                    - artifact.list
+                    - artifact.query
+                  description: >
+                    The operation to perform.
+                    Use "artifact.save" to create a new artifact.
+                    Use "artifact.list" to browse artifacts by type.
+                    Use "artifact.query" to retrieve a specific artifact by ID.
+                artifact_type:
+                  type: string
+                  enum:
+                    - journal
+                    - project
+                    - snapshot
+                  description: >
+                    Type of artifact. Required for all actions.
+                    journal = reflective entry, project = idea or initiative,
+                    snapshot = immutable decision capture.
+                title:
+                  type: string
+                  maxLength: 200
+                  description: >
+                    Title of the artifact. Required for artifact.save.
+                    Max 200 characters.
+                summary:
+                  type: string
+                  maxLength: 1000
+                  description: >
+                    Brief summary. Recommended for artifact.save.
+                    Max 1000 characters.
+                content:
+                  type: object
+                  description: >
+                    Optional structured content (JSON object, max 4KB serialized).
+                    Used for artifact.save only. Useful for snapshot decision
+                    payloads or rich journal content.
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  description: >
+                    Optional tags for artifact.save. Demo tags are added
+                    automatically. Max 10 total tags.
+                artifact_id:
+                  type: string
+                  description: >
+                    UUID of the artifact to retrieve. Required for artifact.query.
+                limit:
+                  type: integer
+                  description: >
+                    Maximum number of results for artifact.list.
+                    Default 10, max 20.
+                offset:
+                  type: integer
+                  description: >
+                    Pagination offset for artifact.list. Default 0.
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    description: Whether the operation succeeded
+                  artifact_id:
+                    type: string
+                    description: UUID of the created artifact (artifact.save only)
+                  artifact_type:
+                    type: string
+                    description: Type of artifact
+                  title:
+                    type: string
+                    description: Title of the artifact
+                  message:
+                    type: string
+                    description: Friendly confirmation message (artifact.save only)
+                  artifacts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        artifact_id:
+                          type: string
+                        artifact_type:
+                          type: string
+                        title:
+                          type: string
+                        summary:
+                          type: string
+                        tags:
+                          type: array
+                          items:
+                            type: string
+                        created_at:
+                          type: string
+                    description: Array of matching artifacts (artifact.list only)
+                  count:
+                    type: integer
+                    description: Number of artifacts returned (artifact.list only)
+                  artifact:
+                    type: object
+                    description: Full artifact details (artifact.query only)
+        '400':
+          description: Validation or enforcement error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        description: Machine-readable error code
+                      message:
+                        type: string
+                        description: Human-readable error message

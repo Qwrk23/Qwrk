@@ -1,13 +1,23 @@
-{
-  "name": "B01 — Fuzz: Stringified Extension (belt-and-suspenders recovery)",
-  "expected": { "ok": true, "error_code": null },
-  "capture": { "FUZZ_JOURNAL_ID": "artifact_id" },
-  "payload": {
-    "gw_action": "artifact.save",
-    "gw_workspace_id": "{{WORKSPACE_ID}}",
-    "artifact_type": "journal",
-    "title": "[P2C-CERT] Fuzz — Stringified Extension",
-    "tags": ["phase2c-cert", "fuzz"],
-    "extension": "{\"entry_text\": \"Stringified extension — belt-and-suspenders recovery test\"}"
-  }
+﻿{
+    "name":  "B01 â€” Fuzz: Stringified Extension (belt-and-suspenders recovery)",
+    "expected":  {
+                     "ok":  true,
+                     "error_code":  null
+                 },
+    "capture":  {
+                    "FUZZ_JOURNAL_ID":  "artifact_id"
+                },
+    "payload":  {
+                    "gw_action":  "artifact.save",
+                    "gw_workspace_id":  "{{WORKSPACE_ID}}",
+                    "artifact_type":  "journal",
+                    "title":  "[P2C-CERT] Fuzz â€” Stringified Extension",
+                    "tags":  [
+                                 "phase2c-cert",
+                                 "fuzz",
+                                 "{{RUN_TAG}}"
+                             ],
+                    "extension":  "{\"entry_text\": \"Stringified extension â€” belt-and-suspenders recovery test\"}",
+                    "semantic_type_id":  "infrastructure"
+                }
 }

@@ -13,7 +13,8 @@
     "artifact_type": "journal",
     "title": "[T87-CERT] Journal Immutability Test",
     "tags": [
-      "t87-cert"
+      "t87-cert",
+      "{{RUN_TAG}}"
     ],
     "extension": {
       "entry_text": "T87 journal for INSERT_ONLY verification"

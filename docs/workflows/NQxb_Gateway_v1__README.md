@@ -3,7 +3,7 @@
 **Version**: v1.3 (artifact.save enabled)
 **Date**: 2026-01-04
 **Status**: Active (Production)
-**Endpoint**: `POST https://n8n.halosparkai.com/webhook/nqxb/gateway/v1`
+**Endpoint**: `POST https://n8n.halosparkai.com/webhook/nqxb/gateway/v2`
 
 ---
 

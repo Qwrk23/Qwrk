@@ -14,7 +14,8 @@
     "title": "[T87-CERT] Lifecycle Governance Test Project",
     "summary": "Pre-filled summary for QPM seed-to-sapling gate",
     "tags": [
-      "t87-lifecycle-cert"
+      "t87-lifecycle-cert",
+      "{{RUN_TAG}}"
     ],
     "extension": {
       "lifecycle_stage": "seed"

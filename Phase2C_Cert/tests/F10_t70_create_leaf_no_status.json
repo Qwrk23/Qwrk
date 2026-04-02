@@ -8,6 +8,6 @@
     "artifact_type": "leaf",
     "title": "[T70-CERT] Leaf 3 — No Status",
     "parent_artifact_id": "{{T70_BRANCH_ID}}",
-    "tags": ["t70-cert"]
+    "tags": ["t70-cert", "{{RUN_TAG}}"]
   }
 }

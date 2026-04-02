@@ -8,7 +8,7 @@ $headers = @{
 
 $body = '{"gw_action":"artifact.list","gw_workspace_id":"be0d3a48-c764-44f9-90c8-e846d9dbbd0a","artifact_type":"project","selector":{"limit":1}}'
 
-$url = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v1/acl-test"
+$url = "https://n8n.halosparkai.com/webhook/nqxb/gateway/v2"
 
 Write-Host "URL: $url"
 Write-Host "Body: $body"

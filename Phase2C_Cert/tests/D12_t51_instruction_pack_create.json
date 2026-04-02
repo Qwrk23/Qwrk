@@ -7,7 +7,7 @@
     "gw_workspace_id": "{{WORKSPACE_ID}}",
     "artifact_type": "instruction_pack",
     "title": "[T51-CERT] Instruction Pack Immutability Test",
-    "tags": ["t51-cert"],
+    "tags": ["t51-cert", "{{RUN_TAG}}"],
     "extension": {
       "scope": "t51-cert",
       "active": true,
