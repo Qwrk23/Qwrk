@@ -617,6 +617,13 @@ This SQL must not drift unless DDL schema changes require it.
 - Event log is append-only (triggers block UPDATE/DELETE)
 - Do NOT create UPDATE/DELETE policies for extension tables of immutable types
 
+**Destructive Operations Discipline (Session 125 incident — PERMANENT):**
+- NEVER use `git checkout --`, `git restore`, or `git reset --hard` on files with uncommitted working-tree changes — this destroyed OPEN_THREADS.md (3 weeks of session data) in session 125
+- Before editing CLAUDE.md or OPEN_THREADS.md: create a physical backup copy (`<filename>__BACKUP__<date>.md`)
+- Commit session files (OPEN_THREADS.md, LATEST_END_SESSION.md, CLAUDE.md) at every session end
+- ExitPlanMode does NOT equal execution approval when external review (Manus, Q) is specified — execution waits for review feedback
+- When reverting CC's own edits: use Edit tool to reverse specific changes, never destructive git commands
+
 **Schema Integrity:**
 - Always validate workspace membership before artifact operations
 - Respect artifact ownership for private types (journal)
