@@ -1,0 +1,139 @@
+{
+  "scenario_id": "servicenow-agent-assist-v1",
+  "name": "ServiceNow Agent Assist with Rita",
+  "persona": "IT Help Desk Agent handling a VPN access issue",
+  "steps": [
+    {
+      "step_id": "sn-step-001",
+      "type": "instruction",
+      "title": "Welcome & Context",
+      "description": "Welcome to the guided PoV. You'll experience how Rita assists ServiceNow agents in real time. Over the next few steps, you'll navigate to the Agent Workspace, create an incident, and observe Rita providing intelligent suggestions -- all without leaving your workflow.",
+      "ui": {
+        "cta_label": "Get Started",
+        "show_next": true
+      },
+      "action": {
+        "endpoint": null,
+        "method": null,
+        "payload": {}
+      },
+      "completion": {
+        "type": "manual",
+        "success_signal": null
+      },
+      "value": {
+        "message": null
+      }
+    },
+    {
+      "step_id": "sn-step-002",
+      "type": "action",
+      "title": "Navigate to Agent Workspace",
+      "description": "Open the ServiceNow Agent Workspace. This is where agents handle incoming incidents and requests. Click the button below to open it in a new tab.",
+      "ui": {
+        "cta_label": "Open Agent Workspace",
+        "show_next": true
+      },
+      "action": {
+        "endpoint": "https://dev324276.service-now.com/now/workspace/agent/home",
+        "method": "GET",
+        "payload": {}
+      },
+      "completion": {
+        "type": "manual",
+        "success_signal": null
+      },
+      "value": {
+        "message": null
+      }
+    },
+    {
+      "step_id": "sn-step-003",
+      "type": "action",
+      "title": "Create New Incident",
+      "description": "Create a new incident for a VPN access issue. In the Agent Workspace, click 'New Incident' and fill in the following: Short Description: 'Unable to connect to corporate VPN from remote location'. Category: Network. Impact: Medium. Urgency: Medium. Submit the incident to proceed.",
+      "ui": {
+        "cta_label": "I've Created the Incident",
+        "show_next": true
+      },
+      "action": {
+        "endpoint": null,
+        "method": null,
+        "payload": {}
+      },
+      "completion": {
+        "type": "manual",
+        "success_signal": null
+      },
+      "value": {
+        "message": null
+      }
+    },
+    {
+      "step_id": "sn-step-004",
+      "type": "observation",
+      "title": "Observe Rita Assist",
+      "description": "Watch Rita provide real-time suggestions and context to the agent. As the incident is created, Rita analyzes the issue type, surfaces relevant knowledge articles, and suggests resolution steps. Notice the assist panel populated with contextual guidance -- this happens automatically, with no manual lookup required.",
+      "ui": {
+        "cta_label": "I've Observed Rita's Suggestions",
+        "show_next": true
+      },
+      "action": {
+        "endpoint": "https://ritapov2.espressive.com/v2/chat/",
+        "method": "POST",
+        "payload": {}
+      },
+      "completion": {
+        "type": "api_response",
+        "success_signal": "rita_response_received"
+      },
+      "value": {
+        "message": "Rita detected the VPN issue category, matched it against known resolution patterns, and surfaced the top 3 most relevant knowledge articles -- all within seconds of incident creation."
+      }
+    },
+    {
+      "step_id": "sn-step-005",
+      "type": "explanation",
+      "title": "Highlight Automation Value",
+      "description": "Here's what just happened: Rita detected the issue type from the incident description, surfaced relevant knowledge articles from your existing knowledge base, and suggested resolution steps -- automatically. The agent didn't need to search, browse, or guess. Rita brought the right context to the right moment.",
+      "ui": {
+        "cta_label": "Continue to Summary",
+        "show_next": true
+      },
+      "action": {
+        "endpoint": null,
+        "method": null,
+        "payload": {}
+      },
+      "completion": {
+        "type": "manual",
+        "success_signal": null
+      },
+      "value": {
+        "message": "Traditional workflow: agent manually searches knowledge base (2-5 minutes). With Rita: contextual suggestions appear instantly, reducing handle time by up to 40%."
+      }
+    },
+    {
+      "step_id": "sn-step-006",
+      "type": "explanation",
+      "title": "Business Value Summary",
+      "description": "Summary of value demonstrated: Faster resolution -- agents get contextual help instantly instead of searching manually. Consistent quality -- every agent gets the same high-quality suggestions regardless of experience level. Reduced training burden -- new agents ramp faster with Rita guiding them in real time. Measurable ROI -- fewer escalations, shorter handle times, higher first-contact resolution rates.",
+      "ui": {
+        "cta_label": "Complete PoV",
+        "show_next": false
+      },
+      "action": {
+        "endpoint": null,
+        "method": null,
+        "payload": {}
+      },
+      "completion": {
+        "type": "manual",
+        "success_signal": null
+      },
+      "value": {
+        "message": "Key metrics to track: Mean Time to Resolution (MTTR), First Contact Resolution (FCR), Agent Ramp Time, Escalation Rate. Rita targets 30-40% improvement across these KPIs."
+      }
+    }
+  ]
+}

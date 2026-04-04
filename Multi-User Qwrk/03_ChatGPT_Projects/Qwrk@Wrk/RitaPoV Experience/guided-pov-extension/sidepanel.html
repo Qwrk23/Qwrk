@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rita PoV Guide</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+
+  <!-- Welcome Screen -->
+  <div id="screen-welcome" class="screen active">
+    <div class="welcome-container">
+      <div class="welcome-logo">R</div>
+      <h1 class="welcome-title">Rita PoV Guide</h1>
+      <p class="welcome-subtitle">Experience intelligent ServiceNow automation, step by step.</p>
+      <p class="welcome-body">This guided walkthrough demonstrates real automation scenarios. You will see exactly what happens, why it matters, and the value it delivers.</p>
+      <button id="btn-start" class="btn-primary">Start Experience</button>
+    </div>
+  </div>
+
+  <!-- Step Screen -->
+  <div id="screen-step" class="screen">
+    <div class="step-header">
+      <div class="progress-section">
+        <div class="progress-label">
+          <span id="progress-text">Step 1 of 6</span>
+          <span id="scenario-name" class="scenario-badge"></span>
+        </div>
+        <div class="progress-bar-track">
+          <div id="progress-bar-fill" class="progress-bar-fill" style="width: 0%"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step-body">
+      <div class="step-type-row">
+        <span id="step-type-badge" class="step-type-badge">instruction</span>
+      </div>
+      <h2 id="step-title" class="step-title"></h2>
+      <p id="step-description" class="step-description"></p>
+
+      <div id="value-section" class="value-section collapsed">
+        <button id="btn-value-toggle" class="value-toggle">
+          <span class="value-toggle-icon">&#9654;</span>
+          <span class="value-toggle-label">What just happened?</span>
+        </button>
+        <div id="value-content" class="value-content">
+          <p id="value-message"></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="step-footer">
+      <button id="btn-cta" class="btn-primary">Next</button>
+    </div>
+  </div>
+
+  <!-- Completion Screen -->
+  <div id="screen-complete" class="screen">
+    <div class="complete-container">
+      <div class="complete-icon">&#10003;</div>
+      <h1 class="complete-title">Experience Complete</h1>
+      <p id="complete-summary" class="complete-summary"></p>
+      <button id="btn-restart" class="btn-secondary">Start Again</button>
+    </div>
+  </div>
+
+  <!-- Error Overlay -->
+  <div id="screen-error" class="screen">
+    <div class="error-container">
+      <div class="error-icon">!</div>
+      <h2 class="error-title">Something went wrong</h2>
+      <p id="error-message" class="error-message"></p>
+      <button id="btn-error-retry" class="btn-secondary">Try Again</button>
+    </div>
+  </div>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>

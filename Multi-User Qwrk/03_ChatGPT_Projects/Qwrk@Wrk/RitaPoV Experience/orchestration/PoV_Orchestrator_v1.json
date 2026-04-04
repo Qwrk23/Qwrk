@@ -1,0 +1,535 @@
+{
+  "name": "PoV_Orchestrator",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pov/start",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "pov-webhook-start",
+      "name": "PoV_Webhook_Start",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "pov-start"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pov/next",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "pov-webhook-next",
+      "name": "PoV_Webhook_Next",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 400],
+      "webhookId": "pov-next"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pov/complete",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "pov-webhook-complete",
+      "name": "PoV_Webhook_Complete",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 800],
+      "webhookId": "pov-complete"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "scenario-json",
+              "name": "scenario",
+              "value": "={\"scenario_id\":\"servicenow-agent-assist-v1\",\"name\":\"ServiceNow Agent Assist with Rita\",\"persona\":\"IT Help Desk Agent handling a VPN access issue\",\"steps\":[{\"step_id\":\"sn-step-001\",\"type\":\"instruction\",\"title\":\"Welcome & Context\",\"description\":\"Welcome to the guided PoV. You'll experience how Rita assists ServiceNow agents in real time. Over the next few steps, you'll navigate to the Agent Workspace, create an incident, and observe Rita providing intelligent suggestions -- all without leaving your workflow.\",\"ui\":{\"cta_label\":\"Get Started\",\"show_next\":true},\"action\":{\"endpoint\":null,\"method\":null,\"payload\":{}},\"completion\":{\"type\":\"manual\",\"success_signal\":null},\"value\":{\"message\":null}},{\"step_id\":\"sn-step-002\",\"type\":\"action\",\"title\":\"Navigate to Agent Workspace\",\"description\":\"Open the ServiceNow Agent Workspace. This is where agents handle incoming incidents and requests. Click the button below to open it in a new tab.\",\"ui\":{\"cta_label\":\"Open Agent Workspace\",\"show_next\":true},\"action\":{\"endpoint\":\"https://dev324276.service-now.com/now/workspace/agent/home\",\"method\":\"GET\",\"payload\":{}},\"completion\":{\"type\":\"manual\",\"success_signal\":null},\"value\":{\"message\":null}},{\"step_id\":\"sn-step-003\",\"type\":\"action\",\"title\":\"Create New Incident\",\"description\":\"Create a new incident for a VPN access issue. In the Agent Workspace, click 'New Incident' and fill in the following: Short Description: 'Unable to connect to corporate VPN from remote location'. Category: Network. Impact: Medium. Urgency: Medium. Submit the incident to proceed.\",\"ui\":{\"cta_label\":\"I've Created the Incident\",\"show_next\":true},\"action\":{\"endpoint\":null,\"method\":null,\"payload\":{}},\"completion\":{\"type\":\"manual\",\"success_signal\":null},\"value\":{\"message\":null}},{\"step_id\":\"sn-step-004\",\"type\":\"observation\",\"title\":\"Observe Rita Assist\",\"description\":\"Watch Rita provide real-time suggestions and context to the agent. As the incident is created, Rita analyzes the issue type, surfaces relevant knowledge articles, and suggests resolution steps. Notice the assist panel populated with contextual guidance -- this happens automatically, with no manual lookup required.\",\"ui\":{\"cta_label\":\"I've Observed Rita's Suggestions\",\"show_next\":true},\"action\":{\"endpoint\":\"https://ritapov2.espressive.com/v2/chat/\",\"method\":\"POST\",\"payload\":{}},\"completion\":{\"type\":\"api_response\",\"success_signal\":\"rita_response_received\"},\"value\":{\"message\":\"Rita detected the VPN issue category, matched it against known resolution patterns, and surfaced the top 3 most relevant knowledge articles -- all within seconds of incident creation.\"}},{\"step_id\":\"sn-step-005\",\"type\":\"explanation\",\"title\":\"Highlight Automation Value\",\"description\":\"Here's what just happened: Rita detected the issue type from the incident description, surfaced relevant knowledge articles from your existing knowledge base, and suggested resolution steps -- automatically. The agent didn't need to search, browse, or guess. Rita brought the right context to the right moment.\",\"ui\":{\"cta_label\":\"Continue to Summary\",\"show_next\":true},\"action\":{\"endpoint\":null,\"method\":null,\"payload\":{}},\"completion\":{\"type\":\"manual\",\"success_signal\":null},\"value\":{\"message\":\"Traditional workflow: agent manually searches knowledge base (2-5 minutes). With Rita: contextual suggestions appear instantly, reducing handle time by up to 40%.\"}},{\"step_id\":\"sn-step-006\",\"type\":\"explanation\",\"title\":\"Business Value Summary\",\"description\":\"Summary of value demonstrated: Faster resolution -- agents get contextual help instantly instead of searching manually. Consistent quality -- every agent gets the same high-quality suggestions regardless of experience level. Reduced training burden -- new agents ramp faster with Rita guiding them in real time. Measurable ROI -- fewer escalations, shorter handle times, higher first-contact resolution rates.\",\"ui\":{\"cta_label\":\"Complete PoV\",\"show_next\":false},\"action\":{\"endpoint\":null,\"method\":null,\"payload\":{}},\"completion\":{\"type\":\"manual\",\"success_signal\":null},\"value\":{\"message\":\"Key metrics to track: Mean Time to Resolution (MTTR), First Contact Resolution (FCR), Agent Ramp Time, Escalation Rate. Rita targets 30-40% improvement across these KPIs.\"}}]}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "pov-load-scenario",
+      "name": "PoV_Load_Scenario",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [250, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const scenarioRaw = $input.first().json.scenario;\nconst scenario = typeof scenarioRaw === 'string' ? JSON.parse(scenarioRaw) : scenarioRaw;\n\nfunction generateUUID() {\n  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {\n    const r = Math.random() * 16 | 0;\n    const v = c === 'x' ? r : (r & 0x3 | 0x8);\n    return v.toString(16);\n  });\n}\n\nconst sessionId = generateUUID();\nconst staticData = $getWorkflowStaticData('global');\n\nstaticData[`session:${sessionId}`] = {\n  session_id: sessionId,\n  scenario_id: scenario.scenario_id,\n  current_step_index: 0,\n  started_at: new Date().toISOString(),\n  status: 'in_progress'\n};\n\n// Store scenario steps for /next path access\nstaticData['scenario_steps'] = scenario.steps;\nstaticData['scenario_name'] = scenario.name;\n\nreturn [{\n  json: {\n    session_id: sessionId,\n    scenario: scenario\n  }\n}];"
+      },
+      "id": "pov-init-session",
+      "name": "PoV_Init_Session",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const { session_id, scenario } = $input.first().json;\n\nreturn [{\n  json: {\n    session_id: session_id,\n    scenario_name: scenario.name,\n    total_steps: scenario.steps.length,\n    current_step: scenario.steps[0]\n  }\n}];"
+      },
+      "id": "pov-build-start-response",
+      "name": "PoV_Build_Start_Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [750, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "pov-respond-start",
+      "name": "PoV_Respond_Start",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1000, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sessionId = $input.first().json.body.session_id;\nconst staticData = $getWorkflowStaticData('global');\nconst session = staticData[`session:${sessionId}`];\n\nif (!session) {\n  return [{\n    json: {\n      _valid: false,\n      ok: false,\n      error: {\n        code: 'SESSION_NOT_FOUND',\n        message: 'No active session found for the provided session_id.'\n      }\n    }\n  }];\n}\n\nif (session.status === 'completed') {\n  return [{\n    json: {\n      _valid: false,\n      ok: false,\n      error: {\n        code: 'SESSION_COMPLETED',\n        message: 'This session has already been completed.'\n      }\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    _valid: true,\n    session: session\n  }\n}];"
+      },
+      "id": "pov-lookup-session",
+      "name": "PoV_Lookup_Session",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [250, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "valid-check",
+              "leftValue": "={{ $json._valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "pov-validate-next",
+      "name": "PoV_Validate_Next",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [500, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const session = $input.first().json.session;\nconst staticData = $getWorkflowStaticData('global');\nconst scenarioSteps = staticData['scenario_steps'];\n\nconst nextIndex = session.current_step_index + 1;\n\nif (nextIndex >= scenarioSteps.length) {\n  return [{\n    json: {\n      _has_next: false,\n      ok: false,\n      error: {\n        code: 'NO_MORE_STEPS',\n        message: 'All steps have been completed. Call /webhook/pov/complete to finalize the session.'\n      }\n    }\n  }];\n}\n\n// Update session state\nstaticData[`session:${session.session_id}`].current_step_index = nextIndex;\n\nreturn [{\n  json: {\n    _has_next: true,\n    session_id: session.session_id,\n    step_number: nextIndex + 1,\n    total_steps: scenarioSteps.length,\n    current_step: scenarioSteps[nextIndex],\n    completed: false\n  }\n}];"
+      },
+      "id": "pov-advance-step",
+      "name": "PoV_Advance_Step",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [750, 350]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst { _has_next, ...response } = data;\nreturn [{ json: response }];"
+      },
+      "id": "pov-build-next-response",
+      "name": "PoV_Build_Next_Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, 350]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ok-field",
+              "name": "ok",
+              "value": "={{ $json.ok }}",
+              "type": "boolean"
+            },
+            {
+              "id": "error-field",
+              "name": "error",
+              "value": "={{ $json.error }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "pov-build-next-error",
+      "name": "PoV_Build_Next_Error",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1000, 500]
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "pov-respond-next",
+      "name": "PoV_Respond_Next",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1250, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sessionId = $input.first().json.body.session_id;\nconst staticData = $getWorkflowStaticData('global');\nconst session = staticData[`session:${sessionId}`];\n\nif (!session) {\n  return [{\n    json: {\n      _valid: false,\n      ok: false,\n      error: {\n        code: 'SESSION_NOT_FOUND',\n        message: 'No active session found for the provided session_id.'\n      }\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    _valid: true,\n    session: session\n  }\n}];"
+      },
+      "id": "pov-lookup-session-complete",
+      "name": "PoV_Lookup_Session_Complete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [250, 800]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "valid-check-complete",
+              "leftValue": "={{ $json._valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "pov-validate-complete",
+      "name": "PoV_Validate_Complete",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [500, 800]
+    },
+    {
+      "parameters": {
+        "jsCode": "const session = $input.first().json.session;\nconst staticData = $getWorkflowStaticData('global');\n\nstaticData[`session:${session.session_id}`].status = 'completed';\n\nreturn [{\n  json: {\n    session_id: session.session_id,\n    scenario_id: session.scenario_id\n  }\n}];"
+      },
+      "id": "pov-mark-complete",
+      "name": "PoV_Mark_Complete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [750, 750]
+    },
+    {
+      "parameters": {
+        "jsCode": "const { session_id, scenario_id } = $input.first().json;\nconst staticData = $getWorkflowStaticData('global');\nconst scenarioName = staticData['scenario_name'] || 'Guided PoV';\n\nconst summaries = {\n  'servicenow-agent-assist-v1': 'PoV complete. You experienced Rita assisting a ServiceNow agent through a VPN incident — from creation to resolution. Key value: faster resolution, consistent quality, reduced training burden, and measurable ROI.'\n};\n\nconst summary = summaries[scenario_id] || 'PoV session complete.';\n\nreturn [{\n  json: {\n    session_id: session_id,\n    completed: true,\n    summary: summary\n  }\n}];"
+      },
+      "id": "pov-build-complete-response",
+      "name": "PoV_Build_Complete_Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, 750]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ok-field-complete",
+              "name": "ok",
+              "value": "={{ $json.ok }}",
+              "type": "boolean"
+            },
+            {
+              "id": "error-field-complete",
+              "name": "error",
+              "value": "={{ $json.error }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "pov-build-complete-error",
+      "name": "PoV_Build_Complete_Error",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1000, 900]
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "pov-respond-complete",
+      "name": "PoV_Respond_Complete",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1250, 800]
+    }
+  ],
+  "connections": {
+    "PoV_Webhook_Start": {
+      "main": [
+        [
+          {
+            "node": "PoV_Load_Scenario",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PoV_Load_Scenario": {
+      "main": [
+        [
+          {
+            "node": "PoV_Init_Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PoV_Init_Session": {
+      "main": [
+        [
+          {
+            "node": "PoV_Build_Start_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PoV_Build_Start_Response": {
+      "main": [
+        [
+          {
+            "node": "PoV_Respond_Start",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PoV_Webhook_Next": {
+      "main": [
+        [
+          {
+            "node": "PoV_Lookup_Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PoV_Lookup_Session": {
+      "main": [
+        [
+          {
+            "node": "PoV_Validate_Next",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PoV_Validate_Next": {
+      "main": [
+        [
+          {
+            "node": "PoV_Advance_Step",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PoV_Build_Next_Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PoV_Advance_Step": {
+      "main": [
+        [
+          {
+            "node": "PoV_Build_Next_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PoV_Build_Next_Response": {
+      "main": [
+        [
+          {
+            "node": "PoV_Respond_Next",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PoV_Build_Next_Error": {
+      "main": [
+        [
+          {
+            "node": "PoV_Respond_Next",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PoV_Webhook_Complete": {
+      "main": [
+        [
+          {
+            "node": "PoV_Lookup_Session_Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PoV_Lookup_Session_Complete": {
+      "main": [
+        [
+          {
+            "node": "PoV_Validate_Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PoV_Validate_Complete": {
+      "main": [
+        [
+          {
+            "node": "PoV_Mark_Complete",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PoV_Build_Complete_Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PoV_Mark_Complete": {
+      "main": [
+        [
+          {
+            "node": "PoV_Build_Complete_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PoV_Build_Complete_Response": {
+      "main": [
+        [
+          {
+            "node": "PoV_Respond_Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PoV_Build_Complete_Error": {
+      "main": [
+        [
+          {
+            "node": "PoV_Respond_Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "pinData": {},
+  "versionId": "pov-orchestrator-v1"
+}

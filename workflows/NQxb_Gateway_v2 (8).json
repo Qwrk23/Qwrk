@@ -1,0 +1,1380 @@
+{
+  "name": "NQxb_Gateway_v2",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "/nqxb/gateway/v2",
+        "authentication": "basicAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1536,
+        208
+      ],
+      "id": "e9ad6d0e-67aa-4aa0-ae7b-c2563f77c5c4",
+      "name": "NQxb_Gateway_v1__Webhook_In",
+      "webhookId": "gw-v2-webhook-id",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "jTp4W3tGrw2s036g",
+          "name": "Qwrk Ingest Basic Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Gateway_v1__Normalize_Request\n// Canonical normalization BEFORE Gatekeeper\n// FIX: explicitly forward title + owner identity for artifact.save\n// T123: Forward full raw payload for messaging.* actions\n// payload.build: Forward full raw payload for intent assembly\n\nfunction isNonEmptyObject(v) {\n  return v && typeof v === \"object\" && !Array.isArray(v) && Object.keys(v).length > 0;\n}\n\nfunction pickSource() {\n  if (isNonEmptyObject($json?.params)) return { src: \"params\", raw: $json.params };\n  if (isNonEmptyObject($json?.query)) return { src: \"query\", raw: $json.query };\n  if (isNonEmptyObject($json?.body?.body)) return { src: \"body.body\", raw: $json.body.body };\n  if (isNonEmptyObject($json?.body)) return { src: \"body\", raw: $json.body };\n  if (isNonEmptyObject($json)) return { src: \"json\", raw: $json };\n  return { src: \"empty\", raw: {} };\n}\n\nconst { src, raw } = pickSource();\n\nreturn [\n  {\n    json: {\n      // --- Canonical action ---\n      gw_action: raw.gw_action ?? raw.action ?? null,\n\n      // --- Workspace / identity ---\n      gw_workspace_id: raw.gw_workspace_id ?? raw.workspace_id ?? null,\n      workspace_id: raw.workspace_id ?? raw.gw_workspace_id ?? null,\n\n      // --- Artifact identity ---\n      artifact_type: raw.artifact_type ?? null,\n      artifact_id: raw.artifact_id ?? null,\n\n      // --- REQUIRED for INSERT ---\n      title: raw.title ?? null,\n\n      // --- Payload ---\n      extension: raw.extension ?? raw.patch ?? {},\n      tags: raw.tags ?? null,\n\n      // --- Spine fields for INSERT ---\n      parent_artifact_id: raw.parent_artifact_id ?? null,\n      summary: raw.summary ?? null,\n      priority: raw.priority ?? null,\n      content: raw.content ?? null,\n      content_append: raw.content_append ?? null,\n      content_mode: raw.content_mode ?? null,\n      lifecycle_status: raw.lifecycle_status ?? null,\n      execution_status: raw.execution_status ?? null,\n\n      // --- Semantic type (T69 Phase 3) ---\n      semantic_type_id: raw.semantic_type_id ?? null,\n\n      // --- Owner / auth passthrough ---\n      auth_username:\n        raw.auth_username ??\n        raw.owner_username ??\n        raw.created_by ??\n        null,\n\n      // --- Freeze intent ---\n      req_gw_workspace_id: raw.gw_workspace_id ?? raw.workspace_id ?? null,\n      req_artifact_type: raw.artifact_type ?? null,\n      req_artifact_id: raw.artifact_id ?? null,\n      req_title: raw.title ?? null,\n\n      // --- Selector (artifact.list pagination) ---\n      selector: raw.selector ?? {},\n\n      // --- Promote fields ---\n      transition: raw.transition ?? null,\n      reason: raw.reason ?? null,\n\n      // --- T123: Forward full raw payload for messaging actions ---\n      // Messaging sub-workflows extract their own fields from raw\n      ...((/^messaging\\./).test(raw.gw_action ?? '') ? raw : {}),\n\n      // --- payload.build: Forward full raw payload for intent assembly ---\n      ...(raw.gw_action === 'payload.build' ? raw : {}),\n\n      _gw_debug: {\n        normalized_by: \"NQxb_Gateway_v1__Normalize_Request\",\n        source: src,\n        received_keys: Object.keys(raw),\n        has_title: !!raw.title,\n        has_auth: !!(\n          raw.auth_username ||\n          raw.owner_username ||\n          raw.created_by\n        ),\n      },\n\n      gateway_meta: {\n        processed_at: new Date().toISOString(),\n        gateway_version: \"v2_resolver\",\n      },\n    },\n  },\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1312,
+        208
+      ],
+      "id": "c7d703fb-ff5e-4699-adf2-4b577d4c2534",
+      "name": "NQxb_Gateway_v1__Normalize_Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Gateway_v2__Gatekeeper\n// Unified Gateway — workspace resolution via ACL lookup + legacy credential fallback\n// Design: build-approved snapshot 5b4fb3e0\n\nconst ACTION_ALLOWLIST = new Set([\n  \"artifact.query\",\n  \"artifact.list\",\n  \"artifact.save\",\n  \"artifact.update\",\n  \"artifact.promote\",\n  \"artifact.delete\",\n  \"artifact.restore\",\n  \"artifact.list_deleted\",\n  \"messaging.send_email\",\n  \"messaging.create_calendar_event\",\n  \"payload.build\",\n]);\n\nconst TYPE_ALLOWLIST = new Set([\n  \"project\",\n  \"journal\",\n  \"restart\",\n  \"snapshot\",\n  \"instruction_pack\",\n  \"branch\",\n  \"limb\",\n  \"leaf\",\n  \"twig\"\n]);\n\n// --- Known workspace IDs for validation ---\nconst KNOWN_WORKSPACES = new Set([\n  \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",  // Personal (Prime)\n  \"b4e7f648-96d5-44a7-80b9-c39cac4efbd1\",  // BlaggLife\n  \"635bb8d7-7b93-4bea-8ca6-ee2c924c9557\",  // Work (Resolve)\n  \"963973e0-a98c-4044-b421-71e7348eaeaf\",  // Akara_Blagg\n  \"970d0df8-ab84-47f5-926c-3e784ba5dfa2\",  // Qwrk_Greg\n  \"0af5712b-2534-47c1-8e28-45be4a2131dc\",  // Explore Qwrk Demo\n]);\n\n// --- Legacy credential → workspace mapping (temporary, for migration) ---\nconst CREDENTIAL_WORKSPACE_MAP = {\n  \"qwrk-gateway\":     \"be0d3a48-c764-44f9-90c8-e846d9dbbd0a\",\n  \"qwrk-gw-work\":     \"635bb8d7-7b93-4bea-8ca6-ee2c924c9557\",\n  \"qwrk-gw-blagglife\":\"b4e7f648-96d5-44a7-80b9-c39cac4efbd1\",\n  \"qwrk-gw-akara\":    \"963973e0-a98c-4044-b421-71e7348eaeaf\",\n  \"qwrk-gw-greg\":     \"970d0df8-ab84-47f5-926c-3e784ba5dfa2\",\n  \"qwrk-gw-demo\":     \"0af5712b-2534-47c1-8e28-45be4a2131dc\",\n};\n\nfunction asObj(v) {\n  return v && typeof v === \"object\" && !Array.isArray(v) ? v : {};\n}\n\nfunction fail(code, message, details = {}) {\n  return [\n    {\n      json: {\n        ok: false,\n        _gw_route: \"error\",\n        error: { code, message, details },\n\n        gw_action: $json?.gw_action ?? null,\n        gw_workspace_id: $json?.gw_workspace_id ?? null,\n        artifact_type: $json?.artifact_type ?? null,\n        artifact_id: $json?.artifact_id ?? null,\n        selector: asObj($json?.selector),\n        gateway_meta: $json?.gateway_meta ?? undefined,\n        _gw_debug: $json?._gw_debug ?? undefined,\n        incoming: $json ?? {},\n      },\n    },\n  ];\n}\n\n// ----- Canonical fields from Normalize_Request -----\nconst gw_action = $json?.gw_action ?? null;\nlet gw_workspace_id = $json?.gw_workspace_id ?? null;\nconst artifact_type = $json?.artifact_type ?? null;\nconst artifact_id = $json?.artifact_id ?? null;\nconst selector = asObj($json?.selector);\n\nconst extension = asObj($json?.extension);\nconst tags = asObj($json?.tags);\n\n// ----- Basic action validation -----\nif (!gw_action || typeof gw_action !== \"string\") {\n  return fail(\"VALIDATION_ERROR\", \"Missing or invalid gw_action\", {\n    expected: \"string\",\n    got: typeof gw_action,\n  });\n}\n\nif (!ACTION_ALLOWLIST.has(gw_action)) {\n  return fail(\"ACTION_NOT_ALLOWED\", \"gw_action not allowed\", {\n    gw_action,\n    allowed: Array.from(ACTION_ALLOWLIST),\n  });\n}\n\n// ----- Workspace resolution (DESIGN CHANGE #2 + #3) -----\n// Priority: explicit workspace_id > legacy credential fallback\nconst requiresWorkspaceAtGate = gw_action !== \"artifact.update\";\n\nif (requiresWorkspaceAtGate) {\n  // Try explicit workspace_id first (resolver mode)\n  if (!gw_workspace_id || typeof gw_workspace_id !== \"string\") {\n    // Fallback: derive from credential (legacy mode)\n    const auth_username = $json?.auth_username ?? null;\n    if (auth_username && CREDENTIAL_WORKSPACE_MAP[auth_username]) {\n      gw_workspace_id = CREDENTIAL_WORKSPACE_MAP[auth_username];\n    } else {\n      return fail(\"WORKSPACE_INVALID\", \"Invalid request context\", {\n        _internal_reason: \"No workspace_id in payload and no valid credential fallback\",\n      });\n    }\n  }\n\n  // Validate workspace exists (DESIGN CHANGE #2: strict ACL check)\n  if (!KNOWN_WORKSPACES.has(gw_workspace_id)) {\n    return fail(\"WORKSPACE_INVALID\", \"Invalid request context\", {\n      _internal_reason: \"workspace_id not in known workspaces\",\n    });\n  }\n}\n\n// ----- artifact.query -----\nif (gw_action === \"artifact.query\") {\n  if (!artifact_type || typeof artifact_type !== \"string\") {\n    return fail(\n      \"VALIDATION_ERROR\",\n      \"Missing or invalid artifact_type for artifact.query\"\n    );\n  }\n\n  if (!TYPE_ALLOWLIST.has(artifact_type)) {\n    return fail(\"ARTIFACT_TYPE_NOT_ALLOWED\", \"artifact_type not allowed\", {\n      artifact_type,\n      allowed: Array.from(TYPE_ALLOWLIST),\n    });\n  }\n\n  if (!artifact_id || typeof artifact_id !== \"string\") {\n    return fail(\n      \"VALIDATION_ERROR\",\n      \"Missing or invalid artifact_id for artifact.query\"\n    );\n  }\n}\n\n// ----- artifact.list -----\nif (gw_action === \"artifact.list\") {\n  if (!artifact_type || typeof artifact_type !== \"string\") {\n    return fail(\n      \"VALIDATION_ERROR\",\n      \"Missing or invalid artifact_type for artifact.list\"\n    );\n  }\n\n  if (!TYPE_ALLOWLIST.has(artifact_type)) {\n    return fail(\"ARTIFACT_TYPE_NOT_ALLOWED\", \"artifact_type not allowed\", {\n      artifact_type,\n      allowed: Array.from(TYPE_ALLOWLIST),\n    });\n  }\n\n  if (selector.limit !== undefined) {\n    const n = Number(selector.limit);\n    if (!Number.isFinite(n) || n < 1 || n > 100) {\n      return fail(\"VALIDATION_ERROR\", \"selector.limit out of range (1-100)\", {\n        limit: selector.limit,\n      });\n    }\n  }\n}\n\n// ----- artifact.update -----\nif (gw_action === \"artifact.update\") {\n  if (!artifact_type || typeof artifact_type !== \"string\") {\n    return fail(\n      \"VALIDATION_ERROR\",\n      \"Missing or invalid artifact_type for artifact.update\"\n    );\n  }\n\n  if (!TYPE_ALLOWLIST.has(artifact_type)) {\n    return fail(\"ARTIFACT_TYPE_NOT_ALLOWED\", \"artifact_type not allowed\", {\n      artifact_type,\n      allowed: Array.from(TYPE_ALLOWLIST),\n    });\n  }\n\n  if (!artifact_id || typeof artifact_id !== \"string\") {\n    return fail(\n      \"VALIDATION_ERROR\",\n      \"Missing or invalid artifact_id for artifact.update\"\n    );\n  }\n\n  const hasExtension = Object.keys(extension).length > 0;\n\n  const hasTags =\n    (Array.isArray(tags?.add) && tags.add.length > 0) ||\n    (Array.isArray(tags?.remove) && tags.remove.length > 0);\n\n  const spineFieldCandidates = [\n    \"title\",\n    \"summary\",\n    \"priority\",\n    \"lifecycle_status\",\n    \"parent_artifact_id\"\n  ];\n\n  const hasSpineFields = spineFieldCandidates.some((f) => {\n    const val = $json?.[f];\n    return val !== null && val !== undefined;\n  });\n\n  // T140: Content field detection for update validation\n  const hasContent = $json?.content !== null && $json?.content !== undefined\n    && typeof $json?.content === 'object' && !Array.isArray($json?.content)\n    && Object.keys($json.content).length > 0;\n  const hasContentAppend = $json?.content_append !== null && $json?.content_append !== undefined\n    && typeof $json?.content_append === 'object' && !Array.isArray($json?.content_append);\n\n  if (!hasExtension && !hasTags && !hasSpineFields && !hasContent && !hasContentAppend) {\n    return fail(\n      \"VALIDATION_ERROR\",\n      \"artifact.update requires extension, tags, spine fields, content, or content_append\",\n      {\n        expected:\n          \"extension OR tags.add/remove OR title/summary/priority/lifecycle_status OR content OR content_append\",\n      }\n    );\n  }\n}\n\n// ----- PASS THROUGH -----\nreturn [\n  {\n    json: {\n      ...($json ?? {}),\n\n      ok: true,\n      _gw_route: \"ok\",\n\n      gw_action,\n      gw_workspace_id: gw_workspace_id ?? null,\n      workspace_id: gw_workspace_id ?? null,\n      artifact_type: artifact_type ?? null,\n      artifact_id: artifact_id ?? null,\n      selector,\n\n      ...(gw_action === \"artifact.update\"\n        ? {\n            extension,\n            tags,\n\n            spine_fields: (() => {\n              const sf = {};\n              if ($json?.title !== null && $json?.title !== undefined)\n                sf.title = $json.title;\n              if ($json?.summary !== null && $json?.summary !== undefined)\n                sf.summary = $json.summary;\n              if ($json?.priority !== null && $json?.priority !== undefined)\n                sf.priority = $json.priority;\n              if (\n                $json?.lifecycle_status !== null &&\n                $json?.lifecycle_status !== undefined\n              )\n                sf.lifecycle_status = $json.lifecycle_status;\n              if (\n                $json?.parent_artifact_id !== null &&\n                $json?.parent_artifact_id !== undefined\n              )\n                sf.parent_artifact_id = $json.parent_artifact_id;\n\n              return Object.keys(sf).length > 0 ? sf : null;\n            })(),\n          }\n        : {}),\n\n      gateway_meta: $json?.gateway_meta ?? undefined,\n      _gw_debug: $json?._gw_debug ?? undefined,\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1088,
+        208
+      ],
+      "id": "e4d0e2b9-07a3-478a-9d60-153bcf1e2e70",
+      "name": "NQxb_Gateway_v2__Gatekeeper"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{$json._gw_route}}",
+                    "rightValue": "error",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "8153fa85-e2a0-4b7f-977a-19a99e9ed8f7"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "08e622c7-fb31-40c9-847d-afb5dad39973",
+                    "leftValue": "={{$json._gw_route}}",
+                    "rightValue": "ok",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -864,
+        208
+      ],
+      "id": "4eeb15e8-2b6a-4e94-82a0-d6b1c413ca55",
+      "name": "NQxb_Gateway_v1__Switch_Route_OK_or_Error"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -640,
+        96
+      ],
+      "id": "71e5f67f-a381-4ce5-87cf-66de2b2e9e2d",
+      "name": "Error Response"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.gw_action }}",
+                    "rightValue": "artifact.query",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "52ad343d-e0ed-4932-a694-f97756475ce8"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e442dede-1a9a-4826-8021-bff39a110266",
+                    "leftValue": "={{ $json.gw_action }}",
+                    "rightValue": "artifact.list",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "artifact-save-condition",
+                    "leftValue": "={{ $json.gw_action }}",
+                    "rightValue": "artifact.save",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "31a22f06-9e48-4296-b859-3be36b69f1d8",
+                    "leftValue": "={{ $json.gw_action }}",
+                    "rightValue": "artifact.update",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "0601c9aa-d2ac-4e77-aa16-0f7bf2fc315a",
+                    "leftValue": "={{ $json.gw_action }}",
+                    "rightValue": "artifact.promote",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "delete-condition",
+                    "leftValue": "={{ $json.gw_action }}",
+                    "rightValue": "artifact.delete",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "restore-condition",
+                    "leftValue": "={{ $json.gw_action }}",
+                    "rightValue": "artifact.restore",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "list-deleted-condition",
+                    "leftValue": "={{ $json.gw_action }}",
+                    "rightValue": "artifact.list_deleted",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "send-email-condition",
+                    "leftValue": "={{ $json.gw_action }}",
+                    "rightValue": "messaging.send_email",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "calendar-event-condition",
+                    "leftValue": "={{ $json.gw_action }}",
+                    "rightValue": "messaging.create_calendar_event",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.gw_action }}",
+                    "rightValue": "payload.build",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "4fa834a2-c284-4626-9487-bb63bdb180df"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "payload.build"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -608,
+        304
+      ],
+      "id": "2f51f1f7-b085-4329-a88b-70a7abd43db2",
+      "name": "NQxb_Gateway_v1__Switch_Action"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify(\n  (() => {\n    const j = $json ?? {};\n    const isObject = (v) => v && typeof v === \"object\" && !Array.isArray(v);\n\n    const isErrorEnvelope =\n      j.ok === false || j._gw_route === \"error\" || isObject(j.error);\n\n    const isSuccessEnvelope =\n      j.ok === true &&\n      j._gw_route === \"ok\" &&\n      isObject(j.data) &&\n      isObject(j.data.artifact);\n\n    if (isErrorEnvelope || isSuccessEnvelope) return j;\n\n    return { ok: true, _gw_route: \"ok\", data: { artifact: j } };\n  })()\n) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        672,
+        0
+      ],
+      "id": "b3ffd41c-9864-4e8d-9d02-9a7b28840501",
+      "name": "NQxb_Gateway_v1__Respond_Query_Success"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "27efKlNfdyu89YGD",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/27efKlNfdyu89YGD",
+          "cachedResultName": "NQxb_Artifact_Query_v1"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "29539417-cb9e-4824-bd16-35125cde308c",
+      "name": "Call 'NQxb_Artifact_Query_v1'",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Gateway__Freeze_Save_Context\n// Freeze request fields BEFORE calling Save sub-workflow\n// Tag for deterministic merge after sub-workflow returns\n// This node splits to TWO destinations: Save sub-workflow + Merge bypass\n\nreturn [{\n  json: {\n    ...$json,\n    _merge_role: \"frozen_context\",\n    _frozen_artifact_type: $json.req_artifact_type ?? $json.artifact_type ?? null,\n    _frozen_workspace_id: $json.req_workspace_id ?? $json.gw_workspace_id ?? null,\n    _frozen_extension: $json.req_extension ?? $json.extension ?? {},\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        400
+      ],
+      "id": "f283c46e-9f40-4429-82ab-76aaeb4eaaa0",
+      "name": "NQxb_Gateway__Freeze_Save_Context"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "8IhDmYbLUlXpVo7I",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/8IhDmYbLUlXpVo7I",
+          "cachedResultName": "NQxb_Artifact_Save_v1"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        224,
+        400
+      ],
+      "id": "0897cbce-c952-426c-8847-a5ba4bd67ed8",
+      "name": "Call 'NQxb_Artifact_Save_v1'",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Gateway__Tag_Save_Result\n// Pure passthrough: Save sub-workflow response flows to webhook unmodified.\n// Sapling A: No Gateway-level response modification permitted.\n\nreturn [{ json: $json }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        400
+      ],
+      "id": "af9b07e2-7e2e-470c-89dc-c40369d59a9d",
+      "name": "NQxb_Gateway__Tag_Save_Result"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        896,
+        400
+      ],
+      "id": "514db9fd-8617-4815-bdc8-c706f24181a5",
+      "name": "NQxb_Gateway__Respond_Save_Success"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "Cr4Jt7YNOx6SZpnE",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/Cr4Jt7YNOx6SZpnE",
+          "cachedResultName": "NQxb_Artifact_List_v1"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        224,
+        192
+      ],
+      "id": "86497b32-e4b2-4b0f-b280-fdc55fdf1019",
+      "name": "NQxb_Gateway_v1__Call_Artifact_List_v1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Gateway_v1__Shape_List_Response\n// Purpose: Shape canonical list response for Gateway\n// Rule: If sub-workflow already returned a canonical artifact.list envelope,\n//       PASS THROUGH exactly (no re-wrapping).\n\nconst j = $json ?? {};\n\n// ---------- helpers ----------\nconst isObject = (x) => x && typeof x === \"object\" && !Array.isArray(x);\n\nconst isCanonicalListEnvelope = (x) =>\n  isObject(x) &&\n  x.ok === true &&\n  x.gw_action === \"artifact.list\" &&\n  isObject(x.data) &&\n  Array.isArray(x.data.artifacts) &&\n  isObject(x.meta);\n\n// ---------- ERROR PASSTHROUGH (T112 fix) ----------\n// If sub-workflow returned a validation error, pass it directly to the caller.\nif (j.ok === false || j._gw_route === \"error\") {\n  // Strip debug fields before returning to caller\n  const { _debug_filters, ...clean } = j;\n  return clean;\n}\n\n// ---------- PASS-THROUGH CASE ----------\n// If Gateway received a single item in data.artifacts\n// and that item is itself a canonical list envelope,\n// return it directly.\nif (\n  isObject(j.data) &&\n  Array.isArray(j.data.artifacts) &&\n  j.data.artifacts.length === 1 &&\n  isCanonicalListEnvelope(j.data.artifacts[0])\n) {\n  return j.data.artifacts[0];\n}\n\n// ---------- NORMAL WRAP (raw rows case) ----------\nconst artifacts = Array.isArray(j.data?.artifacts)\n  ? j.data.artifacts\n  : [];\n\nreturn {\n  ok: true,\n  gw_action: \"artifact.list\",\n  gw_workspace_id: j.gw_workspace_id,\n  artifact_type: j.artifact_type,\n  selector: j.selector ?? {},\n  data: {\n    artifacts,\n  },\n  meta: {\n    count: artifacts.length,\n    limit: j.selector?.limit ?? artifacts.length,\n    offset: j.selector?.offset ?? 0,\n    has_more: artifacts.length === (j.selector?.limit ?? artifacts.length),\n    as_of: j.selector?.as_of ?? new Date().toISOString(),\n  },\n  timestamp: new Date().toISOString(),\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        464,
+        192
+      ],
+      "id": "33f8a539-76e7-4859-a264-179132826a73",
+      "name": "NQxb_Gateway_v1__Shape_List_Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize Gateway input for artifact.list before calling sub-workflow\n// Purpose:\n// - Ensure artifact_type is present at top level\n// - Preserve selector object\n// - Merge top-level limit/offset/hydrate/filters into selector (T19+T20 fix)\n// - Prevent null / empty artifact_type from leaking downstream\n\nconst gw_workspace_id =\n  $json.gw_workspace_id ??\n  $json.req_workspace_id ??\n  null;\n\nif (!gw_workspace_id) {\n  throw new Error(\"Gateway Build_List_Request: gw_workspace_id is required\");\n}\n\nconst artifact_type =\n  (typeof $json.artifact_type === \"string\" && $json.artifact_type.trim() !== \"\")\n    ? $json.artifact_type.trim()\n    : (typeof $json.req_artifact_type === \"string\" && $json.req_artifact_type.trim() !== \"\")\n      ? $json.req_artifact_type.trim()\n      : null;\n\nif (!artifact_type) {\n  throw new Error(\"Gateway Build_List_Request: artifact_type is required for artifact.list\");\n}\n\n// Build selector: prefer explicit selector object, then merge top-level fields\nconst selectorIn =\n  (typeof $json.selector === \"object\" && $json.selector !== null)\n    ? { ...$json.selector }\n    : {};\n\n// T20 FIX: Merge top-level limit/offset/hydrate into selector if not already present\nif ($json.limit !== undefined && selectorIn.limit === undefined) {\n  selectorIn.limit = $json.limit;\n}\nif ($json.offset !== undefined && selectorIn.offset === undefined) {\n  selectorIn.offset = $json.offset;\n}\nif ($json.hydrate !== undefined && selectorIn.hydrate === undefined) {\n  selectorIn.hydrate = $json.hydrate;\n}\n\n// T19 FIX: Merge top-level filters into selector.filters if not already present\nif ($json.filters && typeof $json.filters === \"object\" && !selectorIn.filters) {\n  selectorIn.filters = $json.filters;\n}\n\nreturn [\n  {\n    json: {\n      gw_action: \"artifact.list\",\n      gw_workspace_id,\n      artifact_type,\n      selector: selectorIn,\n\n      // Debug breadcrumbs\n      _gw_debug: {\n        normalized: true,\n        resolved_artifact_type: artifact_type,\n        selector_had_limit: $json.selector?.limit !== undefined,\n        top_level_limit: $json.limit,\n        top_level_offset: $json.offset,\n        top_level_filters: $json.filters ? true : false,\n      },\n    },\n  },\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        192
+      ],
+      "id": "4c961b20-2093-4977-97da-212e650f6e0d",
+      "name": "NQxb_Gateway_v1__Build_List_Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Gateway_v1_Normalize_Update_Request\n// Purpose: normalize artifact.update requests into a canonical update payload\n// Runs AFTER Gateway action routing (artifact.update only)\n// T87: Forward spine fields\n// T140: Forward content, content_append, content_mode (title, summary, priority) — only when non-null\n\nconst input = $json ?? {};\n\n// Canonical identifiers (already scalarized upstream)\nconst gw_workspace_id = input.gw_workspace_id ?? null;\nconst artifact_type = input.artifact_type ?? null;\nconst artifact_id = input.artifact_id ?? null;\n\n// Payloads\nconst extension = input.extension ?? {};\nconst tags = input.tags ?? null;\n\n// T140: Content fields for update\nconst content = (input.content && typeof input.content === \"object\" && !Array.isArray(input.content))\n  ? input.content : null;\nconst content_append = (input.content_append && typeof input.content_append === \"object\" && !Array.isArray(input.content_append))\n  ? input.content_append : null;\nconst content_mode = (typeof input.content_mode === \"string\" && input.content_mode.trim().length > 0)\n  ? input.content_mode.trim() : null;\n\n// T87: Only forward spine fields that have actual values (not null)\n// The main Gateway normalizer sets missing fields to null — we must NOT forward those\n// because the Update sub-workflow uses 'key in req' to detect intent\nconst spineFields = {};\nif (input.title != null) spineFields.title = input.title;\nif (input.summary != null) spineFields.summary = input.summary;\nif (input.priority != null) spineFields.priority = input.priority;\n\n// Detect source for debug only (no control flow dependency)\nlet source_detected = \"unknown\";\nif ($json?.params) source_detected = \"params\";\nelse if ($json?.query) source_detected = \"query\";\nelse if ($json?.body?.body) source_detected = \"body.body\";\nelse if ($json?.body) source_detected = \"body\";\nelse source_detected = \"json\";\n\nreturn [\n  {\n    json: {\n      gw_action: \"artifact.update\",\n\n      gw_workspace_id,\n      artifact_type,\n      artifact_id,\n\n      extension,\n      tags,\n\n      // T140: Content fields\n      ...(content !== null ? { content } : {}),\n      ...(content_append !== null ? { content_append } : {}),\n      ...(content_mode !== null ? { content_mode } : {}),\n\n      // T87: Only non-null spine fields (spread so absent keys don't exist)\n      ...spineFields,\n\n      // Freeze intent for downstream workflows\n      req_gw_workspace_id: gw_workspace_id,\n      req_artifact_type: artifact_type,\n      req_artifact_id: artifact_id,\n      req_extension: extension,\n      req_tags: tags,\n\n      _gw_debug: {\n        normalized_by: \"NQxb_Gateway_v1_Normalize_Update_Request\",\n        source_detected,\n        received_keys: Object.keys(input),\n        has_extension: Object.keys(extension).length > 0,\n        has_tags:\n          tags &&\n          ((Array.isArray(tags.add) && tags.add.length > 0) ||\n            (Array.isArray(tags.remove) && tags.remove.length > 0)),\n        has_content: content !== null,\n        has_content_append: content_append !== null,\n        has_content_mode: content_mode !== null,\n        has_spine_fields: Object.keys(spineFields).length > 0,\n        spine_field_keys: Object.keys(spineFields),\n      },\n    },\n  },\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        624
+      ],
+      "id": "ecb917b7-9403-42d6-b489-ba1412be6b32",
+      "name": "NQxb_Gateway_v1_Normalize_Update_Request"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "6tZMdsyU5kJic7N5",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/6tZMdsyU5kJic7N5",
+          "cachedResultName": "NQxb_Artifact_Promote_v1"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "gw_action",
+              "displayName": "gw_action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "gw_workspace_id",
+              "displayName": "gw_workspace_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "artifact_type",
+              "displayName": "artifact_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "artifact_id",
+              "displayName": "artifact_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "actor_user_id",
+              "displayName": "actor_user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "artifact_payload",
+              "displayName": "artifact_payload",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            },
+            {
+              "id": "selector",
+              "displayName": "selector",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        224,
+        864
+      ],
+      "id": "6e8458dc-dd2d-473f-997c-652aa8d19471",
+      "name": "Call 'NQxb_Artifact_Promote_v1'",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Gateway_v1__Normalize_Promote_Request\n// Purpose: Shape a promote request to match NQxb_Artifact_Promote_v1 Workflow Inputs contract.\n// Notes:\n// - Must output n8n items: [{ json: ... }]\n// - Promote workflow expects transition/reason at TOP-LEVEL (due to current contract wiring)\n// - We also preserve artifact_payload.transition/reason (future-proof / harmless)\n\nconst j = $json;\n\nconst transition = j.transition ?? j.artifact_payload?.transition ?? null;\nconst reason = j.reason ?? j.artifact_payload?.reason ?? null;\n\nreturn [\n  {\n    json: {\n      gw_action: j.gw_action,\n      gw_workspace_id: j.gw_workspace_id,\n\n      artifact_type: j.artifact_type,\n      artifact_id: j.artifact_id,\n\n      actor_user_id: j.actor?.user_id ?? j.actor_user_id ?? null,\n\n      // ✅ REQUIRED by Promote workflow (current contract expectations)\n      transition,\n      reason,\n\n      // ✅ keep payload too (harmless / future-proof)\n      artifact_payload: {\n        transition,\n        reason,\n      },\n\n      selector: j.selector ?? {},\n    },\n  },\n];\n\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        864
+      ],
+      "id": "a677cc05-b055-428c-8216-3a3d07144f70",
+      "name": "Normalize_Promote_Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NQxb_Gateway_v1__Shape_Query_Response\n// Purpose: Gateway-level canonical envelope for artifact.query.\n//\n// HARD RULES:\n// 1. Error envelopes MUST pass through unchanged.\n// 2. Canonical success envelopes MUST pass through unchanged.\n// 3. Only RAW artifacts may be wrapped.\n// 4. No code path may ever convert an error into ok:true.\n\nconst j = $json ?? {};\nconst isObject = (v) => v && typeof v === \"object\" && !Array.isArray(v);\n\n/* -------------------------------------------------\n * 1. PASS THROUGH ERRORS (ABSOLUTE)\n * ------------------------------------------------- */\nif (\n  j.ok === false ||\n  j._gw_route === \"error\" ||\n  isObject(j.error)\n) {\n  return [{ json: j }];\n}\n\n/* -------------------------------------------------\n * 2. PASS THROUGH CANONICAL SUCCESS\n * ------------------------------------------------- */\nif (\n  j.ok === true &&\n  j._gw_route === \"ok\" &&\n  isObject(j.data) &&\n  isObject(j.data.artifact)\n) {\n  return [{ json: j }];\n}\n\n/* -------------------------------------------------\n * 3. UNWRAP RAW ARTIFACT\n * ------------------------------------------------- */\nlet raw = null;\n\n// Common raw locations\nif (isObject(j.artifact)) {\n  raw = j.artifact;\n} else if (isObject(j.data) && isObject(j.data.artifact)) {\n  raw = j.data.artifact;\n} else if (isObject(j)) {\n  raw = j; // last resort\n}\n\n/* -------------------------------------------------\n * 4. WRAP EXACTLY ONCE\n * ------------------------------------------------- */\nreturn [{\n  json: {\n    ok: true,\n    _gw_route: \"ok\",\n    data: {\n      artifact: raw\n    }\n  }\n}];\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ],
+      "id": "b9bd6cec-8109-4f9b-9365-96b9d829f080",
+      "name": "NQxb_Gateway_v1__Shape_Query_Response"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'https://npymhacpmxdnkqdzgxll.supabase.co/rest/v1/qxb_artifact?artifact_id=eq.' + $json.artifact_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ deleted_at: new Date().toISOString() }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        1056
+      ],
+      "id": "675202cf-b7b7-4611-bad0-ffcd7ed374cf",
+      "name": "Handle_Delete",
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Shape delete response\nconst result = $json;\nconst artifact = Array.isArray(result) ? result[0] : result;\n\nif (!artifact || !artifact.artifact_id) {\n  return [{\n    json: {\n      ok: false,\n      gw_action: \"artifact.delete\",\n      error: {\n        code: \"NOT_FOUND\",\n        message: \"Artifact not found or already deleted\"\n      }\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    ok: true,\n    gw_action: \"artifact.delete\",\n    artifact_id: artifact.artifact_id,\n    title: artifact.title,\n    deleted_at: artifact.deleted_at,\n    message: \"Artifact soft-deleted (can be restored)\"\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        1056
+      ],
+      "id": "05f535e5-476c-4272-805d-dc0d404d9693",
+      "name": "Shape_Delete_Response"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'https://npymhacpmxdnkqdzgxll.supabase.co/rest/v1/qxb_artifact?artifact_id=eq.' + $json.artifact_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ deleted_at: null }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        1248
+      ],
+      "id": "9933db7b-5f5b-4ac2-93be-36c70fdb45c9",
+      "name": "Handle_Restore",
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Shape restore response\nconst result = $json;\nconst artifact = Array.isArray(result) ? result[0] : result;\n\nif (!artifact || !artifact.artifact_id) {\n  return [{\n    json: {\n      ok: false,\n      gw_action: \"artifact.restore\",\n      error: {\n        code: \"NOT_FOUND\",\n        message: \"Artifact not found\"\n      }\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    ok: true,\n    gw_action: \"artifact.restore\",\n    artifact_id: artifact.artifact_id,\n    title: artifact.title,\n    message: \"Artifact restored\"\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        1248
+      ],
+      "id": "a42df6c9-8971-4bec-a8d5-9020c44f26fe",
+      "name": "Shape_Restore_Response"
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://npymhacpmxdnkqdzgxll.supabase.co/rest/v1/qxb_artifact?deleted_at=not.is.null&artifact_type=eq.' +\n  $json.artifact_type + '&workspace_id=eq.' + $json.gw_workspace_id +\n  '&select=artifact_id,title,artifact_type,deleted_at,created_at&order=deleted_at.desc&limit=' +\n  ($json.selector?.limit || 10) + '&offset=' + ($json.selector?.offset || 0) }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        1440
+      ],
+      "id": "cd4ad563-32f1-4288-a809-b8832afa29dc",
+      "name": "Handle_List_Deleted",
+      "credentials": {
+        "supabaseApi": {
+          "id": "n4R4JdOIV9zrCGIT",
+          "name": "Qwrk Supabase – Kernel v1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Shape list_deleted response\n  const items = $items();\n  const artifacts = items.map(item => item.json);\n\n  return [{\n    json: {\n      ok: true,\n      gw_action: \"artifact.list_deleted\",\n      data: {\n        artifacts\n      },\n      meta: {\n        count: artifacts.length\n      }\n    }\n  }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        1440
+      ],
+      "id": "f1b6fa91-3b20-45cd-be16-d0bed257aa06",
+      "name": "Shape_List_Deleted_Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $json ?? {};\nreturn [{\n  json: {\n    ok: false,\n    _gw_route: 'error',\n    gw_action: j.gw_action ?? null,\n    gw_workspace_id: j.gw_workspace_id ?? null,\n    artifact_type: j.artifact_type ?? null,\n    error: {\n      code: 'ACTION_NOT_ALLOWED',\n      message: `Unrecognized gateway route or action. No handler matched.`,\n      details: {\n        gw_action: j.gw_action ?? null,\n        _gw_route: j._gw_route ?? null,\n        note: 'Switch fallback triggered — request did not match any configured route or action.'\n      }\n    },\n    timestamp: new Date().toISOString()\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        608
+      ],
+      "id": "0f7116e8-a097-45ab-8b00-8b6ea7eaa013",
+      "name": "NQxb_Gateway_v1__Return_Unhandled_Route_Error"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "3AruKMhXCuowHshS",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/3AruKMhXCuowHshS",
+          "cachedResultName": "NQxb_Artifact_Update_v1__T140"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        224,
+        640
+      ],
+      "id": "5aacde54-c53d-4acc-b31b-6032fc9cbe04",
+      "name": "Call 'NQxb_Artifact_Update_v1__T140'",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "0c9EW8sU3banPoZ7",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/0c9EW8sU3banPoZ7",
+          "cachedResultName": "NQxb_Messaging_Send_Email_v1"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        1632
+      ],
+      "id": "681b6ae2-b91f-4db5-9dec-1a122b434468",
+      "name": "Call 'NQxb_Messaging_Send_Email_v1'",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "GF1p30FCKbVLZGfs",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/GF1p30FCKbVLZGfs",
+          "cachedResultName": "NQxb_Messaging_Calendar_Event_v2"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        1824
+      ],
+      "id": "3e0e9521-5606-41e6-9587-ee4ec1e789ae",
+      "name": "Call 'NQxb_Messaging_Calendar_Event_v2'",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// payload.build v1.1 — Intent → Canonical Payload Assembly\n// Spec: Leaf 2.1 (eaf3c349) | Branch: 03fcfc9e\n// v1.1: Fix double-nesting for snapshot/restart content.payload unwrap\nconst SPEC_VERSION = '1.1';\n\n// ─── Type Rules (from Save v50 Check_Mutability_Rules + Validate_Request) ───\n\nconst TYPE_RULES = {\n  project: {\n    semantic_type: 'required',\n    parent: 'optional',\n    content_target: 'spine',\n    extension_inject: { lifecycle_stage: 'seed' },\n    extension_allowlist: ['lifecycle_stage', 'operational_state', 'state_reason', 'design_spine'],\n  },\n  journal: {\n    semantic_type: 'required',\n    parent: 'optional',\n    content_target: 'extension.entry_text',\n    content_type: 'string',\n    extension_allowlist: ['entry_text'],\n  },\n  snapshot: {\n    semantic_type: 'required',\n    parent: 'optional',\n    content_target: 'extension.payload',\n    content_must_be_object: true,\n    extension_allowlist: ['payload'],\n  },\n  restart: {\n    semantic_type: 'required',\n    parent: 'optional',\n    content_target: 'extension.payload',\n    content_must_be_object: true,\n    extension_allowlist: ['payload'],\n  },\n  branch: {\n    semantic_type: 'forbidden',\n    parent: 'required',\n    content_target: 'spine',\n    extension_allowlist: [],\n    default_execution_status: 'not_started',\n  },\n  leaf: {\n    semantic_type: 'forbidden',\n    parent: 'required',\n    content_target: 'spine',\n    extension_allowlist: [],\n    default_execution_status: 'not_started',\n  },\n  limb: {\n    semantic_type: 'forbidden',\n    parent: 'required',\n    content_target: 'spine',\n    extension_allowlist: [],\n    default_execution_status: 'not_started',\n  },\n  twig: {\n    semantic_type: 'forbidden',\n    parent: 'required',\n    content_target: 'spine',\n    extension_allowlist: [],\n    default_execution_status: 'not_started',\n    twig_content_required: true,\n  },\n  instruction_pack: {\n    semantic_type: 'forbidden',\n    parent: 'optional',\n    content_target: 'spine',\n    extension_allowlist: ['scope', 'active', 'priority', 'pack_format', 'payload'],\n    extension_auto_created: true,\n  },\n  person: {\n    semantic_type: 'required',\n    parent: 'optional',\n    content_target: 'extension_direct',\n    extension_allowlist: [\n      'full_name', 'preferred_name', 'relationship_type', 'status', 'pronouns',\n      'personal_email', 'work_email', 'mobile_phone', 'work_phone', 'home_phone',\n      'preferred_contact_method', 'preferred_contact_channel', 'timezone',\n      'company', 'title', 'department', 'importance_level',\n      'interaction_frequency', 'last_contacted_at', 'next_follow_up_at', 'do_not_contact',\n      'address', 'communication_style', 'what_they_care_about', 'key_facts', 'preferences',\n    ],\n    person_required: ['full_name', 'preferred_name', 'relationship_type'],\n  },\n};\n\nconst SEMANTIC_TYPES = new Set([\n  'governance', 'execution-core', 'infrastructure', 'platform',\n  'product', 'alignment', 'sales', 'marketing', 'exploratory',\n]);\n\nconst VALID_ACTIONS = new Set(['artifact.save', 'artifact.update', 'artifact.promote']);\nconst VALID_TRANSITIONS = new Set(['seed_to_sapling', 'sapling_to_tree', 'tree_to_archive']);\nconst CHILD_TYPES = new Set(['branch', 'leaf', 'limb', 'twig']);\n\n// ─── Parse Intent ───\n\nconst raw = $input.first().json;\nconst workspace_id = raw.gw_workspace_id;\n\nconst intent = {\n  action:        (raw.action || '').trim(),\n  type:          (raw.type || raw.artifact_type || '').trim(),\n  title:         (raw.title || '').trim(),\n  artifact_id:   (raw.artifact_id || '').trim() || null,\n  semantic_type: (raw.semantic_type || raw.semantic_type_id || '').trim() || null,\n  priority:      raw.priority ?? null,\n  tags:          raw.tags || null,\n  parent:        (raw.parent || raw.parent_artifact_id || '').trim() || null,\n  content:       raw.content ?? null,\n  summary:       (raw.summary || '').trim() || null,\n  transition:    (raw.transition || '').trim() || null,\n  reason:        (raw.reason || '').trim() || null,\n  mode:          (raw.mode || 'dry_run').trim(),\n  extension:     raw.extension || null,\n};\n\nconst errors = [];\nconst warnings = [];\n\n// ─── Validate Action ───\n\nif (!intent.action) {\n  errors.push('Missing required field: action');\n} else if (!VALID_ACTIONS.has(intent.action)) {\n  errors.push(`Unknown action: \"${intent.action}\". Allowed: ${[...VALID_ACTIONS].join(', ')}`);\n}\n\n// ─── Validate Type ───\n\nconst typeRule = TYPE_RULES[intent.type];\nif (!intent.type) {\n  errors.push('Missing required field: type (artifact_type)');\n} else if (!typeRule) {\n  errors.push(`Unknown artifact_type: \"${intent.type}\". Allowed: ${Object.keys(TYPE_RULES).join(', ')}`);\n}\n\n// ─── Validate Mode ───\n\nif (intent.mode !== 'dry_run' && intent.mode !== 'execute') {\n  errors.push(`Invalid mode: \"${intent.mode}\". Allowed: dry_run, execute`);\n}\n\n// Short-circuit on fatal errors\nif (errors.length > 0 || !typeRule) {\n  return [{\n    json: {\n      ok: false,\n      gw_action: 'payload.build',\n      spec_version: SPEC_VERSION,\n      mode: intent.mode,\n      validation: { errors, warnings },\n    }\n  }];\n}\n\n// ─── Action-Specific Validation ───\n\nif (intent.action === 'artifact.save') {\n\n  // Title required on save\n  if (!intent.title) {\n    errors.push('Missing required field: title (required for save)');\n  }\n\n  // artifact_id forbidden on save\n  if (intent.artifact_id) {\n    errors.push('artifact_id is FORBIDDEN on save — server generates it');\n  }\n\n  // Semantic type\n  if (typeRule.semantic_type === 'required') {\n    if (!intent.semantic_type) {\n      errors.push(`semantic_type is REQUIRED for artifact_type \"${intent.type}\"`);\n    } else if (!SEMANTIC_TYPES.has(intent.semantic_type)) {\n      errors.push(`Unknown semantic_type: \"${intent.semantic_type}\". Allowed: ${[...SEMANTIC_TYPES].join(', ')}`);\n    }\n  } else if (typeRule.semantic_type === 'forbidden' && intent.semantic_type) {\n    errors.push(`semantic_type is FORBIDDEN for artifact_type \"${intent.type}\"`);\n  }\n\n  // Parent requirement\n  if (typeRule.parent === 'required' && !intent.parent) {\n    errors.push(`parent_artifact_id is REQUIRED for artifact_type \"${intent.type}\"`);\n  }\n\n  // Content validation per type\n  if (typeRule.content_must_be_object && intent.content !== null) {\n    // Unwrap content.payload if present (Q often pre-wraps)\n    const effectiveContent = (intent.content && typeof intent.content === 'object'\n      && !Array.isArray(intent.content) && intent.content.payload\n      && typeof intent.content.payload === 'object' && !Array.isArray(intent.content.payload))\n      ? intent.content.payload\n      : intent.content;\n\n    if (typeof effectiveContent !== 'object' || Array.isArray(effectiveContent)) {\n      errors.push(`content must be an object for artifact_type \"${intent.type}\" (not string or array)`);\n    } else if (Object.keys(effectiveContent).length === 0) {\n      errors.push(`content must be non-empty for artifact_type \"${intent.type}\"`);\n    }\n  }\n\n  // Journal: content should be string (maps to entry_text)\n  if (intent.type === 'journal' && intent.content !== null) {\n    if (typeof intent.content !== 'string') {\n      errors.push('content must be a string for journal (maps to extension.entry_text)');\n    } else if (intent.content.trim().length === 0) {\n      errors.push('content (entry_text) must be non-empty for journal');\n    }\n  }\n\n  // Twig content completeness\n  if (typeRule.twig_content_required && intent.content) {\n    const c = intent.content;\n    if (typeof c === 'object' && !Array.isArray(c)) {\n      const required = ['idea', 'why_now', 'problem_touched', 'future_hook'];\n      for (const field of required) {\n        if (!c[field] || (typeof c[field] === 'string' && c[field].trim().length === 0)) {\n          errors.push(`Twig content requires non-empty field: \"${field}\"`);\n        }\n      }\n    }\n  }\n\n  // Person required fields\n  if (typeRule.person_required && intent.content) {\n    const c = intent.content;\n    if (typeof c === 'object' && !Array.isArray(c)) {\n      for (const field of typeRule.person_required) {\n        if (!c[field] || (typeof c[field] === 'string' && c[field].trim().length === 0)) {\n          errors.push(`Person requires non-empty field: \"${field}\"`);\n        }\n      }\n      // Validate JSONB array fields\n      for (const arrField of ['key_facts', 'what_they_care_about', 'preferences']) {\n        if (c[arrField] !== undefined && c[arrField] !== null && !Array.isArray(c[arrField])) {\n          errors.push(`Person field \"${arrField}\" must be an array (or null)`);\n        }\n      }\n      // Check unknown fields\n      const allowedSet = new Set(typeRule.extension_allowlist);\n      for (const key of Object.keys(c)) {\n        if (!allowedSet.has(key)) {\n          errors.push(`Unknown person field: \"${key}\". Not in extension allowlist.`);\n        }\n      }\n      // Contact info warning\n      const contactFields = ['personal_email', 'work_email', 'mobile_phone', 'work_phone', 'home_phone'];\n      const hasContact = contactFields.some(f => c[f] && String(c[f]).trim().length > 0);\n      if (!hasContact) {\n        warnings.push('Person has no contact information; follow-up tracking may be limited');\n      }\n    }\n  }\n\n} else if (intent.action === 'artifact.update') {\n\n  // artifact_id required on update\n  if (!intent.artifact_id) {\n    errors.push('Missing required field: artifact_id (required for update)');\n  }\n  if (!intent.type) {\n    errors.push('Missing required field: type (required for update)');\n  }\n\n} else if (intent.action === 'artifact.promote') {\n\n  // artifact_id required\n  if (!intent.artifact_id) {\n    errors.push('Missing required field: artifact_id (required for promote)');\n  }\n  // transition required\n  if (!intent.transition) {\n    errors.push('Missing required field: transition (required for promote)');\n  } else if (!VALID_TRANSITIONS.has(intent.transition)) {\n    errors.push(`Invalid transition: \"${intent.transition}\". Allowed: ${[...VALID_TRANSITIONS].join(', ')}`);\n  }\n  // reason required\n  if (!intent.reason) {\n    errors.push('Missing required field: reason (required for promote)');\n  } else if (intent.reason.length > 280) {\n    errors.push(`reason exceeds 280 characters (${intent.reason.length})`);\n  }\n}\n\n// Warnings\nif (!intent.tags || (Array.isArray(intent.tags) && intent.tags.length === 0)) {\n  warnings.push('No tags provided (recommended but not required)');\n}\nif (intent.priority !== null && (intent.priority < 1 || intent.priority > 5)) {\n  warnings.push(`Priority ${intent.priority} outside 1-5 range — will default to 3`);\n}\nif (intent.content === null && intent.action === 'artifact.save' &&\n    !['branch', 'leaf', 'limb'].includes(intent.type)) {\n  warnings.push('Content is empty (valid but unusual for this type)');\n}\n\n// ─── Early Return on Validation Errors ───\n\nif (errors.length > 0) {\n  return [{\n    json: {\n      ok: false,\n      gw_action: 'payload.build',\n      spec_version: SPEC_VERSION,\n      mode: intent.mode,\n      validation: { errors, warnings },\n    }\n  }];\n}\n\n// ─── Assemble Canonical Payload ───\n\nconst payload = {};\n\nif (intent.action === 'artifact.save') {\n\n  payload.gw_action = 'artifact.save';\n  payload.gw_workspace_id = workspace_id;\n  payload.artifact_type = intent.type;\n  payload.title = intent.title;\n\n  // Priority (default 3)\n  payload.priority = (intent.priority !== null && intent.priority >= 1 && intent.priority <= 5)\n    ? intent.priority : 3;\n\n  // Summary\n  if (intent.summary) {\n    payload.summary = intent.summary;\n  }\n\n  // Tags (flat array on save)\n  if (intent.tags && Array.isArray(intent.tags) && intent.tags.length > 0) {\n    payload.tags = intent.tags;\n  }\n\n  // Semantic type (pass human key — Gateway Semantic_Resolver handles key→UUID)\n  if (typeRule.semantic_type === 'required') {\n    payload.semantic_type_id = intent.semantic_type;\n  }\n\n  // Parent\n  if (intent.parent) {\n    payload.parent_artifact_id = intent.parent;\n  }\n\n  // Content routing per type\n  const target = typeRule.content_target;\n\n  if (target === 'spine') {\n    // Content goes to spine content field\n    if (intent.content !== null && intent.content !== undefined) {\n      payload.content = intent.content;\n    }\n    // Extension injection (e.g., project lifecycle_stage)\n    if (typeRule.extension_inject) {\n      payload.extension = { ...typeRule.extension_inject };\n    }\n    // Instruction pack: extension auto-created by trigger, don't send extension\n    if (typeRule.extension_auto_created) {\n      delete payload.extension;\n    }\n\n  } else if (target === 'extension.entry_text') {\n    // Journal: string content → extension.entry_text\n    payload.extension = { entry_text: intent.content };\n\n  } else if (target === 'extension.payload') {\n    // Snapshot/restart: object content → extension.payload\n    // Unwrap content.payload if Q pre-wrapped it\n    const payloadContent = (intent.content && typeof intent.content === 'object'\n      && !Array.isArray(intent.content) && intent.content.payload\n      && typeof intent.content.payload === 'object' && !Array.isArray(intent.content.payload))\n      ? intent.content.payload\n      : intent.content;\n    payload.extension = { payload: payloadContent };\n\n  } else if (target === 'extension_direct') {\n    // Person: content fields map directly to extension fields\n    if (intent.content && typeof intent.content === 'object') {\n      payload.extension = {};\n      const allowedSet = new Set(typeRule.extension_allowlist);\n      for (const [key, val] of Object.entries(intent.content)) {\n        if (allowedSet.has(key)) {\n          payload.extension[key] = val;\n        }\n      }\n    }\n  }\n\n  // Execution status default for child types\n  if (typeRule.default_execution_status) {\n    payload.execution_status = typeRule.default_execution_status;\n  }\n\n} else if (intent.action === 'artifact.update') {\n\n  payload.gw_action = 'artifact.update';\n  payload.gw_workspace_id = workspace_id;\n  payload.artifact_type = intent.type;\n  payload.artifact_id = intent.artifact_id;\n\n  // Spine fields (only include if provided)\n  if (intent.title) payload.title = intent.title;\n  if (intent.summary) payload.summary = intent.summary;\n  if (intent.priority !== null) payload.priority = intent.priority;\n\n  // Tags (structured format for update)\n  if (intent.tags) {\n    if (Array.isArray(intent.tags)) {\n      // Auto-convert flat array to add format\n      payload.tags = { add: intent.tags };\n    } else if (typeof intent.tags === 'object') {\n      // Already structured { add: [], remove: [] }\n      payload.tags = intent.tags;\n    }\n  }\n\n  // Content (if provided)\n  if (intent.content !== null && intent.content !== undefined) {\n    payload.content = intent.content;\n  }\n\n  // Extension (passthrough if provided)\n  if (intent.extension) {\n    payload.extension = intent.extension;\n  }\n\n} else if (intent.action === 'artifact.promote') {\n\n  payload.gw_action = 'artifact.promote';\n  payload.gw_workspace_id = workspace_id;\n  payload.artifact_type = intent.type;\n  payload.artifact_id = intent.artifact_id;\n  payload.transition = intent.transition;\n  payload.reason = intent.reason;\n\n}\n\n// ─── Return Result ───\n\nreturn [{\n  json: {\n    ok: true,\n    gw_action: 'payload.build',\n    spec_version: SPEC_VERSION,\n    mode: intent.mode,\n    target_action: intent.action,\n    assembled_payload: payload,\n    validation: { errors: [], warnings },\n    _meta: {\n      type_rule_applied: intent.type,\n      content_target: typeRule ? typeRule.content_target : null,\n      timestamp: new Date().toISOString(),\n    },\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        688,
+        1360
+      ],
+      "id": "ebebc2b7-84a9-4f98-86bd-b18934b8261a",
+      "name": "NQxb_Gateway__Payload_Builder"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        992,
+        1200
+      ],
+      "id": "c451dd9c-f6a7-45b0-a8cc-204a06fb374f",
+      "name": "NQxb_Gateway__Respond_Build"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "NQxb_Gateway_v1__Webhook_In": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Gateway_v1__Normalize_Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Gateway_v1__Normalize_Request": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Gateway_v2__Gatekeeper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Gateway_v2__Gatekeeper": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Gateway_v1__Switch_Route_OK_or_Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Gateway_v1__Switch_Route_OK_or_Error": {
+      "main": [
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Gateway_v1__Switch_Action",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Gateway_v1__Return_Unhandled_Route_Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Gateway_v1__Switch_Action": {
+      "main": [
+        [
+          {
+            "node": "Call 'NQxb_Artifact_Query_v1'",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Gateway_v1__Build_List_Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Gateway__Freeze_Save_Context",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Gateway_v1_Normalize_Update_Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Normalize_Promote_Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle_Delete",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle_Restore",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle_List_Deleted",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call 'NQxb_Messaging_Send_Email_v1'",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call 'NQxb_Messaging_Calendar_Event_v2'",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Gateway__Payload_Builder",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NQxb_Gateway_v1__Return_Unhandled_Route_Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call 'NQxb_Messaging_Send_Email_v1'": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Gateway__Respond_Save_Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call 'NQxb_Artifact_Query_v1'": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Gateway_v1__Shape_Query_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Gateway__Freeze_Save_Context": {
+      "main": [
+        [
+          {
+            "node": "Call 'NQxb_Artifact_Save_v1'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call 'NQxb_Artifact_Save_v1'": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Gateway__Tag_Save_Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Gateway__Tag_Save_Result": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Gateway__Respond_Save_Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Gateway_v1__Call_Artifact_List_v1": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Gateway_v1__Shape_List_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Gateway_v1__Shape_List_Response": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Gateway__Respond_Save_Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Gateway_v1__Build_List_Request": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Gateway_v1__Call_Artifact_List_v1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Gateway_v1_Normalize_Update_Request": {
+      "main": [
+        [
+          {
+            "node": "Call 'NQxb_Artifact_Update_v1__T140'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize_Promote_Request": {
+      "main": [
+        [
+          {
+            "node": "Call 'NQxb_Artifact_Promote_v1'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call 'NQxb_Artifact_Promote_v1'": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Gateway__Respond_Save_Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Gateway_v1__Shape_Query_Response": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Gateway_v1__Respond_Query_Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle_Delete": {
+      "main": [
+        [
+          {
+            "node": "Shape_Delete_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shape_Delete_Response": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Gateway__Respond_Save_Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle_Restore": {
+      "main": [
+        [
+          {
+            "node": "Shape_Restore_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shape_Restore_Response": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Gateway__Respond_Save_Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle_List_Deleted": {
+      "main": [
+        [
+          {
+            "node": "Shape_List_Deleted_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shape_List_Deleted_Response": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Gateway__Respond_Save_Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Gateway_v1__Return_Unhandled_Route_Error": {
+      "main": [
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call 'NQxb_Artifact_Update_v1__T140'": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Gateway__Respond_Save_Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call 'NQxb_Messaging_Calendar_Event_v2'": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Gateway__Respond_Save_Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NQxb_Gateway__Payload_Builder": {
+      "main": [
+        [
+          {
+            "node": "NQxb_Gateway__Respond_Build",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "7c3b1da2-1f31-44c2-9a25-61af1336f174",
+  "meta": {
+    "instanceId": "154f6928422db881044f8d1647b40fc389c59337d14356c0ee681d50ffb55d7e"
+  },
+  "id": "JlBj6FQhlsx3axgQ",
+  "tags": []
+}

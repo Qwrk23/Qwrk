@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Rita PoV Guide",
+  "version": "1.0.0",
+  "description": "Guided Proof-of-Value experience for ServiceNow automation scenarios",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Rita PoV Guide"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "permissions": [
+    "sidePanel"
+  ],
+  "host_permissions": [
+    "https://n8n.halosparkai.com/*"
+  ]
+}
