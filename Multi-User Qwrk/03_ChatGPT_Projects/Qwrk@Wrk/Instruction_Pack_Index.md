@@ -35,6 +35,7 @@
 | `Instruction_Pack__Phase2_Governance_Hardening__v1.md` | Phase 2 governance rules | Governance questions |
 | `Instruction_Pack__CmdCtr_Session_Context__v1.md` | CmdCtr briefing protocol | Session start (CmdCtr present) |
 | `Instruction_Pack__QPM_Build_Process__v1.md` | QPM 7-phase launch + twig fast-capture | QPM project launch, twig quick capture |
+| `Instruction_Pack__Session_Lifecycle__QW__v2.md` | /wake + End Session protocol (DB-backed memory; T185-aware) | Session start (`/wake`), session end |
 
 ## Infrastructure
 
@@ -52,4 +53,4 @@
 
 **Governance Rule:** Instruction Pack Index must be updated in the same change set as any pack version bump. ACTIVE alias files must be updated atomically with version changes.
 
-*Updated: v3 (2026-03-30) — Messaging pack reference updated from `v2.1` to ACTIVE alias (`Instruction_Pack__Messaging__ACTIVE.md`). Added Index synchronization governance rule. Previous: `Archive/Instruction_Pack_Index__v2__2026-03-30.md`. v2: Trigger column. v1: extraction.*
+*Updated: v5 (2026-05-06) — Session Lifecycle pack bumped v1 → v2 (first-wake T185 mitigation reframed as fallback; aligned with Workspace Bootstrap Bookmark doctrine). Previous: `Archive/Instruction_Pack_Index__v4__2026-05-06.md`. v4 (2026-05-05): Added Session Lifecycle pack (Q@W DB-backed memory migration). v3 (2026-03-30): Messaging pack reference updated to ACTIVE alias; Index synchronization governance rule. v2: Trigger column. v1: extraction.*

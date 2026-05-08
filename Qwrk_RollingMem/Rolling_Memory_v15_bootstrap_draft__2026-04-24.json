@@ -1,0 +1,275 @@
+{
+  "gw_action": "artifact.save",
+  "gw_workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+  "artifact_type": "snapshot",
+  "semantic_type_id": "governance",
+  "title": "Rolling Memory — for-q — 2026-04-24 — v15",
+  "tags": ["rolling-memory", "for-q"],
+  "priority": 3,
+  "extension": {
+    "payload": {
+      "schema_version": "v1",
+      "version": "v15",
+      "generated_at": "2026-04-24T16:30:00-05:00",
+      "workspace_id": "be0d3a48-c764-44f9-90c8-e846d9dbbd0a",
+      "workspace_name": "Qwrk Personal",
+      "byte_size_estimate": 0,
+      "bootstrap_notes": "First DB-backed Rolling Memory. Migrated from file v14 per Active System Fidelity. Registry removed. Closed threads dropped. Low-signal narrative dropped. Preserves Beta (T176+), Website (T173/T172/T174), active architecture (T175/T167/T182), in-progress execution (T159/T164/T165/T179/T180/T181/T183), all 8 Protected Core, all 5 Tier A-Prime.",
+
+      "protected_core": [
+        { "rule_id": "pc_1", "title": "Qwrk Naming and Identity Lock", "impact": "Q MUST refer to the system as Qwrk or Q only. No QP1 or ANQ.", "scope": "global", "source_artifact_id": "041f678e" },
+        { "rule_id": "pc_2", "title": "Phase 1 Lock — Kernel v1 Governance Complete", "impact": "Q MUST NOT suggest changes to Phase 1 locked decisions (Kernel Semantics D1-D4, paper schemas, Gateway Contract P3-D1 through P3-D5).", "scope": "global", "source_artifact_id": "a59311c2" },
+        { "rule_id": "pc_3", "title": "System Instructions — Write-Intent Sovereignty", "impact": "Q MUST NOT ask for gw_workspace_id on simple list/query. Q MUST NOT autonomously initiate writes. Joel executes via QSB/TG.", "scope": "gateway", "source_artifact_id": "b753a85e" },
+        { "rule_id": "pc_4", "title": "Production Implies Tree", "impact": "Q MUST classify any deployed production system as tree. No oak promotion unless tree:hardened tag present.", "scope": "gateway", "source_artifact_id": "6159fea4" },
+        { "rule_id": "pc_5", "title": "North Star v0.4 — Execution Anatomy", "impact": "Project -> Branch -> Limb (optional) -> Leaf. No Branch->Branch, Limb->Limb, or Leaf->anything parenting.", "scope": "global", "source_artifact_id": "0bf89bec" },
+        { "rule_id": "pc_6", "title": "Payload Object & Surface Rendering Invariant", "impact": "Execution payloads are raw JSON. QSB = prime-exec + fenced JSON. TG = raw JSON only. Sequential: save -> confirm -> extract artifact_id -> proceed.", "scope": "execution", "source_artifact_id": "8b98f42d" },
+        { "rule_id": "pc_7", "title": "Governance Milestones — Execution Discipline", "impact": "No UUID invention. No assumed persistence. No Tier A context expansion or memory mutation without explicit user intent.", "scope": "global", "source_artifact_id": "13dfa8fb" },
+        { "rule_id": "pc_8", "title": "Two-Tier Memory Model", "impact": "Rolling memory = Tier A (auto-loaded) + Tier B (addressable on-demand). No silent Tier B loading.", "scope": "global", "source_artifact_id": "120812e8" }
+      ],
+
+      "rotating_shell": [
+        {
+          "entry_id": "anchor_1",
+          "title": "Mutation Surface Invariant",
+          "must": "Save = CREATE-only. Update = mutation path. Promote = lifecycle transition.",
+          "must_not": "Save MUST NOT update. Update MUST NOT create. Promote MUST NOT modify non-lifecycle fields.",
+          "source": "Canonical E. Save v42. Update T69. Promote v23."
+        },
+        {
+          "entry_id": "anchor_2",
+          "title": "Lifecycle Determinism + Mutability (T87)",
+          "must": "Linear: seed->sapling->tree->archive. Archive terminal. Mutability: archive=ALL FROZEN; tree=title FROZEN (rename before promoting); seed/sapling=all mutable. Journals INSERT-ONLY (new journal per thread). Twig: seed+sapling only; plant on branch when domain known else Mother Tree; matured twig becomes pruned.",
+          "must_not": "No automation for dead seed archival. No journal mutation. No lifecycle skips/reversals. No implicit seasoned/oak.",
+          "source": "Canonical B. 20389ab0 (T87). Check_Mutability_Rules v8."
+        },
+        {
+          "entry_id": "anchor_3",
+          "title": "Semantic Registry Enforcement",
+          "must": "semantic_type_id required on save for project/snapshot/journal/restart. References qxb_semantic_type_registry. Updates via update_semantic_type() RPC only.",
+          "must_not": "Extension types (branch/leaf/limb/instruction_pack) MUST NOT include semantic_type_id.",
+          "source": "8dacdd00 (T69 7/7 PASS). DDL v2.6."
+        },
+        {
+          "entry_id": "anchor_4",
+          "title": "Snapshot Immutability",
+          "must": "Snapshot/restart/instruction_pack immutable after creation. Event log append-only. Recommend creating snapshot when promoting sapling to tree.",
+          "must_not": "No UPDATE policies on snapshot/restart/instruction_pack. No UPDATE/DELETE on event log.",
+          "source": "271046d8. Phase 1 Lock."
+        },
+        {
+          "entry_id": "anchor_5",
+          "title": "Sequential Discipline",
+          "must": "One Gateway op at a time. Sequential: save->confirm->extract->proceed. Canonical v5 sole authority. QSB=prime-exec+fenced json (desktop). TG=raw JSON (mobile). Update routing: spine_only, mixed, tags_only, extension, semantic_type. Parent routing via Mother Tree Structural Map IP.",
+          "must_not": "No UUID invention. No parallel Gateway ops. No payload without Canonical v5. No mixing QSB/TG or spine/extension.",
+          "source": "43100e90. 20389ab0. 579fb14d (Mother Tree Map)."
+        },
+        {
+          "entry_id": "anchor_6",
+          "title": "Certification Before Deployment",
+          "must": "Phase 2C certification must PASS before schema enrichment/feature expansion. Post-freeze changes require re-certification.",
+          "must_not": "No schema enrichment before certification. No feature expansion without reliability gain.",
+          "source": "Canonical F. 07525efb. 20389ab0 (T87 133 tests green)."
+        },
+        {
+          "entry_id": "rule_1",
+          "title": "Qwrk World Invariants / Anti-Footgun",
+          "must": "Qwrk_World = highest sovereignty boundary. Private by default.",
+          "must_not": "Nothing crosses worlds implicitly. No default sharing.",
+          "source_artifact_id": "25e02429"
+        },
+        {
+          "entry_id": "rule_2",
+          "title": "Weekly Stewardship Monday Rule",
+          "must": "Every Monday, check stewardship loop. Pause and prompt Joel before design/build if no Weekly Bet.",
+          "source_artifact_id": "cbf7624e"
+        },
+        {
+          "entry_id": "rule_3",
+          "title": "Qwrk Self-Build Domain Topology",
+          "must": "Single Mother Tree with durable domain branches (Product, Platform, Marketing, Operations).",
+          "must_not": "No branch-to-tree promotion without sustained multi-cycle justification.",
+          "source_artifact_id": "bbe9e957"
+        },
+        {
+          "entry_id": "rule_4",
+          "title": "Q Payload Discipline",
+          "must": "Payload preflight before any executable emission. Artifacts must contain meaningful content.",
+          "must_not": "No payload without preflight. No title-only design artifacts.",
+          "source_artifact_ids": ["51baffb9", "7ecf902f"]
+        },
+        {
+          "entry_id": "phase_gating",
+          "title": "Phase Gating Doctrine",
+          "gates": [
+            { "phase": "Phase 1", "status": "LOCKED" },
+            { "phase": "Phase 2", "status": "SEALED", "note": "DDL v2.10. 47/47 PASS." },
+            { "phase": "Phase 2B", "status": "SEALED", "note": "T70+T71 certified." },
+            { "phase": "Phase 2C", "status": "GREEN", "note": "133 tests PASS." },
+            { "phase": "Phase 3", "status": "SEED", "note": "Gated behind Phase 2C green + Walk seal." },
+            { "phase": "T69", "status": "CERTIFIED" },
+            { "phase": "T80", "status": "COMPLETE", "note": "DDL v2.9." },
+            { "phase": "T87", "status": "CERTIFIED" },
+            { "phase": "T94", "status": "CERTIFIED", "note": "CHECK v8: 15 types incl. person." },
+            { "phase": "T46", "status": "DECISION LOCKED", "note": "Journals INSERT-ONLY." },
+            { "phase": "T100", "status": "DEPLOYED", "note": "CmdCtr observability." },
+            { "phase": "T112", "status": "DEPLOYED" },
+            { "phase": "T122", "status": "DEPLOYED", "note": "Unified Gateway v2." },
+            { "phase": "T123", "status": "MVP COMPLETE" },
+            { "phase": "T140", "status": "CERTIFIED", "note": "Content system." },
+            { "phase": "T149", "status": "VALIDATED" },
+            { "phase": "T150", "status": "IN PROGRESS", "note": "Branches 1-3 complete." },
+            { "phase": "T167", "status": "CERTIFIED", "note": "Sapling A+B+Restored." },
+            { "phase": "T171", "status": "COMPLETE", "note": "Destructive Op Safety 3-Layer." },
+            { "phase": "T172", "status": "SAPLING", "note": "Operator Console MVP v2." }
+          ],
+          "gating_rules": [
+            "G1. Phase 2 MUST NOT reopen without explicit governance decision.",
+            "G2. Walk gaps resolved.",
+            "G3. Phase 2C MUST pass before Phase 3 expansion.",
+            "G4. T69 = enforcement infrastructure, not new doctrine.",
+            "G5. Phase 3 = SEED."
+          ]
+        }
+      ],
+
+      "tier_a_prime": [
+        { "entry_id": "ap_1", "title": "Daily 8am Old Bull Planning Protocol", "source_artifact_id": "137669a9" },
+        { "entry_id": "ap_2", "title": "January Joel Bridge — Personal Alignment", "source_artifact_id": "47784c6e" },
+        { "entry_id": "ap_3", "title": "Joel Growth Trajectory Toward January 2027", "source_artifact_id": "61be4fcb" },
+        { "entry_id": "ap_4", "title": "Qwrk Restart Alignment — Reclaiming the Land", "source_artifact_id": "668bd18f" },
+        { "entry_id": "ap_5", "title": "Sovereignty Mirror Boundary", "impact": "Q MUST reflect patterns honestly, slow when precision matters. Q MUST NOT replace Joel's judgment or expand urgency beyond structural necessity." }
+      ],
+
+      "active_contexts": [
+        { "context_ref": "The Hunt for Red October", "context_status": "active", "latest_part": "Part 2", "reference_artifact_id": "a52f402e" },
+        { "context_ref": "The 5 Levels of Leadership", "context_status": "active", "latest_part": "Part 1", "reference_artifact_id": "49881324" }
+      ],
+
+      "active_threads": [
+        { "thread_id": "T159", "title": "Non-Prime Pack Propagation Sprint", "status": "open", "priority": "medium", "next_action": "Akara IP Index/SI bump v1.5->v1.6 for Seed Pod IP; BlaggLife/Q@W/Greg SI alignment" },
+        { "thread_id": "T167", "title": "Compliance-to-Enforcement Hardening", "status": "open", "priority": "high", "next_action": "Sapling C Architectural Enforcement — design-first" },
+        { "thread_id": "T118", "title": "parent_artifact_id Update Path", "status": "blocked", "priority": "high", "next_action": "Joel verifies Update v9 n8n import; 4 non-Prime gateways unpatched" },
+        { "thread_id": "T145", "title": "Qwrk Beta User Provisioning & Onboarding", "status": "open", "priority": "high", "next_action": "Fill credential placeholder in Akazanar Qx/QSB; upload beta IPs to ChatGPT" },
+        { "thread_id": "T152", "title": "Fix Akara Gateway Access", "status": "open", "priority": "high", "next_action": "Beta Qx KNOWN_WORKSPACES update for Akara" },
+        { "thread_id": "T164", "title": "Seed Pod — Portable Idea Primitive", "status": "blocked", "priority": "high", "next_action": "Await WSY-complete snapshot from Q+Manus; Akara SI Index/SI pending" },
+        { "thread_id": "T165", "title": "Qwrk Update Versioning System", "status": "open", "priority": "high", "next_action": "Design discussion with Q pending" },
+        { "thread_id": "T150", "title": "Person Artifact Type — Implementation", "status": "open", "priority": "medium", "next_action": "Branch 4 (Retrieval & Behavior) -> 5 -> 6" },
+        { "thread_id": "T103", "title": "Command Center Limb", "status": "open", "priority": "medium", "next_action": "6 child twigs must complete per Branch Closure Protocol" },
+        { "thread_id": "T127", "title": "Qwrk Exploratory GPT", "status": "open", "priority": "medium", "next_action": "Demo proxy operational 47/47 PASS" },
+        { "thread_id": "T22", "title": "Frita Voice — WALK Identity-First", "status": "open", "priority": "medium", "next_action": "10DLC pending (leaf 8a42f845)" },
+        { "thread_id": "T121", "title": "Upload Instruction Packs to ChatGPT", "status": "open", "priority": "medium", "next_action": "QPM Build Process IP for Q@W, BlaggLife, Greg; Greg deferred" },
+        { "thread_id": "T123", "title": "Messaging Subsystem — QPM Execution", "status": "open", "priority": "low", "next_action": "File attachments leaf 3a7ad2ba; Greg multi-forest rollout" },
+        { "thread_id": "T126", "title": "Akara/Greg Capability Parity", "status": "open", "priority": "medium", "next_action": "Greg deferred until after onboarding" },
+        { "thread_id": "T111", "title": "Gateway execution_status Update Path", "status": "open", "priority": "medium", "next_action": "QPM Phase 6; workaround direct SQL" },
+        { "thread_id": "T114", "title": "Mobile Gateway Silent Failures", "status": "open", "priority": "medium", "next_action": "Related to T113" },
+        { "thread_id": "T117", "title": "Menu Mode Journal Tag Update Failure", "status": "open", "priority": "medium", "next_action": "Bug 5-session carry-forward. Source 7e1aec02" },
+        { "thread_id": "T141", "title": "Reset the Board — Loose Thread Sweep", "status": "open", "priority": "medium", "next_action": "Brain dump, categorize, pick 3 re-entry targets" },
+        { "thread_id": "T144", "title": "Lifecycle Alignment Guardrail", "status": "open", "priority": "medium", "next_action": "Spine/extension lifecycle alignment enforcement" },
+        { "thread_id": "T169", "title": "execution_status Update HTTP 400 Investigation", "status": "open", "priority": "medium", "next_action": "Update Normalizer allowlist gap (T111 dependency)" },
+        { "thread_id": "T172", "title": "Qwrk Operator Console — Web Product Surface", "status": "open", "priority": "high", "next_action": "Joel decides Vercel vs self-hosted; auth approach" },
+        { "thread_id": "T173", "title": "Qwrk Website Strategic Planning", "status": "open", "priority": "high", "next_action": "design_spine; branch prioritization; overlaps T172 hosting/auth" },
+        { "thread_id": "T175", "title": "Salience Amplification Doctrine — Instruction Layer Transition", "status": "open", "priority": "high", "next_action": "Phase A execution; payload.build v1.1 certified" },
+        { "thread_id": "T174", "title": "Guided PoV Experience (Chrome Side Panel)", "status": "open", "priority": "high", "next_action": "n8n import, activation, extension load, end-to-end test; scenario refinement with Q" },
+        { "thread_id": "T176", "title": "Beta Active Launch Program (Qwrk Lite)", "status": "open", "priority": "high", "next_action": "Lock binding model -> Activation Code Lifecycle -> Master Record -> bootstrap. Branch A (A1 Gateway parity) hard blocker" },
+        { "thread_id": "T177", "title": "Payload Builder IP — Test & Promote to Q Heads", "status": "open", "priority": "high", "next_action": "Investigate Qx->payload.build execute path; promote to Prime SI" },
+        { "thread_id": "T178", "title": "QPA Rollout to Akara", "status": "deferred", "priority": "medium", "next_action": "Waiting on Q@W QPA v2 proving stable" },
+        { "thread_id": "T179", "title": "QPA — Q@W Workday Personal Assistant", "status": "open", "priority": "high", "next_action": "Joel validates Q@W behavior; then T178 + Prime adaptation" },
+        { "thread_id": "T180", "title": "Gateway Dependency Management Routes", "status": "open", "priority": "medium", "next_action": "Design: cross-type vs leaf-only; cycle detection; auto-status on dependency add" },
+        { "thread_id": "T181", "title": "Qwrk Growth Audit System (Manus + CC)", "status": "open", "priority": "medium", "next_action": "3-layer approach: context injection -> structured interrogation -> output shaping" },
+        { "thread_id": "T183", "title": "Gardenomicon — Akara Plant-Care Capability", "status": "open", "priority": "medium", "next_action": "First real plant save via Q; validate retrieval loop" },
+        { "thread_id": "T182", "title": "Agent-Augmented Review Model for Manus", "status": "open", "priority": "high", "next_action": "Integrate 4 corrections -> v1.0 Final Spec -> Manus validation" }
+      ],
+
+      "current_priorities": [
+        { "rank": 1, "title": "T176 Beta — lock binding model", "why": "Master program; A1 Gateway parity hard blocker; Critical" },
+        { "rank": 2, "title": "T175 Salience — Phase A execution", "why": "Payload Builder IP promotion enables T177 and Q head migration" },
+        { "rank": 3, "title": "T172 Operator Console — hosting + auth decision", "why": "Sapling 3 branches; Joel decision needed" },
+        { "rank": 4, "title": "T164 Seed Pod — WSY review gate completion", "why": "Waiting on WSY snapshot from Q + Manus" },
+        { "rank": 5, "title": "T174 Guided PoV — April 7 target", "why": "Time-boxed; n8n import + extension + test pending" }
+      ],
+
+      "active_artifacts": [
+        { "artifact_id": "dec0597b", "type": "project", "title": "Qwrk Prime Mother Tree", "category": "structural", "lifecycle": "tree" },
+        { "artifact_id": "dd409298", "type": "project", "title": "Platform", "category": "structural", "lifecycle": "tree" },
+        { "artifact_id": "285d2b59", "type": "project", "title": "Cognitive Architecture", "category": "architecture", "lifecycle": "tree" },
+        { "artifact_id": "fc849586", "type": "project", "title": "Memory Architecture — Registry vs RAG", "category": "architecture", "lifecycle": "tree" },
+
+        { "artifact_id": "5d80ee44", "type": "snapshot", "title": "Beta Authority Model + Deterministic Provisioning Decision", "category": "beta", "thread_ref": "T176" },
+        { "artifact_id": "fb7650ed", "type": "restart", "title": "Restart — Beta Binding Decision (Post-Authority Lock)", "category": "beta", "thread_ref": "T176" },
+        { "artifact_id": "2c2f6afd", "type": "snapshot", "title": "Beta User Provisioning Project Navigation Map", "category": "beta", "thread_ref": "T145" },
+        { "artifact_id": "9a72c71e", "type": "twig", "title": "Qwrk Beta Feature Allowlist & Restrictions", "category": "beta" },
+        { "cluster_id": "T176_branch_plans", "cluster_name": "T176 Branch A-F Plans", "category": "beta", "thread_ref": "T176", "member_ids": ["08d5fb37", "126bde08", "19b16098", "98f2bdb2", "33d58b8c", "1dfd3118"], "retrieve_via": "artifact.list tags for-q + T176" },
+
+        { "artifact_id": "360810aa", "type": "snapshot", "title": "Qwrk Website Strategic Planning Root Design", "category": "website", "thread_ref": "T173" },
+        { "artifact_id": "cd4487d6", "type": "snapshot", "title": "Operator Console MVP v2 Milestone", "category": "website", "thread_ref": "T172" },
+        { "artifact_id": "a0e5e2d2", "type": "snapshot", "title": "Operator Console Sapling Nav", "category": "website", "thread_ref": "T172" },
+
+        { "artifact_id": "0364c5c0", "type": "snapshot", "title": "Plan — CmdCtr Refresh Snapshot IP Addition", "category": "architecture", "thread_ref": "T175" },
+        { "artifact_id": "33f67cd3", "type": "branch", "title": "CmdCtr Refresh Snapshot Payload Builder", "category": "architecture", "thread_ref": "T175" },
+        { "artifact_id": "f731dcb6", "type": "snapshot", "title": "T167 Sapling B Cert Restored (latest)", "category": "architecture", "thread_ref": "T167" },
+        { "cluster_id": "T167_leaves", "cluster_name": "T167 Compliance Hardening Batch (~60 leaves)", "category": "architecture", "thread_ref": "T167", "parents": ["20d27f2d", "8a937ffd"], "retrieve_via": "artifact.list artifact_type:leaf + parent_artifact_id:<T167 sapling>" },
+
+        { "artifact_id": "4c536ef7", "type": "project", "title": "Seed Pod Capability T164", "category": "in-progress", "lifecycle": "seed", "thread_ref": "T164" },
+        { "artifact_id": "4b37da12", "type": "restart", "title": "Restart — T164 Seed Pod WSY Gate", "category": "in-progress", "thread_ref": "T164" },
+        { "artifact_id": "3b1bdb03", "type": "snapshot", "title": "Decision — Seed Pod as Portable Idea Primitive", "category": "in-progress", "thread_ref": "T164" },
+        { "artifact_id": "93487386", "type": "twig", "title": "Seed Pod Content Schema", "category": "in-progress", "thread_ref": "T164" },
+        { "artifact_id": "be2158c0", "type": "twig", "title": "Seed Pod Delivery Protocol (Seeding)", "category": "in-progress", "thread_ref": "T164" },
+        { "artifact_id": "2b792d24", "type": "twig", "title": "Seed Pod Retrieval UX", "category": "in-progress", "thread_ref": "T164" },
+        { "artifact_id": "72c54803", "type": "snapshot", "title": "Feedback — Seed Pod Retrieval Gap (Akara)", "category": "in-progress", "thread_ref": "T164" },
+
+        { "artifact_id": "4e7e9f7d", "type": "restart", "title": "Restart — Qwrk Update Versioning System", "category": "in-progress", "thread_ref": "T165" },
+        { "artifact_id": "a32e93ed", "type": "snapshot", "title": "T150 Person Artifact Branches 1-3 Complete", "category": "in-progress", "thread_ref": "T150" },
+        { "artifact_id": "afb7fdad", "type": "snapshot", "title": "Person Artifact Type Project Navigation Map", "category": "in-progress", "thread_ref": "T150" },
+        { "artifact_id": "110a1346", "type": "snapshot", "title": "QPA Root Snapshot — Workday Operating Model v1", "category": "in-progress", "thread_ref": "T179" },
+        { "artifact_id": "15f4b337", "type": "snapshot", "title": "Root — Qwrk Growth Audit System (Manus + CC)", "category": "in-progress", "thread_ref": "T181" },
+        { "artifact_id": "22069f29", "type": "snapshot", "title": "Gardenomicon Root Architecture Decision", "category": "in-progress", "thread_ref": "T183" },
+        { "artifact_id": "356f706c", "type": "twig", "title": "Gateway Dependency Management Routes", "category": "in-progress", "thread_ref": "T180" },
+        { "artifact_id": "b00fc252", "type": "limb", "title": "Command Center", "category": "in-progress", "thread_ref": "T103" },
+        { "artifact_id": "f83ca27c", "type": "snapshot", "title": "Exploratory GPT Sapling Created", "category": "in-progress", "thread_ref": "T127" },
+        { "artifact_id": "1d70380a", "type": "restart", "title": "Restart — Agent-Augmented Review Model (Manus Pre-v1.0)", "category": "in-progress", "thread_ref": "T182" },
+        { "artifact_id": "a9f6f1cc", "type": "snapshot", "title": "T123 Messaging Subsystem MVP Complete", "category": "in-progress", "thread_ref": "T123" },
+        { "cluster_id": "T123_messaging_contracts", "cluster_name": "T123 Messaging Contracts Batch (14 entries)", "category": "architecture", "thread_ref": "T123", "retrieve_via": "artifact.list tags for-q + T123" },
+
+        { "artifact_id": "8b68a7fc", "type": "snapshot", "title": "Guardrail Pattern — Destructive Operation Safety", "category": "governance" },
+        { "artifact_id": "09df42bf", "type": "snapshot", "title": "Decision — WSY Review Gate Process v1", "category": "governance" },
+        { "artifact_id": "34f74800", "type": "snapshot", "title": "Branch Closure Protocol Established", "category": "governance" },
+        { "artifact_id": "16b19a1c", "type": "snapshot", "title": "Artifact Discovery Playbook Design v1", "category": "governance" },
+        { "artifact_id": "3def7e3b", "type": "snapshot", "title": "Rule — Expression Safety for n8n Workflow Changes", "category": "governance" },
+        { "artifact_id": "878c75b1", "type": "snapshot", "title": "Bug Resolution Process v1.1 Locked", "category": "governance" },
+        { "artifact_id": "d5c98e0b", "type": "snapshot", "title": "Global Behavior IP Attribution Validation", "category": "governance" },
+        { "artifact_id": "adfbcfd8", "type": "snapshot", "title": "Governance Rule — Footnote Attribution", "category": "governance" },
+
+        { "artifact_id": "14a05597", "type": "snapshot", "title": "Health Snapshot — CMP + A1C + Lipids (April 2026)", "category": "alignment" },
+        { "artifact_id": "ca5d5c62", "type": "snapshot", "title": "Payment Event — Amex Loan $5,000 Principal Reduction", "category": "alignment" },
+
+        { "cluster_id": "recent_journals", "cluster_name": "Recent Journals (9 highlighted, 27 additional queryable)", "category": "alignment", "highlighted_ids": ["eec34ce5", "c6692fe0", "defba79c", "32d88e45", "14ae02f0", "077d5c03", "4b9ae051", "8be22e4e", "c5d94c0a"], "retrieve_via": "artifact.list tags for-q + artifact_type:journal" }
+      ],
+
+      "governance_hooks": [
+        "CLAUDE.md §1 Binding Truth Hierarchy",
+        "CLAUDE.md §2 No-Guessing; §2.5 DB Read-Only (CC); §2.6 CC Gateway Query Script; §2.7 Retry Cap",
+        "CLAUDE.md §3 Absolute No-Overwrite (Pattern C); §4 Pre-Write Gate",
+        "CLAUDE.md §9 Parallel Build Safety; §10 Parallel Mutation Guardrail; §11 Planning Gate",
+        "CLAUDE.md Schema Truth Policy — DDL-as-Truth",
+        "Instruction_Pack_Index v14 — Payload Lookup Mandate",
+        "Payload Discipline v4 — Single operational authority for payload construction",
+        "QSB Payload Format v3 — QSB rendering contract",
+        "Cross-Workspace Write Gate v1 — Non-home mutation consent",
+        "Mother Tree Structural Map v1 — Parent routing UUIDs"
+      ],
+
+      "compaction_notes": "Bootstrap v14 (33KB markdown, 2026-04-19) -> v15 JSON via Active System Fidelity. Preserved: 8 Protected Core, 5 Tier A-Prime, 6 anchors + 4 rules + phase gating as rotating_shell, 2 active contexts, 32 Active Surface threads, top 5 priorities, ~40 active artifacts (with 3 cluster entries for T167 leaves, T176 Branch plans, T123 messaging contracts). Dropped: Section C batched entries (141), closed-thread clusters (T140 cert chain, T119, T125, T122 Gateway, T149 bugs, T163 Cog Exo pause, T151/T143/T142/T135/T136/T146 resolved decisions), registry remnants (2ca3b6be Rolling Registry deprecated project), low-signal narrative, archived projects (297f9cf2, 8ffbda90), stale seeds, duplicate nav snapshots, closure markers. Retrievable on demand via artifact.list.",
+
+      "references_prior_snapshots": [],
+
+      "dropped_at_compaction": {
+        "completed_thread_count": 12,
+        "obsolete_context_count": 8,
+        "registry_remnants_count": 1,
+        "low_signal_entries_count": 148,
+        "superseded_duplicates": 2,
+        "source_file": "Qwrk_RollingMem/Qwrk_Rolling_Memory__for-q__v14__2026-04-19.md"
+      }
+    }
+  }
+}

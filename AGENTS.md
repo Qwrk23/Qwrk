@@ -1,21 +1,21 @@
-# CLAUDE.md
+# AGENTS.md
 
 > **PROTECTED FILE — DO NOT DELETE OR EDIT WITHOUT CONSENT**
 >
-> This file is critical project infrastructure. Claude Code MUST:
+> This file is critical project infrastructure. Codex MUST:
 > - **NEVER** delete this file under any circumstances
 > - **NEVER** edit this file without explicit user consent in the current conversation
 > - **IMMEDIATELY STOP** and alert the user if this file is missing or corrupted
 >
 > A git pre-commit hook blocks deletion. Bypass requires `--no-verify` (emergency only).
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
 
 > **Last verified against live system:** 2026-04-05 · **Gateway:** v2 (build 4) · **DDL:** v2.10 · **Last reconciliation:** 2026-04-05
 
 ## Instruction File Drift Rule
 
-If any of the following change, CLAUDE.md must be updated in the same session:
+If any of the following change, AGENTS.md must be updated in the same session:
 
 - Gateway version
 - Supported Gateway actions
@@ -385,7 +385,7 @@ When user's **first message** contains any of these phrases:
    - No rolling memory file required (OPEN_THREADS.md is the tracking surface)
    - No compaction logic required (thread lifecycle governs cleanup)
    - **Structured Handoffs:** Artifacts with BOTH `for-cc` AND `cc-handoff` tags are structured Q → CC work packets. Follow `docs/design/Design__Artifact_Handoff_Protocol__v1.md` for retrieval, execution, and response protocol.
-7. **CC Memory Harvest** — For each **new** for-q artifact found in the delta (step 5), scan for operational data relevant to CC's persistent memory (`~/.claude/projects/.../memory/MEMORY.md`):
+7. **CC Memory Harvest** — For each **new** for-q artifact found in the delta (step 5), scan for operational data relevant to CC's persistent memory (`~/.Codex/projects/.../memory/MEMORY.md`):
 
    **Tier 1 — Auto-save (no human gate required):**
    The following categories are purely factual and low-risk. CC may write these to MEMORY.md immediately upon detection:
@@ -404,7 +404,7 @@ When user's **first message** contains any of these phrases:
 
    **Common rules (both tiers):**
    - If no delta in step 5, skip silently
-   - **Do NOT duplicate governance rules** — those belong in CLAUDE.md, not MEMORY.md
+   - **Do NOT duplicate governance rules** — those belong in AGENTS.md, not MEMORY.md
    - Auto-saved entries should be logged in the session summary (so Joel can audit)
    - If an auto-save contradicts an existing MEMORY.md entry, **delete the old entry and write the new one** (delete-on-contradiction, not accumulate)
 
@@ -625,8 +625,8 @@ The local CSV artifact registry is deprecated. Discovery is now via Gateway `art
 
 **Destructive Operations Discipline (Session 125 incident — PERMANENT):**
 - NEVER use `git checkout --`, `git restore`, or `git reset --hard` on files with uncommitted working-tree changes — this destroyed OPEN_THREADS.md (3 weeks of session data) in session 125
-- Before editing CLAUDE.md or OPEN_THREADS.md: create a physical backup copy (`<filename>__BACKUP__<date>.md`)
-- Commit session files (OPEN_THREADS.md, CLAUDE.md) at every session end
+- Before editing AGENTS.md or OPEN_THREADS.md: create a physical backup copy (`<filename>__BACKUP__<date>.md`)
+- Commit session files (OPEN_THREADS.md, AGENTS.md) at every session end
 - ExitPlanMode does NOT equal execution approval when external review (Manus, Q) is specified — execution waits for review feedback
 - When reverting CC's own edits: use Edit tool to reverse specific changes, never destructive git commands
 
@@ -663,7 +663,7 @@ If you lack authoritative truth, STOP and ask for the exact file/section.
 
 ### 2.5) Database Read-Only Rule (CRITICAL)
 
-Claude Code MUST NOT execute any operation that modifies database state. Gateway access is restricted to `artifact.query` and `artifact.list` ONLY.
+Codex MUST NOT execute any operation that modifies database state. Gateway access is restricted to `artifact.query` and `artifact.list` ONLY.
 
 **Allowed (READ only):**
 - `artifact.query` via Gateway (PowerShell)
@@ -853,7 +853,7 @@ Treat latest KGB output as sacred:
 Documentation in this repository follows a **single-source-of-truth model**.
 
 #### Canonical Documentation (Authoritative)
-Claude Code MUST update **canonical technical documentation** for every behavior, workflow, or governance change.
+Codex MUST update **canonical technical documentation** for every behavior, workflow, or governance change.
 
 Canonical documentation:
 - Is precise, technical, and complete
@@ -864,7 +864,7 @@ Canonical documentation:
 If a behavior is not documented canonically, it is considered incomplete.
 
 #### Derived Documentation (Never Authored Directly)
-The following are **derived artifacts** and must NOT be authored or edited directly by Claude Code:
+The following are **derived artifacts** and must NOT be authored or edited directly by Codex:
 
 - User guides
 - Marketing guides
@@ -944,7 +944,7 @@ Examples:
 - DDL / migrations
 - Gateway workflows
 - System instructions
-- CLAUDE.md
+- AGENTS.md
 - Rolling memory files
 - Type registry
 - Documentation affecting lifecycle governance
@@ -955,7 +955,7 @@ If the declared surface overlaps a potentially active parallel session, CC must 
 
 The following are considered structural mutation surfaces and require serialized access:
 
-- `CLAUDE.md`
+- `AGENTS.md`
 - System instruction files
 - Gateway workflow definitions
 - Database DDL / migrations
@@ -998,7 +998,7 @@ Prevent premature execution on complex work items. CC must gather sufficient con
 The Planning Gate is **required** when a thread meets ANY of these criteria:
 
 - Touches **3 or more files**
-- Crosses **2 or more structural surfaces** (e.g., DDL + Gateway, or CLAUDE.md + system instructions)
+- Crosses **2 or more structural surfaces** (e.g., DDL + Gateway, or AGENTS.md + system instructions)
 - Involves a **for-cc work queue item** that requires interpretation (not a simple, unambiguous task)
 - Is explicitly flagged by Joel as "plan first"
 
@@ -1052,7 +1052,7 @@ Do NOT silently deviate from an approved plan.
 
 ---
 
-## CHANGELOG - CLAUDE.md Updates
+## CHANGELOG - AGENTS.md Updates
 
 ### v32 - 2026-05-05
 **What changed:** Removed file-based Rolling Memory Sync Protocol and Artifact Registry Discipline sections. Replaced with DB-backed pointers per SLP v1 (Crawl Phase Lock).
@@ -1127,7 +1127,7 @@ Do NOT silently deviate from an approved plan.
 - KGB section (test IDs, MVP status, user context) fully duplicated in MEMORY.md
 - Response format examples stable since January, authoritative source is Canonical v5
 - Tier A compaction protocol dormant (29/50 entries) — compressed procedural detail, kept behavioral invariants
-- qwrk-console (T172, 26 source files) was undocumented in CLAUDE.md
+- qwrk-console (T172, 26 source files) was undocumented in AGENTS.md
 
 **Scope of impact:**
 - Removed: KGB section (~20 lines), Response Format Examples (~32 lines), Known RLS Issue Fixed v1.1 (~4 lines), n8n Troubleshooting tips (~5 lines)
@@ -1196,7 +1196,7 @@ Do NOT silently deviate from an approved plan.
 **What changed:** Cognitive load reduction — removed ~590 lines of dormant/historical content
 
 **Why:**
-- CLAUDE.md was 1723 lines. ~34% was dormant compaction algorithm detail, one-time database setup commands, and changelog entries v2–v24 that had zero operational value
+- AGENTS.md was 1723 lines. ~34% was dormant compaction algorithm detail, one-time database setup commands, and changelog entries v2–v24 that had zero operational value
 - Every conversation paid the full governance tax regardless of session type
 - Design analysis (session 110) identified Load Distribution as primary friction category
 - Content removal chosen over structural splitting — simpler, no path-loading assumptions

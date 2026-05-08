@@ -1,6 +1,19 @@
 Check both workspaces for new for-q artifacts and report deltas against rolling memory files.
 
-Source: CLAUDE.md "Rolling Memory Sync Protocol" — last synced 2026-03-10
+> **DEPRECATED — 2026-04-24.** Rolling Memory is now persisted as immutable snapshot artifacts in Supabase, not local files. File-based delta sync is retired. Source decisions: snapshots `0cb18b07` (Migration Correction), `6576de56` (RM v15 first DB-backed), `3248263c` (Session Lifecycle Protocol v1).
+>
+> **Replacement:**
+> - Verification (CC at session start): `artifact.list` with `tags_any: ["rolling-memory"]`, latest by `created_at`
+> - Retrieval: per Session Lifecycle Protocol v1 (snapshot `3248263c`) — Q absorbs Rolling Memory at session start; CC references via `artifact.list` / `artifact.query` as needed
+> - Mutation: Q produces save payload via QSB; Joel executes (CC §2.5 read-only)
+>
+> CC must NOT regenerate or rewrite Rolling Memory snapshots.
+>
+> **Q@W status:** Migration to DB-backed Rolling Memory is pending Joel decision. Until migrated, Q@W file-based artifacts are retained for audit only and are not authoritative.
+>
+> This skill is retained for historical/audit reference only. Do NOT invoke in normal operation. CLAUDE.md v32 (2026-05-05) replaces "Rolling Memory Sync Protocol" with "Rolling Memory (DB-backed)".
+
+Source: CLAUDE.md "Rolling Memory Sync Protocol" — last synced 2026-03-10 (section replaced by "Rolling Memory (DB-backed)" in v32)
 
 ## Instructions
 

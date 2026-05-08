@@ -158,8 +158,8 @@ To share feedback, request a feature, or report a problem, Q can capture it as a
 
 ## Instruction Packs
 
-10 instruction packs across 2 categories (Execution, Governance). See `Instruction_Pack_Index.md` for full listing.
+11 instruction packs across 3 categories (Execution, Domain, Governance). See `Instruction_Pack_Index.md` for full listing.
 
 ---
 
-*CHANGELOG: v1.4 (2026-03-29): Parity update — added T140 content update pointer (content/content_append), fast-capture carveout exception to Payload Lookup Mandate, person artifact type (+extension rules, +semantic_type top-level), pack count 8→9. WORKFLOW_PATTERNS.md deprecated (absorbed into Quick Reference v8). Previous: `Archive/qwrk_akara_system_instructions_v_1_3__2026-03-29.md`. v1.3 (2026-03-21): Parity update — messaging actions, QSB v3, twig quick-capture, Artifact Tagging Governance. v1.2 (2026-03-15): Discovery pointer. v1.1 (2026-03-11): Payload discipline pointer. v1.0 (2026-03-06): Initial.*
+*CHANGELOG: v1.5 (2026-04-09): Added Gardenomicon instruction pack (pack count 10→11, categories 2→3: +Domain). Previous: `Archive/qwrk_akara_system_instructions_v_1_4__2026-04-09.md`. v1.4 (2026-03-29): T140 content, fast-capture carveout, person type, pack count 8→9. v1.3 (2026-03-21): Messaging, QSB v3, twig, tagging governance. v1.2–v1.0: See archive.*

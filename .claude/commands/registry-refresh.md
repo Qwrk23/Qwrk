@@ -1,6 +1,16 @@
 Generate artifact registry CSV indexes for all active workspaces.
 
-Source: CLAUDE.md "Artifact Registry Discipline" — last synced 2026-03-10
+> **DEPRECATED — 2026-04-24.** The local CSV artifact registry is retired. Discovery is now via Gateway `artifact.list` / `artifact.query` and the Artifact Discovery Playbook (snapshot `16b19a1c`). Source decision: snapshot `0cb18b07` (Rolling Memory Migration Correction).
+>
+> **Replacement:**
+> - Discovery: `artifact.list` with tag/type/lifecycle filters
+> - Hydration: `artifact.query` (full UUID required)
+> - Reference: Artifact Discovery Playbook (`16b19a1c`)
+> - CC helper: `scripts/CC-Gateway-Query.ps1` (CLAUDE.md §2.6)
+>
+> This skill is retained for historical/audit reference only. Do NOT invoke in normal operation. CLAUDE.md v32 (2026-05-05) marks the registry deprecated; CSV refresh is no longer governance-supported.
+
+Source: CLAUDE.md "Artifact Registry Discipline" — last synced 2026-03-10 (section replaced by "Artifact Registry (Deprecated)" in v32)
 
 ## Instructions
 
