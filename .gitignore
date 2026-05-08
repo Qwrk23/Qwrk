@@ -72,6 +72,8 @@ Archived/
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+desktop.ini
+**/desktop.ini
 $RECYCLE.BIN/
 
 # Linux
@@ -243,6 +245,14 @@ _ul-*
 # ============================================
 
 .claude/settings.local.json
+
+# ============================================
+# Codex Local Config (machine-specific, contains tokens)
+# ============================================
+
+# Codex CLI config — contains plaintext access tokens; MUST NEVER be committed
+.codex/
+**/.codex/
 
 # ============================================
 # End of .gitignore

@@ -1,0 +1,833 @@
+{
+  "name": "NQxb_Mobile_Console_v1",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "qwrk-mobile",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1440,
+        0
+      ],
+      "id": "48b4de1b-0745-42d3-8cc9-e58192a34f5b",
+      "name": "Webhook_GET_Console",
+      "webhookId": "qwrk-mobile-console-get"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Serve the Qwrk Mobile Console HTML page\nconst QWRK_KEY = 'xwlghosekihgyhowhgl';\nconst html = \"<!DOCTYPE html>\\n<html lang=\\\"en\\\">\\n<head>\\n<meta charset=\\\"UTF-8\\\">\\n<meta name=\\\"viewport\\\" content=\\\"width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no\\\">\\n<title>Qwrk Mobile Console</title>\\n<style>\\n  * { box-sizing: border-box; margin: 0; padding: 0; }\\n  body { font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; background: #0d1117; color: #c9d1d9; padding: 12px; min-height: 100vh; }\\n  h1 { font-size: 18px; color: #58a6ff; margin-bottom: 8px; }\\n  .meta { font-size: 12px; color: #8b949e; margin-bottom: 12px; }\\n  .meta span { color: #58a6ff; }\\n  textarea { width: 100%; height: 200px; background: #161b22; color: #c9d1d9; border: 1px solid #30363d; border-radius: 6px; padding: 10px; font-family: Consolas, monospace; font-size: 13px; resize: vertical; }\\n  textarea:focus { outline: none; border-color: #58a6ff; }\\n  .btn-row { display: flex; gap: 8px; margin: 10px 0; }\\n  button { flex: 1; padding: 12px 16px; border: none; border-radius: 6px; font-size: 15px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }\\n  button:active { opacity: 0.7; }\\n  button:disabled { opacity: 0.4; cursor: not-allowed; }\\n  .btn-execute { background: #238636; color: #fff; }\\n  .btn-ping { background: #30363d; color: #c9d1d9; flex: 0 0 auto; padding: 12px 20px; }\\n  .btn-copy { background: #1f6feb; color: #fff; }\\n  .btn-clear { background: #30363d; color: #c9d1d9; flex: 0 0 auto; padding: 12px 20px; }\\n  .detected { font-size: 12px; color: #8b949e; margin-bottom: 8px; display: flex; gap: 12px; flex-wrap: wrap; }\\n  .detected .val { color: #d2a8ff; font-family: monospace; }\\n  .response-container { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 10px; min-height: 80px; max-height: 50vh; overflow-y: auto; margin-bottom: 8px; }\\n  .response-container pre { font-family: Consolas, monospace; font-size: 12px; white-space: pre-wrap; word-break: break-word; color: #c9d1d9; margin: 0; }\\n  .response-container.error pre { color: #f85149; }\\n  .response-container.success pre { color: #7ee787; }\\n  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #238636; color: #fff; padding: 8px 20px; border-radius: 20px; font-size: 14px; opacity: 0; transition: opacity 0.3s; pointer-events: none; }\\n  .toast.show { opacity: 1; }\\n  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 6px; }\\n  @keyframes spin { to { transform: rotate(360deg); } }\\n  .status-bar { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #484f58; margin-top: 8px; }\\n</style>\\n</head>\\n<body>\\n<h1>Qwrk Mobile Console</h1>\\n<div class=\\\"meta\\\">Transport Layer</div>\\n<textarea id=\\\"payload\\\" placeholder='{\\\"gw_action\\\":\\\"artifact.list\\\",\\\"gw_workspace_id\\\":\\\"...\\\",\\\"artifact_type\\\":\\\"project\\\",\\\"selector\\\":{\\\"limit\\\":3}}' spellcheck=\\\"false\\\"></textarea>\\n<div class=\\\"detected\\\" id=\\\"detected\\\"></div>\\n<div class=\\\"btn-row\\\">\\n  <button class=\\\"btn-execute\\\" id=\\\"btnExecute\\\" onclick=\\\"execute()\\\">Execute</button>\\n  <button class=\\\"btn-ping\\\" id=\\\"btnPing\\\" onclick=\\\"ping()\\\">Ping</button>\\n</div>\\n<div class=\\\"response-container\\\" id=\\\"responseContainer\\\"><pre id=\\\"responseDisplay\\\">Ready.</pre></div>\\n<div class=\\\"btn-row\\\">\\n  <button class=\\\"btn-copy\\\" id=\\\"btnCopy\\\" onclick=\\\"copyResponse()\\\" disabled>Copy Response</button>\\n  <button class=\\\"btn-clear\\\" onclick=\\\"clearResponse()\\\">Clear</button>\\n</div>\\n<div class=\\\"status-bar\\\"><span id=\\\"statusTime\\\"></span><span id=\\\"statusDuration\\\"></span></div>\\n<div class=\\\"toast\\\" id=\\\"toast\\\"></div>\\n<script>\\nvar QWRK_KEY = \\\"%%QWRK_KEY%%\\\";\\nvar EXECUTE_URL = window.location.origin + \\\"/webhook/qwrk-mobile/execute\\\";\\nvar LS_KEY = \\\"qwrk_mobile_last_payload\\\";\\nvar rawResponse = null;\\nvar isExecuting = false;\\n\\n(function init() {\\n  var saved = localStorage.getItem(LS_KEY);\\n  if (saved) document.getElementById(\\\"payload\\\").value = saved;\\n  updateDetected();\\n  document.getElementById(\\\"payload\\\").addEventListener(\\\"input\\\", function() {\\n    localStorage.setItem(LS_KEY, this.value);\\n    updateDetected();\\n  });\\n})();\\n\\nfunction updateDetected() {\\n  var el = document.getElementById(\\\"detected\\\");\\n  var text = document.getElementById(\\\"payload\\\").value.trim();\\n  if (!text) { el.innerHTML = \\\"\\\"; return; }\\n  try {\\n    var obj = JSON.parse(text);\\n    var parts = [];\\n    if (obj.gw_action) parts.push(\\\"action: <span class=val>\\\" + escHtml(obj.gw_action) + \\\"</span>\\\");\\n    if (obj.gw_workspace_id) parts.push(\\\"workspace: <span class=val>\\\" + escHtml(obj.gw_workspace_id.substring(0, 8)) + \\\"...</span>\\\");\\n    el.innerHTML = parts.join(\\\"\\\");\\n  } catch(e) {\\n    el.innerHTML = \\\"<span style=color:#f85149>Invalid JSON</span>\\\";\\n  }\\n}\\n\\nasync function execute() {\\n  var text = document.getElementById(\\\"payload\\\").value.trim();\\n  if (!text) return showError(\\\"Payload is empty.\\\");\\n  var parsed;\\n  try { parsed = JSON.parse(text); } catch(e) { return showError(\\\"Invalid JSON: \\\" + e.message); }\\n  await send(parsed);\\n}\\n\\nasync function ping() { await send({ gw_action: \\\"system.ping\\\" }); }\\n\\nasync function send(payload) {\\n  if (isExecuting) return;\\n  setExecuting(true);\\n  rawResponse = null;\\n  document.getElementById(\\\"btnCopy\\\").disabled = true;\\n  var container = document.getElementById(\\\"responseContainer\\\");\\n  var display = document.getElementById(\\\"responseDisplay\\\");\\n  container.className = \\\"response-container\\\";\\n  display.textContent = \\\"Executing...\\\";\\n  var start = performance.now();\\n  try {\\n    var res = await fetch(EXECUTE_URL, {\\n      method: \\\"POST\\\",\\n      headers: { \\\"Content-Type\\\": \\\"application/json\\\", \\\"X-QWRK-KEY\\\": QWRK_KEY },\\n      body: JSON.stringify(payload)\\n    });\\n    var duration = Math.round(performance.now() - start);\\n    var body = await res.text();\\n    rawResponse = body;\\n    var pretty;\\n    try { pretty = JSON.stringify(JSON.parse(body), null, 2); } catch(e) { pretty = body; }\\n    display.textContent = pretty;\\n    container.className = \\\"response-container \\\" + (res.ok ? \\\"success\\\" : \\\"error\\\");\\n    document.getElementById(\\\"btnCopy\\\").disabled = false;\\n    document.getElementById(\\\"statusTime\\\").textContent = new Date().toLocaleTimeString();\\n    document.getElementById(\\\"statusDuration\\\").textContent = duration + \\\"ms\\\";\\n  } catch(e) {\\n    display.textContent = \\\"Network error: \\\" + e.message;\\n    container.className = \\\"response-container error\\\";\\n    document.getElementById(\\\"statusDuration\\\").textContent = \\\"\\\";\\n  }\\n  setExecuting(false);\\n}\\n\\nasync function copyResponse() {\\n  if (!rawResponse) return;\\n  try { await navigator.clipboard.writeText(rawResponse); showToast(\\\"Copied\\\"); }\\n  catch(e) { showToast(\\\"Copy failed\\\"); }\\n}\\n\\nfunction clearResponse() {\\n  rawResponse = null;\\n  document.getElementById(\\\"responseDisplay\\\").textContent = \\\"Ready.\\\";\\n  document.getElementById(\\\"responseContainer\\\").className = \\\"response-container\\\";\\n  document.getElementById(\\\"btnCopy\\\").disabled = true;\\n  document.getElementById(\\\"statusTime\\\").textContent = \\\"\\\";\\n  document.getElementById(\\\"statusDuration\\\").textContent = \\\"\\\";\\n}\\n\\nfunction setExecuting(state) {\\n  isExecuting = state;\\n  document.getElementById(\\\"btnExecute\\\").disabled = state;\\n  document.getElementById(\\\"btnPing\\\").disabled = state;\\n  document.getElementById(\\\"btnExecute\\\").innerHTML = state ? \\\"<span class=spinner></span>Executing...\\\" : \\\"Execute\\\";\\n}\\n\\nfunction showError(msg) {\\n  document.getElementById(\\\"responseContainer\\\").className = \\\"response-container error\\\";\\n  document.getElementById(\\\"responseDisplay\\\").textContent = msg;\\n}\\n\\nfunction showToast(msg) {\\n  var t = document.getElementById(\\\"toast\\\");\\n  t.textContent = msg; t.classList.add(\\\"show\\\");\\n  setTimeout(function() { t.classList.remove(\\\"show\\\"); }, 1500);\\n}\\n\\nfunction escHtml(s) {\\n  var d = document.createElement(\\\"div\\\"); d.textContent = s; return d.innerHTML;\\n}\\n</script>\\n</body>\\n</html>\";\nconst finalHtml = html.replace('%%QWRK_KEY%%', QWRK_KEY);\nreturn [{ json: { html: finalHtml, contentType: 'text/html; charset=utf-8' } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1216,
+        0
+      ],
+      "id": "f010e0db-a737-4d9a-b1f7-d98e64751e0c",
+      "name": "Generate_Console_HTML"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.html }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -992,
+        0
+      ],
+      "id": "80e2e544-bfba-4e9d-afe0-139fdeb1bdac",
+      "name": "Respond_Console_Page"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "qwrk-mobile/execute",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1440,
+        704
+      ],
+      "id": "c014e053-1440-490c-818a-8e47ff5aec17",
+      "name": "Webhook_POST_Execute",
+      "webhookId": "qwrk-mobile-console-post"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate X-QWRK-KEY header\nconst QWRK_KEY = 'xwlghosekihgyhowhgl';\nconst headers = $input.item.json.headers || {};\nconst providedKey = (headers['x-qwrk-key'] || '').trim();\nconst isValid = providedKey === QWRK_KEY && QWRK_KEY !== 'CHANGE_THIS_SECRET_BEFORE_DEPLOY';\nreturn [{ json: { ...($input.item.json), auth_valid: isValid } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1216,
+        704
+      ],
+      "id": "5b7d77e9-661f-4695-bc4f-6e9908a11998",
+      "name": "Check_Auth"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.auth_valid }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    },
+                    "id": "auth-valid"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.auth_valid }}",
+                    "rightValue": false,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    },
+                    "id": "auth-invalid"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -992,
+        704
+      ],
+      "id": "47b51fdd-fa76-41b1-96f7-7fb40a44ef1e",
+      "name": "Auth_Valid?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"ok\":false,\"error\":{\"code\":\"UNAUTHORIZED\",\"message\":\"Missing or invalid X-QWRK-KEY header\"}}",
+        "options": {
+          "responseCode": 401,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -768,
+        800
+      ],
+      "id": "a0cf9fb6-c347-4205-b03e-6b834c7c06a8",
+      "name": "Respond_401_Unauthorized"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Determine routing: system.ping, valid payload, or invalid\nconst body = $input.item.json.body || {};\nconst gwAction = (body.gw_action || '').trim();\n\nif (gwAction === 'system.ping') {\n  return [{ json: { route: 'ping' } }];\n}\n\nif (!gwAction) {\n  return [{ json: { route: 'invalid', error: 'Missing gw_action field' } }];\n}\n\n// Valid payload - pass through for Gateway execution\nreturn [{ json: { route: 'gateway', payload: body } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -768,
+        608
+      ],
+      "id": "371a3af6-ecba-4620-9260-004fa02782d8",
+      "name": "Route_Action"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "ping",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "route-ping"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "gateway",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "route-gateway"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "invalid",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "route-invalid"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -544,
+        592
+      ],
+      "id": "7ae0a23e-1233-4148-ac42-b6ab0c759a45",
+      "name": "Route_Switch"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"ok\":true,\"gw_action\":\"system.ping\",\"pong\":true,\"timestamp\":\"{{ $now.toISO() }}\",\"surface\":\"mobile-console\"}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -320,
+        416
+      ],
+      "id": "334d8678-2242-45ba-a0ae-531ec74b14b7",
+      "name": "Respond_Ping"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"ok\":false,\"error\":{\"code\":\"INVALID_PAYLOAD\",\"message\":\"{{ $json.error }}\"}}",
+        "options": {
+          "responseCode": 400,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -320,
+        800
+      ],
+      "id": "91059e61-54dd-4c38-9604-856825f56381",
+      "name": "Respond_400_Invalid"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Resolve gw_workspace_id to gateway route\n// Workspace ID → Gateway mapping (transport-level routing)\nconst WORKSPACE_ROUTES = {\n  'be0d3a48-c764-44f9-90c8-e846d9dbbd0a': 'prime',      // Qwrk Personal\n  '635bb8d7-7b93-4bea-8ca6-ee2c924c9557': 'work',       // Work (Resolve)\n  'b4e7f648-96d5-44a7-80b9-c39cac4efbd1': 'blagglife',   // BlaggLife\n  '963973e0-a98c-4044-b421-71e7348eaeaf': 'akara'        // Akara_Blagg\n};\n\nconst payload = $json.payload;\nconst wsId = (payload.gw_workspace_id || '').trim();\n\nif (!wsId) {\n  return [{ json: { gateway_route: 'unknown', payload, error: 'Missing gw_workspace_id' } }];\n}\n\nconst route = WORKSPACE_ROUTES[wsId] || 'unknown';\nreturn [{ json: { gateway_route: route, payload } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -320,
+        608
+      ],
+      "id": "1837f1eb-2d3e-4002-9d90-73b49088b2df",
+      "name": "Resolve_Workspace"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.gateway_route }}",
+                    "rightValue": "prime",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "ws-prime"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.gateway_route }}",
+                    "rightValue": "work",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "ws-work"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.gateway_route }}",
+                    "rightValue": "blagglife",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "ws-blagglife"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.gateway_route }}",
+                    "rightValue": "akara",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "ws-akara"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.gateway_route }}",
+                    "rightValue": "unknown",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "ws-unknown"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -96,
+        560
+      ],
+      "id": "078a8407-11c0-4a58-9ccb-d017cadeb4ab",
+      "name": "Workspace_Switch"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.halosparkai.com/webhook/nqxb/gateway/v2",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "response": {
+            "response": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        128,
+        224
+      ],
+      "id": "8202e540-a0fe-43da-ba9b-47d668d188d1",
+      "name": "POST_Gateway_Prime",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "jTp4W3tGrw2s036g",
+          "name": "Qwrk Ingest Basic Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.halosparkai.com/webhook/nqxb/gateway/v2",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "response": {
+            "response": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        128,
+        416
+      ],
+      "id": "6a50a221-f195-4673-aa90-956de892df41",
+      "name": "POST_Gateway_Work",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "jTp4W3tGrw2s036g",
+          "name": "Qwrk Ingest Basic Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.halosparkai.com/webhook/nqxb/gateway/v2",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "response": {
+            "response": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        128,
+        608
+      ],
+      "id": "554314be-c8ea-4eba-9882-9e39cf791510",
+      "name": "POST_Gateway_Blagglife",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "jTp4W3tGrw2s036g",
+          "name": "Qwrk Ingest Basic Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.halosparkai.com/webhook/nqxb/gateway/v2",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "response": {
+            "response": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        128,
+        800
+      ],
+      "id": "8d054bef-8c56-4244-8142-b80304bd9ca6",
+      "name": "POST_Gateway_Akara",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "jTp4W3tGrw2s036g",
+          "name": "Qwrk Ingest Basic Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"ok\":false,\"error\":{\"code\":\"UNKNOWN_WORKSPACE\",\"message\":\"gw_workspace_id does not match any configured gateway. Check the workspace ID.\"}}",
+        "options": {
+          "responseCode": 400,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        128,
+        992
+      ],
+      "id": "a99c62f7-e1a4-4aa7-bee1-4d88f8c5a75e",
+      "name": "Respond_Unknown_Workspace"
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        352,
+        416
+      ],
+      "id": "86db83c0-4a47-4d0b-a902-cd481467e1d0",
+      "name": "Respond_Gateway_Result"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook_GET_Console": {
+      "main": [
+        [
+          {
+            "node": "Generate_Console_HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate_Console_HTML": {
+      "main": [
+        [
+          {
+            "node": "Respond_Console_Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook_POST_Execute": {
+      "main": [
+        [
+          {
+            "node": "Check_Auth",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check_Auth": {
+      "main": [
+        [
+          {
+            "node": "Auth_Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auth_Valid?": {
+      "main": [
+        [
+          {
+            "node": "Route_Action",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond_401_Unauthorized",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route_Action": {
+      "main": [
+        [
+          {
+            "node": "Route_Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route_Switch": {
+      "main": [
+        [
+          {
+            "node": "Respond_Ping",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Resolve_Workspace",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond_400_Invalid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve_Workspace": {
+      "main": [
+        [
+          {
+            "node": "Workspace_Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workspace_Switch": {
+      "main": [
+        [
+          {
+            "node": "POST_Gateway_Prime",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "POST_Gateway_Work",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "POST_Gateway_Blagglife",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "POST_Gateway_Akara",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond_Unknown_Workspace",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST_Gateway_Prime": {
+      "main": [
+        [
+          {
+            "node": "Respond_Gateway_Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST_Gateway_Work": {
+      "main": [
+        [
+          {
+            "node": "Respond_Gateway_Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST_Gateway_Blagglife": {
+      "main": [
+        [
+          {
+            "node": "Respond_Gateway_Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST_Gateway_Akara": {
+      "main": [
+        [
+          {
+            "node": "Respond_Gateway_Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "826ff0f6-afac-4365-8d2f-1b11894fca4e",
+  "meta": {
+    "instanceId": "154f6928422db881044f8d1647b40fc389c59337d14356c0ee681d50ffb55d7e"
+  },
+  "id": "N1UhhDuSotaeOZ7m",
+  "tags": []
+}
