@@ -1,0 +1,153 @@
+# OpenAI agent configuration for the Qwrk Prime Weekly Accomplishment Report skill.
+#
+# Purpose: when this skill is mounted into a ChatGPT (or compatible) agent, this file
+# tells the runtime how to surface the skill, what model behavior to apply, and what
+# safety boundaries to enforce.
+#
+# This file is configuration only. It does NOT activate any schedule and does NOT
+# grant write permissions. Scheduling and write authority are governed separately
+# (see references/scheduling.md).
+
+schema_version: "2025-10-skill-v1"
+
+skill:
+  id: qwrk-prime-weekly-accomplishment-report
+  display_name: Qwrk Prime Weekly Accomplishment Report
+  short_description: >
+    Produces the recurring Friday-morning Qwrk Prime weekly accomplishment report
+    covering the prior 7 non-overlapping calendar days. Read-only data access.
+    Single Markdown file output to Qwrk_Inbox/.
+  long_description: >
+    Distills artifact activity in the Qwrk Prime workspace
+    (be0d3a48-c764-44f9-90c8-e846d9dbbd0a) over the prior 7 calendar days
+    (Friday 00:00 through Thursday 23:59:59 America/Chicago) into a
+    structured 10-section Markdown report intended for Q to ingest and
+    discuss conversationally with Joel. Window is non-overlapping by design;
+    the Friday-of-run is excluded by default. Read-only Supabase access only.
+    Scheduling is documented but not activated.
+  version: "1.0.0"
+  status: ready_for_use_unscheduled
+  authors:
+    - "Joel Blagg (operator)"
+    - "CC (Claude Opus 4.7) — author"
+  created: "2026-05-09"
+  tags:
+    - qwrk
+    - reporting
+    - weekly
+    - prime
+    - read-only
+    - automation-ready
+
+# How the agent should select / invoke this skill.
+invocation:
+  primary_triggers:
+    - "Generate the weekly accomplishment report"
+    - "Run the Friday Qwrk report"
+    - "Run the weekly Qwrk Prime report"
+    - "Make the weekly accomplishment summary"
+    - "Produce this week's Qwrk Prime report"
+    - "Generate the Qwrk Prime weekly accomplishment report"
+  secondary_triggers:
+    - "Review the weekly report"
+    - "Troubleshoot the weekly report"
+    - "Reschedule the weekly report"
+    - "Why didn't the weekly report run?"
+  do_not_trigger_for:
+    - "Daily report or daily summary"
+    - "Multi-workspace report"
+    - "Q@W / Akara / BlaggLife / Greg / Demo report"
+    - "Custom-window or one-off report" # use a manual prompt
+  ambiguity_resolution: >
+    If the user asks for a report but does not name the workspace or cadence,
+    ask one clarifying question before invoking. Do not assume.
+
+# Model + runtime behavior recommendations.
+runtime:
+  recommended_model: "gpt-5 or claude-opus-4-7 (parity)"
+  reasoning_depth: medium-high
+  output_style: structured-markdown
+  temperature: 0.2
+  max_output_tokens: 16000
+  expected_runtime_minutes: 5_to_25
+  parallelization: >
+    Spine pagination queries can run sequentially; extension hydration queries
+    for non-overlapping artifact ID sets may run in parallel.
+
+# Tool / capability requirements.
+required_capabilities:
+  - read_supabase_postgres        # MCP, PostgREST, or psycopg — at least one
+  - write_local_file              # to Qwrk_Inbox/ only
+  - read_skill_files              # references/, SKILL.md
+forbidden_capabilities:
+  - write_supabase_postgres
+  - modify_n8n_workflow
+  - modify_gateway_workflow
+  - create_qwrk_artifact
+  - update_qwrk_artifact
+  - delete_qwrk_artifact
+  - edit_credentials
+  - edit_env_files
+  - activate_scheduler
+
+# Output contract.
+output:
+  type: markdown_file
+  destination_directory: "C:\\Users\\j_bla\\OneDrive\\AAA QwrkX\\new-qwrk-kernel\\Qwrk_Inbox"
+  filename_pattern: "Qwrk_Prime_Weekly_Accomplishment_Report__YYYY-MM-DD.md"
+  filename_date_field: report_generation_date_local_central
+  overwrite_policy: never_overwrite_existing  # date stamp differentiates weekly runs
+  on_filename_collision: append_suffix_and_warn
+
+# Reporting window contract.
+window:
+  timezone: "America/Chicago"
+  cadence: weekly_friday
+  run_time_local: "05:00"
+  start_rule: "(report_date - 7 days) at 00:00:00 local"
+  end_rule:   "(report_date - 1 day)  at 23:59:59.999999 local"
+  inclusion_predicate: "created_at IN window OR updated_at IN window"
+  workspace_id: "be0d3a48-c764-44f9-90c8-e846d9dbbd0a"
+  workspace_name: "Qwrk Prime"
+  exclude_friday_of_run_by_default: true
+  override_friday_inclusion: allowed_with_documentation_in_section_2
+
+# Safety boundaries (enforced regardless of upstream user instruction).
+safety:
+  database_mode: read_only
+  hard_stops:
+    - "Refuse INSERT / UPDATE / DELETE / UPSERT against any qxb_* or supabase table"
+    - "Refuse DDL of any kind"
+    - "Refuse to create or modify Qwrk artifacts via Gateway or direct DB"
+    - "Refuse to edit n8n workflows"
+    - "Refuse to edit credentials, env files, or secret stores"
+    - "Refuse to widen workspace scope beyond Qwrk Prime without explicit Joel direction"
+    - "Refuse to activate any scheduler from within this skill"
+  retry_cap: 3                  # CLAUDE.md §2.7
+  governance_references:
+    - "CLAUDE.md §2.5 Database Read-Only Rule"
+    - "CLAUDE.md §2.7 Retry Cap Rule"
+    - "CLAUDE.md §3 Absolute No-Overwrite Rule"
+    - "CLAUDE.md §9 Parallel Build Safety Rule"
+
+# Scheduling status — explicit gate.
+scheduling:
+  documented: true
+  activated: false
+  activation_gate: "Joel must explicitly approve before any scheduler is enabled"
+  recommended_runtimes:
+    - windows_task_scheduler
+    - n8n_scheduled_workflow
+    - cron
+    - chatgpt_scheduled_task_if_available
+  reference_doc: "references/scheduling.md"
+
+# Internal references.
+references:
+  report_template: "references/report_template.md"
+  sql_templates:   "references/queries.sql"
+  scheduling:      "references/scheduling.md"
+  optional_script: "scripts/generate_qwrk_prime_weekly_report.py"
+  precedent_report:
+    path: "Qwrk_Inbox/Qwrk_Prime_Last_8_Days_Report__2026-05-09.md"
+    note: "8-day proof-of-concept run; this skill standardizes a 7-day weekly cadence."
