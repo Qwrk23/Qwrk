@@ -925,35 +925,19 @@ When adding new functionality to any system component that is already in active 
    - Parallel builds are for feature addition only
    - Cleanup, refactors, or architectural "improvements" to the live path are out of scope unless explicitly authorized
 
-**Rationale:** Phase 1 established this pattern successfully (parallel Gateway workflows for bearer-auth). This rule makes it permanent governance, not ad-hoc.
-
 ### 10) Parallel Mutation Guardrail
 
-#### Purpose
-
-When multiple CC sessions or Q sessions are active simultaneously, structural mutations must remain serialized even if reasoning is parallel. This prevents race conditions, orphaned edits, and governance drift.
-
-This section governs mutation discipline only. It does not introduce automation or session detection mechanisms.
+When multiple CC or Q sessions are active simultaneously, structural mutations must remain serialized even if reasoning is parallel. (Mutation discipline only — no automation or session detection mechanism.)
 
 #### 10.1 Session Scope Declaration (Required)
 
-At the beginning of any CC implementation session that may modify repository state, the session must explicitly declare its primary mutation surface.
-
-Examples:
-
-- DDL / migrations
-- Gateway workflows
-- System instructions
-- CLAUDE.md
-- Rolling memory files
-- Type registry
-- Documentation affecting lifecycle governance
+At the beginning of any CC implementation session that may modify repository state, the session must explicitly declare its primary mutation surface (DDL/migrations, Gateway workflows, system instructions, CLAUDE.md, rolling memory files, type registry, or documentation affecting lifecycle governance).
 
 If the declared surface overlaps a potentially active parallel session, CC must pause and request confirmation before proceeding.
 
 #### 10.2 Structural Surfaces (High-Risk)
 
-The following are considered structural mutation surfaces and require serialized access:
+Concurrent modification of these surfaces is prohibited:
 
 - `CLAUDE.md`
 - System instruction files
@@ -962,17 +946,11 @@ The following are considered structural mutation surfaces and require serialized
 - Rolling memory files
 - Type registry logic
 
-Concurrent modification of these surfaces is prohibited.
-
 #### 10.3 Serialized Mutation Rule
 
-Parallel reasoning is permitted.
+Parallel reasoning is permitted. Parallel structural mutation is not.
 
-Parallel structural mutation is not.
-
-Before performing any structural change, CC must request confirmation that no other active session is modifying the same surface.
-
-If confirmation cannot be established, CC must defer execution.
+Before performing any structural change, CC must request confirmation that no other active session is modifying the same surface. If confirmation cannot be established, CC must defer execution.
 
 #### 10.4 Merge Order Doctrine
 
@@ -986,12 +964,7 @@ Merge order must never be reversed.
 
 ### 11) Planning Gate for Complex Threads
 
-**Effective Date:** 2026-03-11
-**Inspired by:** Devin AI's formal planning/execution mode split.
-
-#### Purpose
-
-Prevent premature execution on complex work items. CC must gather sufficient context and propose a plan before acting on threads that cross multiple surfaces or involve 3+ files.
+CC must gather sufficient context and propose a plan before acting on threads that cross multiple surfaces or involve 3+ files.
 
 #### When the Planning Gate Applies
 
@@ -1011,16 +984,9 @@ The Planning Gate is **NOT required** for:
 
 #### Two-Phase Protocol
 
-**Phase 1 — Gather (no mutations)**
+**Phase 1 — Gather (no mutations):** Read all relevant files/docs/prior context; query database/Gateway if needed for current state; identify affected surfaces, files, and dependencies; assess risk (what could break, what's irreversible).
 
-1. Read all relevant files, docs, and prior context
-2. Query database/Gateway if needed for current state
-3. Identify affected surfaces, files, and dependencies
-4. Assess risk: What could break? What's irreversible?
-
-**Phase 2 — Propose Plan**
-
-Present to Joel:
+**Phase 2 — Propose Plan.** Present to Joel:
 
 | Section | Content |
 |---------|---------|
@@ -1035,115 +1001,52 @@ Then **WAIT for explicit approval** before executing any mutations.
 
 #### Plan Amendments
 
-If execution reveals that the plan needs to change:
-
-1. STOP execution
-2. Report what changed and why
-3. Present amended plan
-4. Wait for approval before continuing
-
-Do NOT silently deviate from an approved plan.
+If execution reveals the plan needs to change: STOP execution, report what changed and why, present amended plan, wait for approval before continuing. Do NOT silently deviate from an approved plan.
 
 #### Interaction with Existing Rules
 
-- **Section 4 (Pre-Write Confirmation Gate):** Still applies per-file during execution. Planning Gate is the higher-level gate.
-- **Section 9 (Parallel Build Safety):** Planning Gate may recommend parallel build as part of the plan.
-- **Section 10 (Parallel Mutation Guardrail):** Planning Gate should declare mutation surfaces upfront (satisfies 10.1).
+- **§4 (Pre-Write Confirmation Gate):** still applies per-file during execution; Planning Gate is the higher-level gate.
+- **§9 (Parallel Build Safety):** Planning Gate may recommend parallel build as part of the plan.
+- **§10 (Parallel Mutation Guardrail):** Planning Gate should declare mutation surfaces upfront (satisfies 10.1).
 
 ---
 
 ## CHANGELOG - CLAUDE.md Updates
 
-### v32 - 2026-05-05
-**What changed:** Removed file-based Rolling Memory Sync Protocol and Artifact Registry Discipline sections. Replaced with DB-backed pointers per SLP v1 (Crawl Phase Lock).
+### v33 - 2026-05-09
+**What changed:** Tier 1 size reduction. Tightened §9 Rationale paragraph, §10 Purpose preamble + Examples list, §11 Effective-Date / Inspired-by / Purpose preamble; condensed CHANGELOG v30/v31/v32 to one-liners.
 
 **Why:**
-- Team Qwrk decision (2026-04-24): Rolling Memory migrated to immutable snapshot artifacts; registry concept fully deprecated
-- File-based protocols drifted from authoritative DB state; correctness must not depend on local files
-- Session Lifecycle Protocol v1 requires deterministic DB-backed retrieval at Crawl phase
+- File at 57.4 kB vs Claude Code's ~40 kB heuristic; every conversation paid the full cost
+- §9 had a trailing Rationale paragraph; §10 had a Purpose preamble + duplicate Examples list; §11 had Effective Date, "Inspired by Devin AI", and a Purpose preamble before the trigger criteria
+- v30/v31/v32 CHANGELOG entries averaged ~30 lines each; detail already preserved in Archive copies (`v31`, `v32`) and git history
 
 **Scope of impact:**
-- Replaced: Session Trigger step 5 ("Rolling Memory Sync Check") → "Rolling Memory Verification (DB-backed)" — snapshot list query, no regeneration logic
-- Replaced: "Rolling Memory Sync Protocol" section → "Rolling Memory (DB-backed)" — locked snapshot contract + SLP v1 retrieval pointer
-- Replaced: "Artifact Registry Discipline" section → "Artifact Registry (Deprecated)" — replacement guidance pointing to `artifact.list` / `artifact.query` / Discovery Playbook
-- Workspace labeling: new sections use "Qwrk Personal (Prime)" and "Qwrk Resolve / Q@W" with full UUIDs as authoritative; existing references to "Q@W" elsewhere left intact (label drift is not governance drift — UUID is authoritative)
-- Unchanged: All governance §1–11, DDL-as-Truth, CmdCtr Snapshot Contract, Session End Snapshot Contract, subsession protocol, header dates (no system version drift)
-
-**Source artifacts:**
-- `0cb18b07` — Source Record: Rolling Memory Migration Correction (registry deprecated, RM confirmed)
-- `6576de56` — Rolling Memory v15 (first DB-backed snapshot, 2026-04-24)
-- `3248263c` — Decision: Session Lifecycle Protocol v1 (Crawl Phase Lock)
-- `16b19a1c` — Artifact Discovery Playbook (replacement for registry)
-
-**Out of scope (separate change sets / pending decisions):**
-- Skill files `/registry-refresh` and `/rolling-mem-sync` (deprecated-with-warning headers added in same change set; deletion deferred)
-- MEMORY.md edits (review pending; only material findings will be reported)
-- Q@W migration to DB-backed Rolling Memory (Joel decision pending; current state: file-based)
-- Historical files in `Qwrk_RollingMem/` and `Q@W Rolling Mem/` (retained for audit; disposition pending Joel decision)
+- Tightened: §9 Parallel Build Safety (Rationale paragraph removed)
+- Tightened: §10 Parallel Mutation Guardrail (Purpose section removed; Examples list inlined; 10.3 sentences consolidated)
+- Tightened: §11 Planning Gate (Effective Date, Inspired-by, Purpose removed; Phase 1 numbered list and Plan Amendments inlined)
+- Compressed: CHANGELOG v30, v31, v32 → one-line summaries with archive pointers
+- Unchanged: All governance §1–8 (incl. DDL-as-Truth, Read-Only §2.5, Pre-Write Gate §4, No-Overwrite §3); all numbered rules and MUST/NEVER language in §9/§10/§11; triggers, two-phase protocol, decision tables; session management; destructive-ops rules; header dates and Gateway/DDL versions
 
 **How to validate:**
-- Post-edit grep for active-governance references to: "Rolling Memory Sync Protocol", "Qwrk_RollingMem", "Artifact Registry", "registry-refresh", "rolling-mem-sync"
-- Expected: zero references in active governance text. Acceptable: deprecation/historical/audit notes that explicitly mark these as retired.
-- Session Trigger step 5 references "Rolling Memory Verification" not "Rolling Memory Sync Check"
-- "Rolling Memory (DB-backed)" section present with locked snapshot contract
-- "Artifact Registry (Deprecated)" section present with `0cb18b07` source citation
+- Grep §9 for "Core Requirements (Non-Negotiable)" + 5 numbered rules — present
+- Grep §10 for "10.1", "10.2", "10.3", "10.4" sub-sections + the 6-item structural surfaces list — present
+- Grep §11 for "Required" + "NOT required" + "Two-Phase Protocol" + "WAIT for explicit approval" — present
+- Byte count: target ≤ 50 kB (from 57.4 kB)
+- Full v30/v31/v32 text recoverable via `Archive/CLAUDE__v32__2026-05-05.md` and git history
 
-**Hard scope boundary:** Documentation/governance text only. No Gateway, DB, workflow, schema, or runtime behavior changes.
+**Hard scope boundary:** Documentation/governance text only. No Gateway, DB, workflow, schema, runtime, session-management, snapshot-contract, or DDL-as-Truth behavior changes.
 
-**Previous version:** `Archive/CLAUDE__v31__2026-04-05.md`
+**Previous version:** `Archive/CLAUDE__v32__2026-05-05.md`
+
+### v32 - 2026-05-05
+Replaced file-based Rolling Memory Sync Protocol + Artifact Registry Discipline with DB-backed snapshot pointers per SLP v1 (`3248263c`); registry concept fully deprecated (`0cb18b07`); workspace labeling tightened. Previous: `Archive/CLAUDE__v31__2026-04-05.md`
 
 ### v31 - 2026-04-05
-**What changed:** Session state moved from files to Qwrk snapshots. `LATEST_END_SESSION.md` deprecated. Session End Snapshot Contract added.
-
-**Why:**
-- Multi-tab CC usage caused `LATEST_END_SESSION.md` overwrites — each tab archived the previous tab's session data
-- File-based session state was a parallel, less governed version of what Qwrk snapshots already do
-- Snapshots are immutable, queryable, multi-tab safe by design, and align with Qwrk-as-source-of-truth
-
-**Scope of impact:**
-- Replaced: Session End protocol — file write → snapshot payload generation for QSB execution
-- Replaced: Session Start retrieval — `LATEST_END_SESSION.md` read → Gateway query for latest `session-end` tagged snapshot
-- Replaced: Subsession context — file header read → snapshot title query
-- Added: Session End Snapshot Contract (locked schema, tag contract, retrieval pattern)
-- Removed: `LATEST_END_SESSION.md` archive step, Restart Protocol Format section (replaced by snapshot schema)
-- Updated: Checkpoint procedure (removed file write reference)
-- Unchanged: All governance sections 1–11, OPEN_THREADS.md (remains file), CmdCtr Snapshot Contract, DDL-as-Truth
-
-**How to validate:**
-- Session End section references snapshot payload, not file write
-- Session Start step 1 uses Gateway query, not file load
-- Subsession step 2 uses snapshot title query, not file header
-- Session End Snapshot Contract present with locked schema
-- No references to `LATEST_END_SESSION.md` in session protocol (file deprecated)
-- OPEN_THREADS.md still referenced as file throughout
-
-**Previous version:** `Archive/CLAUDE__v30__2026-04-02.md`
+Session state moved from `LATEST_END_SESSION.md` to immutable Qwrk snapshots tagged `session-end`; Session End Snapshot Contract added; subsession context now reads snapshot title query. Previous: `Archive/CLAUDE__v30__2026-04-02.md`
 
 ### v30 - 2026-04-02
-**What changed:** Streamlining pass — removed stale operational state, compressed dormant protocols, added qwrk-console pointer. Manus external review incorporated (Tier A invariants preserved per feedback).
-
-**Why:**
-- 15+ sessions since v27 reduction left residual stale content
-- KGB section (test IDs, MVP status, user context) fully duplicated in MEMORY.md
-- Response format examples stable since January, authoritative source is Canonical v5
-- Tier A compaction protocol dormant (29/50 entries) — compressed procedural detail, kept behavioral invariants
-- qwrk-console (T172, 26 source files) was undocumented in CLAUDE.md
-
-**Scope of impact:**
-- Removed: KGB section (~20 lines), Response Format Examples (~32 lines), Known RLS Issue Fixed v1.1 (~4 lines), n8n Troubleshooting tips (~5 lines)
-- Compressed: Tier A Compaction Protocol (~40 lines saved, invariants + lifecycle preserved)
-- Compressed: Changelog v25-v26 (~46 lines saved)
-- Added: qwrk-console pointer (~4 lines) under Development Workflow
-- Unchanged: All governance sections 1–11, session protocol, DDL-as-Truth, CmdCtr Snapshot Contract
-
-**How to validate:**
-- All governance sections 1–11 present
-- Session startup protocol (7 steps) present
-- Tier A2 invariants and lifecycle table present (Manus Point 2)
-- qwrk-console pointer present under Development Workflow
-- MEMORY.md has all workspace/user IDs removed from KGB
-
-**Previous version:** `Archive/CLAUDE__v29__2026-03-26.md`
+Streamlining pass — removed stale operational state (KGB/response examples), compressed dormant Tier A protocol, added qwrk-console pointer; Manus external review incorporated (Tier A invariants preserved). Previous: `Archive/CLAUDE__v29__2026-03-26.md`
 
 ### v29 - 2026-03-26
 **What changed:** Gateway v1 decommissioned — all references updated to Gateway v2
