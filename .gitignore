@@ -185,6 +185,9 @@ out/
 # Specific to New Qwrk
 # ============================================
 
+# Operator Console (T172) — Next.js project with its own .env.local + node_modules
+qwrk-console/
+
 # Personal workspace snapshots (may contain sensitive data)
 **/*_personal_workspace*
 
