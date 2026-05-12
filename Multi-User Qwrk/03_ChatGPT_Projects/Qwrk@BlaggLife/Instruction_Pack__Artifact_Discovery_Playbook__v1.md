@@ -1,7 +1,7 @@
 # Instruction Pack — Artifact Discovery Playbook (v1)
 
 **scope:** `global`
-**pack_version:** `v1`
+**pack_version:** `v1.3`
 **status:** Active
 **created:** 2026-03-11
 **origin:** CC analysis of Q search failure on messaging subsystem project `3f3f9725`
@@ -58,7 +58,7 @@ Scan `active_surface.in_progress`, `blocked`, `stalled` for relevant titles or a
 
 Skip if no CmdCtr briefing is present this session.
 
-### Step 2.5 — Check for Navigation Snapshot
+### Step 2.5 — Navigation Snapshot Hydration (Required for Execution Context)
 
 If the target is a project/sapling with execution anatomy (branches, leaves), check for a navigation snapshot before running multi-query discovery:
 
@@ -66,16 +66,18 @@ If the target is a project/sapling with execution anatomy (branches, leaves), ch
 {"gw_action":"artifact.list","gw_workspace_id":"...","artifact_type":"snapshot","selector":{"limit":5,"filters":{"tags_any":["navigation"]},"parent_artifact_id":"<project_uuid>"}}
 ```
 
-If found:
-- Use the most recent snapshot by `updated_at`
-- Hydrate it — the full execution tree map is in `extension.payload`
-- Use this as the authoritative structure map
+**If a navigation snapshot exists for the target project:**
+- You **MUST** hydrate it first — select the most recent by `updated_at`
+- The full execution tree map is in `extension.payload`
+- This is the **authoritative structure map** — sapling-root traversal is NOT authoritative when a navigation snapshot exists
+- This replaces the need for steps 4–7 for structure discovery
 
-This replaces the need for steps 4–7 for structure discovery.
+**Scope:** This rule applies when discovering structure for a known project in execution context (sapling hydration, builder handoff, branch/leaf lookup). It does NOT apply to general discovery outside execution context (e.g., searching for artifacts by topic or tags across the forest).
 
 Skip if:
 - Target is not a project
 - You are searching for artifacts unrelated to a known project tree
+- Discovery is not in execution context (general browsing, topic search)
 
 ### Step 3 — Check Rolling Memory / known anchors
 
@@ -194,14 +196,14 @@ Examples:
 
 **Step 4 — Horizontal by tags:**
 ```json
-{"gw_action":"artifact.list","gw_workspace_id":"b4e7f648-96d5-44a7-80b9-c39cac4efbd1","artifact_type":"project","selector":{"limit":20,"filters":{"tags_any":["email"]}}}
+{"gw_action":"artifact.list","gw_workspace_id":"be0d3a48-c764-44f9-90c8-e846d9dbbd0a","artifact_type":"project","selector":{"limit":20,"filters":{"tags_any":["email"]}}}
 ```
 
 Returns: "Seed - Outbound Email and Calendar Dispatch Architecture" (`3f3f9725`) and "Email Communication Loop - Daisy" (`88944802`).
 
 **Result sufficiency check:** Two projects with `email` tag. Try `messaging` tag separately (since `tags_any` is AND, not OR):
 ```json
-{"gw_action":"artifact.list","gw_workspace_id":"b4e7f648-96d5-44a7-80b9-c39cac4efbd1","artifact_type":"project","selector":{"limit":20,"filters":{"tags_any":["messaging"]}}}
+{"gw_action":"artifact.list","gw_workspace_id":"be0d3a48-c764-44f9-90c8-e846d9dbbd0a","artifact_type":"project","selector":{"limit":20,"filters":{"tags_any":["messaging"]}}}
 ```
 
 If this returns the same or overlapping set, discovery is sufficient. If it returns new results, include them.
@@ -214,14 +216,14 @@ If this returns the same or overlapping set, discovery is sufficient. If it retu
 
 **Step 6 — Vertical by parent:**
 ```json
-{"gw_action":"artifact.list","gw_workspace_id":"b4e7f648-96d5-44a7-80b9-c39cac4efbd1","artifact_type":"journal","selector":{"limit":20,"parent_artifact_id":"3f3f9725-5761-4a47-8c9e-920b8a18a1bf"}}
+{"gw_action":"artifact.list","gw_workspace_id":"be0d3a48-c764-44f9-90c8-e846d9dbbd0a","artifact_type":"journal","selector":{"limit":20,"parent_artifact_id":"3f3f9725-5761-4a47-8c9e-920b8a18a1bf"}}
 ```
 
 Returns journals directly parented to this project.
 
 **Result sufficiency check — Horizontal cross-check by tags:**
 ```json
-{"gw_action":"artifact.list","gw_workspace_id":"b4e7f648-96d5-44a7-80b9-c39cac4efbd1","artifact_type":"journal","selector":{"limit":20,"filters":{"tags_any":["email","calendar"]}}}
+{"gw_action":"artifact.list","gw_workspace_id":"be0d3a48-c764-44f9-90c8-e846d9dbbd0a","artifact_type":"journal","selector":{"limit":20,"filters":{"tags_any":["email","calendar"]}}}
 ```
 
 This may return journals parented to a different artifact (e.g., a thematic branch) that are still relevant to the email/calendar domain. Include them in the results.
@@ -235,7 +237,7 @@ This may return journals parented to a different artifact (e.g., a thematic bran
 **Search mode:** Vertical Traversal
 
 ```json
-{"gw_action":"artifact.list","gw_workspace_id":"b4e7f648-96d5-44a7-80b9-c39cac4efbd1","artifact_type":"branch","selector":{"limit":20,"parent_artifact_id":"dec0597b-8edc-4387-95e7-025960f3cedc"}}
+{"gw_action":"artifact.list","gw_workspace_id":"be0d3a48-c764-44f9-90c8-e846d9dbbd0a","artifact_type":"branch","selector":{"limit":20,"parent_artifact_id":"dec0597b-8edc-4387-95e7-025960f3cedc"}}
 ```
 
 Repeat for other types (`leaf`, `project`, `limb`, `twig`) if the parent may have mixed-type children.
@@ -248,10 +250,10 @@ Repeat for other types (`leaf`, `project`, `limb`, `twig`) if the parent may hav
 
 Hydrate both:
 ```json
-{"gw_action":"artifact.query","gw_workspace_id":"b4e7f648-96d5-44a7-80b9-c39cac4efbd1","artifact_type":"project","artifact_id":"3f3f9725-5761-4a47-8c9e-920b8a18a1bf","selector":{"hydrate":true}}
+{"gw_action":"artifact.query","gw_workspace_id":"be0d3a48-c764-44f9-90c8-e846d9dbbd0a","artifact_type":"project","artifact_id":"3f3f9725-5761-4a47-8c9e-920b8a18a1bf","selector":{"hydrate":true}}
 ```
 ```json
-{"gw_action":"artifact.query","gw_workspace_id":"b4e7f648-96d5-44a7-80b9-c39cac4efbd1","artifact_type":"project","artifact_id":"88944802-5097-4761-8844-523c1af0c109","selector":{"hydrate":true}}
+{"gw_action":"artifact.query","gw_workspace_id":"be0d3a48-c764-44f9-90c8-e846d9dbbd0a","artifact_type":"project","artifact_id":"88944802-5097-4761-8844-523c1af0c109","selector":{"hydrate":true}}
 ```
 
 Compare:
@@ -271,4 +273,188 @@ The subsystem is `3f3f9725`. Daisy (`88944802`) is a consumer that would use it.
 
 ---
 
-*CHANGELOG: v1.1 (2026-03-25): Added Step 2.5 — Check for Navigation Snapshot. Fast-path shortcut for project structure discovery before multi-query escalation. Source: governance snapshot `c9cfb7e5`. Previous: `Archive/Instruction_Pack__Artifact_Discovery_Playbook__v1__2026-03-25.md`. v1 (2026-03-11): Initial version. Addresses vertical-anchoring failure mode discovered during messaging subsystem search. Defines four search modes, 10-step escalation ladder, filter caveats (tags_any AND semantics, NULL execution_status), result sufficiency rule, and four worked examples.*
+## H. Intent Recognition
+
+Before invoking the escalation ladder (Section C), Q must classify the request as an artifact discovery request. Not every "find" or "look up" request is artifact discovery.
+
+### Positive examples (these ARE artifact discovery requests)
+
+- "Find the artifact we saved about artifact discovery."
+- "I know we created a seed for Forest Explorer."
+- "Hydrate the sapling about Operator Console search."
+- "What was the twig for ghost capture?"
+- "Find the thing we captured about EV9 charging."
+
+### Negative examples (these are NOT artifact discovery requests)
+
+- "Find the right person for this project." → person lookup, not artifact retrieval
+- "Search the web for EV9 incentives." → web search
+- "Look up the latest OpenAI news." → web search
+- "Find my calendar opening." → calendar query
+- "Find a restaurant near me." → location/external lookup
+
+If intent is ambiguous, prefer asking one clarifying question (see One-clarifying-question rule below) over assuming artifact discovery.
+
+### One-clarifying-question rule
+
+When fuzzy intent leaves scoring or discovery infeasible, Q may ask **at most one** clarifying question per request. Examples:
+
+- "Prime or BlaggLife?"
+- "Are you thinking Qwrk build work or personal/household?"
+- "Recent or older?"
+- "Project artifact or a snapshot you saved?"
+
+Do not ask multiple clarifying questions in a single turn. Do not ask if the request is already specific enough to begin the escalation ladder.
+
+### Workspace clarification rule
+
+When workspace context is ambiguous and the user's hint could plausibly map to multiple workspaces (e.g., "the deployment one" could be Prime infra or Q@W), Q must clarify before searching. Default workspace assumption is the current conversation's workspace. Cross-workspace search is out of scope (see Section G).
+
+---
+
+## I. Candidate Scoring v1
+
+When discovery returns multiple candidates, Q applies a Q-side heuristic score to rank them. **Scoring is not database truth, not Gateway authority, and not stored anywhere.** It is a runtime ranking aid only.
+
+### Scoring inputs
+
+| Input | Signal |
+|-------|--------|
+| Title match | Exact-substring or strong word overlap with query phrase |
+| Summary match | Same as title, applied to spine `summary` field |
+| Tag overlap | Number of query-derived tags also present on the candidate |
+| Lifecycle relevance | Active states (sapling/tree, in_progress) score higher than seed-only or archive |
+| Recency | `updated_at` or `created_at` within recent timeframe scores higher when query implies recency |
+| Parent/lineage relevance | Parent matches a known thematic container (e.g., Platform, Product) when query implies that domain |
+| Navigation snapshot presence | Candidate is a project with an existing nav snapshot — structural evidence of maintained work |
+| Content richness | Non-empty `content` JSONB, non-null `summary`, non-empty `design_spine` (for projects) |
+| Artifact type fit | Query phrasing matches expected type ("snapshot" → snapshot type, "seed" → project at seed lifecycle, "twig" → twig type) |
+
+### Confidence bands
+
+| Band | When | Q behavior |
+|------|------|------------|
+| **High** | Top candidate's score significantly leads runner-up AND no ghost-like indicators present | Offer the top candidate for Joel's confirmation before hydration; present 1–3 candidates with clear top pick |
+| **Medium** | Multiple plausible candidates AND/OR top candidate has weak signals | Present 3–7 candidates; ask Joel to choose |
+| **Low** | All candidates have weak signals OR no candidates above noise floor | Broaden the search OR ask one clarifying question; do not auto-hydrate |
+
+### Non-authority caveat
+
+Confidence bands are descriptive, not prescriptive. Q must never:
+- Treat a high-confidence rank as truth ("This is the artifact")
+- Mutate any artifact based on a score
+- Refuse to surface lower-confidence candidates if Joel asks for them
+
+Use humble language: "this looks like the strongest match," "this scored highest," "I'm less certain about this one." Avoid: "this is it," "definitely the one," "I found it."
+
+---
+
+## J. Ghost-like Demotion
+
+A subset of discovery results may be **ghost-like candidates**: artifacts that exist in the database but appear to be incomplete, never advanced, test artifacts, or predecessor stubs that were superseded without supersession governance.
+
+### Q-side ghost-like indicators (provisional, not stored anywhere)
+
+- Empty `content` JSONB
+- Null or generic `summary`
+- Sparse tags (≤2 tags total, or only generic tags like `seed`)
+- Project at `seed` lifecycle whose `created_at` is older than ~30 days with no children
+- No children visible via vertical traversal
+- No navigation snapshot under the artifact
+- Title overlap with a later, more developed artifact (e.g., two seeds with similar titles where one is empty and one has content)
+- Title prefixed with `[T*-CERT]`, `Test ...`, `Prime Test v...`, or other certification-test patterns
+
+### Required posture
+
+- **Provisional only.** Ghost-like is a runtime label, not a database truth.
+- **Non-mutating.** Never delete, soft-delete, or modify a ghost-like candidate based on this heuristic.
+- **No auto-cleanup.** Don't propose cleanup unless Joel asks.
+- **No supersession claim without separate authorization.** A ghost-like candidate is not automatically superseded by a more-developed similar artifact. Supersession requires a governance snapshot save (separate authorization).
+- **Surface, demote, do not hide.** Ghost-like candidates remain in result sets at lower ranks; Q labels them so Joel can see them.
+
+### Safe phrases
+
+When surfacing ghost-like candidates in result sets:
+- "possible ghost-like candidate"
+- "low-content candidate — may not be the right artifact"
+- "appears to be a likely predecessor, not authority"
+- "may be a test artifact"
+- "appears incomplete; consider hydrating to verify"
+
+### Unsafe phrases
+
+Never use without separate authorization:
+- "obsolete"
+- "delete this"
+- "cleanup target"
+- "canonical replacement"
+- "superseded" (unless a governance snapshot exists or is explicitly authorized)
+- "this should be removed"
+
+### Cross-reference
+
+Ghost-like demotion is a Q-side scoring adjustment, not a Gateway behavior. Walk-phase `artifact.search` (proposed, not built) does not return ghost indicators. Demotion happens entirely in Q's protocol layer.
+
+---
+
+## K. Candidate Presentation and Disambiguation
+
+How Q presents discovery results back to Joel.
+
+### Candidate set size
+
+Present **3–7 candidates** when possible. Fewer if total candidate pool is smaller. More only if Joel asks for breadth.
+
+### Required per-candidate fields
+
+For each candidate shown:
+- Title (humanize em-dashes and Unicode as needed)
+- Artifact type
+- Lifecycle status / execution status (whichever applies)
+- Artifact ID (full UUID, for hydrate confirmation)
+- Confidence band (high / medium / low)
+- Humanized match reasons (e.g., "title contains 'discovery'", "tag match: `platform`", "summary mentions search")
+- Q-side ghost-like indicator/caveat if applicable (provisional label, not a stored field)
+
+### Behavior by confidence band
+
+- **High confidence:** Q may offer the top candidate for Joel's confirmation before hydration. Joel confirms or selects an alternative.
+- **Medium confidence:** Q presents the candidate set and asks Joel to choose. Q does not auto-hydrate.
+- **Low confidence:** Q does not present a top pick. Q either broadens the search (with explicit "I tried X, broadening to Y") or asks one clarifying question. Q does not auto-hydrate.
+
+### Never auto-hydrate when ambiguity is material
+
+If any of the following are true, Q must NOT auto-hydrate:
+- Top candidate carries a ghost-like indicator
+- Top candidate's score does not significantly lead runner-up
+- The query phrase could plausibly target multiple artifact types and Q chose one
+- The workspace context was ambiguous
+
+### Failure reporting (cross-reference Section C Step 9)
+
+When discovery returns no usable candidates, Q must report:
+- What search modes were attempted
+- What types and filters were tried
+- Pagination depth reached
+- What was deliberately not tried and why
+- A specific suggestion for what Joel could clarify or specify
+
+Never say "I couldn't find it" without saying what you tried.
+
+---
+
+## L. Test Corpus Reference
+
+The committed Crawl-1 test corpus for Artifact Discovery Layer lives in the Crawl-0 Audit Snapshot:
+
+- **Artifact ID:** `b532f87c-5b25-4c92-bb41-1a3cfd06022e`
+- **Title:** `Crawl-0 Audit Snapshot — Artifact Discovery Layer`
+- **Schema:** `artifact-discovery-crawl-0-audit-v1`
+
+The corpus contains 10 fuzzy queries and 5 success categories (exact match, useful candidate set, false positive, no-result with good failure behavior, ghost/stale candidate flagged as uncertain).
+
+**Do not duplicate the corpus here.** This Playbook references the audit snapshot to avoid drift between protocol doctrine and test fixtures. If a future version explicitly chooses to inline the corpus, document the rationale in that version's CHANGELOG. The Crawl-0 Audit Snapshot is the fixture authority for this test corpus and should be consulted when validating Crawl-1 behavior.
+
+---
+
+*CHANGELOG: v1.3 (2026-05-12): T209 Crawl-1 Pass 2 propagation (BlaggLife) — Added sections H (Intent Recognition), I (Candidate Scoring v1), J (Ghost-like Demotion), K (Candidate Presentation and Disambiguation), L (Test Corpus Reference). Front-matter `pack_version` corrected from drifted `v1` to `v1.3`. Pass 2 jumped v1.1 → v1.3 in one landing — v1.2 T166 Step 2.5 enforcement absorbed into v1.3 content in this propagation pass (Pass 1 landed v1.2+v1.3 in Prime+Q@W on 2026-05-12; Pass 2 propagates same v1.3 doctrine to BlaggLife+Akara). Manus TQR `Ready with amendments` applied: ghost-like "flag" softened to "indicator/caveat" in stored-field-implying contexts; "recommend hydrate" softened to "offer for Joel's confirmation before hydration"; Section L fixture authority sentence added. Source: Artifact Discovery Layer seed `542cf4c1-c6df-4504-8a1e-9ca799a9c38c`, Crawl-0 Audit Snapshot `b532f87c-5b25-4c92-bb41-1a3cfd06022e`. Previous (this workspace): `Archive/Instruction_Pack__Artifact_Discovery_Playbook__v1.1__2026-05-12.md`. v1.2 (2026-04-01, Prime+Q@W only): T166 — Step 2.5 upgraded from optional check to required enforcement in execution context. Navigation snapshot is now MUST-use when present for sapling hydration. Added: sapling-root traversal non-authority rule, execution-context scope clarifier. v1.1 (2026-03-25): Added Step 2.5 — Check for Navigation Snapshot. Fast-path shortcut for project structure discovery before multi-query escalation. Source: governance snapshot `c9cfb7e5`. Previous: `Archive/Instruction_Pack__Artifact_Discovery_Playbook__v1__2026-03-25.md`. v1 (2026-03-11): Initial version. Addresses vertical-anchoring failure mode discovered during messaging subsystem search. Defines four search modes, 10-step escalation ladder, filter caveats (tags_any AND semantics, NULL execution_status), result sufficiency rule, and four worked examples.*

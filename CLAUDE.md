@@ -601,13 +601,13 @@ Full compaction algorithm, Rolling Memory Regeneration steps, eligibility rules,
 
 **Effective Date:** 2026-04-24
 
-The local CSV artifact registry is deprecated. Discovery is now via Gateway `artifact.list` / `artifact.query` and the Artifact Discovery Playbook (snapshot `16b19a1c`).
+The local CSV artifact registry is deprecated. Discovery is now via Gateway `artifact.list` / `artifact.query` and the Artifact Discovery Playbook (canonical file `Instruction_Pack__Artifact_Discovery_Playbook__v1.md` per workspace's ChatGPT/Q project files; internal `pack_version: v1.3` deployed across Prime + Q@W + BlaggLife + Akara per T209 Crawl-1 Pass 1 + Pass 2 on 2026-05-12; Greg deferred).
 
 **The system MUST NOT depend on any registry artifact for correctness.** Source decision: `0cb18b07` (Rolling Memory Migration Correction Prompt — registry concept retired).
 
 **Replacement guidance:**
 - Discovery: `artifact.list` with tag/type/lifecycle filters; `artifact.query` for hydration
-- Reference: Artifact Discovery Playbook (`16b19a1c`) — canonical retrieval patterns
+- Reference: Artifact Discovery Playbook (canonical file `Instruction_Pack__Artifact_Discovery_Playbook__v1.md` per workspace; internal version v1.3) — canonical retrieval patterns. Earlier CLAUDE.md citations of a Playbook snapshot UUID were unverified; T209 Crawl-1 reconciliation established the file as authoritative surface (Option A: no mirror snapshot).
 - Schema reference: `docs/schema/Schema_Reference__Kernel_v1__v2.10.md`
 - CC query helper: `scripts/CC-Gateway-Query.ps1` (Section 2.6)
 
@@ -1012,6 +1012,27 @@ If execution reveals the plan needs to change: STOP execution, report what chang
 ---
 
 ## CHANGELOG - CLAUDE.md Updates
+
+### v34 - 2026-05-12
+**What changed:** Drift cleanup — removed stale snapshot UUID references for Artifact Discovery Playbook.
+
+**Why:**
+- T209 Crawl-1 reconciliation determined that an unverified Playbook snapshot UUID was being cited as authority — the Artifact Discovery Playbook is actually governed by a file in each workspace's ChatGPT/Q project file context (canonical filename `Instruction_Pack__Artifact_Discovery_Playbook__v1.md`), not by a Qwrk snapshot artifact.
+- T209 Crawl-1 Pass 1 (2026-05-12) landed Playbook v1.3 in Prime + Q@W; Pass 2 (same day) propagated to BlaggLife + Akara. All four workspaces now carry internal `pack_version: v1.3`. Greg explicitly deferred.
+- Per Option A from the reconciliation: stale snapshot UUID references replaced with file-path authority; no mirror snapshot created (avoids duplicate authority + ongoing sync maintenance burden).
+
+**Scope of impact:**
+- Section "Artifact Registry (Deprecated)" — both stale Playbook snapshot UUID references replaced with file-path authority pointers.
+- Unchanged: all governance rules §1–§11 (No-Guessing, Read-Only §2.5, No-Overwrite §3, Pre-Write Gate §4, Changelog Requirement §5, n8n Editing §6, KGB Discipline §7, Doc & Derivation §7.5, Doc Duties §8, Parallel Build Safety §9, Parallel Mutation Guardrail §10, Planning Gate §11); Schema Truth Policy / DDL-as-Truth; session management; Tier A Memory Compaction; Important Constraints; all CHANGELOG entries v2–v33.
+
+**How to validate:**
+- Grep CLAUDE.md for the deprecated Playbook snapshot UUID — must return zero matches.
+- Confirm Playbook authority references at the Artifact Registry section now name the file path with internal v1.3 version.
+- No other CLAUDE.md sections changed.
+
+**Hard scope boundary:** Drift cleanup only. No governance, Gateway, DDL, runtime, session management, or schema behavior changes. No Pass 2 Playbook propagation included in this v34 — that was completed separately as 4 Pattern C operations on BlaggLife + Akara before this CLAUDE.md edit.
+
+**Previous version:** `Archive/CLAUDE__v33__2026-05-12.md`
 
 ### v33 - 2026-05-09
 **What changed:** Tier 1 size reduction. Tightened §9 Rationale paragraph, §10 Purpose preamble + Examples list, §11 Effective-Date / Inspired-by / Purpose preamble; condensed CHANGELOG v30/v31/v32 to one-liners.
