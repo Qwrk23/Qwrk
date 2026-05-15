@@ -298,7 +298,7 @@ P1–P10 query/probe matrix — RECOVERED via `354dd79d` → integrated as probe
 | Q3 | Path-conditional cert exclusions — which C-cases are skipped under which gateway/build configurations | Medium | §6 cert authoring; cert harness extension (recovered §8.2 Step 5) |
 | Q4 | **Live regression baseline** — explicit "what passes today on live" capture. **Per A2: this is a future operational action requiring separate Joel approval through the governed path. This review does NOT authorize a live cert run.** | Medium | Future dev-clone authorization packet; §3 no-regression guarantee instrumentation. |
 | Q5 | Response envelope normative spec — what `data.candidates[]`, `meta`, `score`, `score_components`, `matched_fields` look like field-by-field | Medium | §5.3 contract; §6 cert response-shape assertions; §5.4.2 P10 review |
-| Q6 | Explicit Path B lock — written governance record locking Path B vs alternatives (substrate already built, but the path-choice lock per recovered §8.2 Step 2 not yet papered) | Low (functional substrate exists; governance papering open) | Persistence of v0.4 (Q7-linked); Manus future-state authority |
+| Q6 | Explicit Path B lock — written governance record locking Path B vs alternatives (substrate already built, but the path-choice lock per recovered §8.2 Step 2 not yet papered) | Low (functional substrate exists; governance papering open) | Persistence of v0.4 (Q7-linked); future-state provenance / ratification record |
 | Q7 | **Persistence-gap-fix recommendation** — plan v0.1 / v0.2 lived inline only; v0.3 is the persistence step. **Per A4: inline review is acceptable, but any ratified planning state that becomes the basis for v0.4 or execution planning must be persisted with provenance before reliance.** | Medium (procedural; becomes blocking the moment v0.4 ratification is sought) | All future ratified plan revisions; pre-implementation freeze |
 
 ### §8.3 — Resolution paths
@@ -329,7 +329,7 @@ This plan v0.3 supersedes v0.1 and v0.2.
 
 ## §10 — Closure Conditions for v0.3
 
-v0.3 is closed (and ready for TQR → ratification → optional persistence per A4) when:
+v0.3 is closed (and ready for TQR → ratification → persistence required before downstream reliance per A4) when:
 
 1. Manus + Q complete TQR pass on v0.3 (this turn produces the input).
 2. Joel ratifies v0.3 OR directs v0.3 → v0.4 amendment.
