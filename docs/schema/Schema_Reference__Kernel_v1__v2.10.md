@@ -27,6 +27,29 @@ Qwrk Kernel v1 uses **class-table inheritance pattern**:
 
 ---
 
+## Operational Notes — Supabase Data API Grant Defaults
+
+**Source:** Supabase customer email / changelog announcement received 2026-05-27 regarding Data API explicit grants for `public` schema tables. Rollout: **2026-05-30** new projects default-deny; **2026-10-30** new tables in existing projects default-deny.
+
+**Scope of upstream change.** Supabase is reversing the historical default that auto-exposed `public` schema tables via the Data API (PostgREST, GraphQL, `supabase-js`). After enforcement, new tables in `public` will require explicit `GRANT` statements before they become accessible via the Data API to non-`service_role` clients.
+
+**Qwrk impact.**
+
+- **Gateway / `service_role` path is unaffected by this Data API default.** The Gateway uses `service_role` credentials, which bypass these grant restrictions by design (see CLAUDE.md §"Access Control Model — Qwrk v2").
+- **Direct Data API surfaces are the watch zone.** The most likely consumer is the qwrk-console (Operator Console, T172), which performs direct Supabase reads.
+- **Existing tables** in project `npymhacpmxdnkqdzgxll` retain inherited grants and continue to work through and after 2026-10-30.
+- **New tables in `public`** created in this project after 2026-10-30 will default to no Data API exposure for `anon`/`authenticated` roles unless explicit `GRANT` statements are included.
+
+**Grant discipline (forward-looking; not retroactive).**
+
+- **Explicit GRANTs are not default boilerplate for every new `public` table.** Add them only when the table is intentionally exposed to `anon`/`authenticated` Data API clients, and scope them to the specific roles and operations required.
+- **GRANTs provide access eligibility for non-`service_role` Data API clients. RLS remains the row-level authorization boundary.** GRANTs do not replace RLS.
+- When in doubt, default to no GRANT and route access through the Gateway.
+
+**Operational pointer.** Use the **Security Advisor** in the Supabase dashboard to baseline which tables are currently exposed before 2026-10-30 enforcement.
+
+---
+
 ## Table of Contents
 
 ### Core Tables
@@ -1126,6 +1149,18 @@ Types will be activated when Gateway routing, extension table schema, and valida
 ---
 
 ## CHANGELOG
+
+### v2.10.1 — 2026-05-27
+
+**What changed:** Documentation-only sub-revision: added §"Operational Notes — Supabase Data API Grant Defaults". `v2.10.1` is a documentation-only sub-revision; it does not imply DDL `v2.10.1` and does not represent a schema mutation.
+
+**Why:** Supabase announced (2026-05-27) that new `public` schema tables in existing projects will require explicit `GRANT` statements for Data API access after 2026-10-30 enforcement. This note pre-positions Qwrk DDL authoring discipline.
+
+**Scope of impact:** Schema Reference document only. No DDL change, no Gateway change, no RLS change, no runtime behavior change. Existing table grants in project `npymhacpmxdnkqdzgxll` are unchanged.
+
+**Source:** Supabase customer email / changelog announcement received 2026-05-27 regarding Data API explicit grants for `public` schema tables.
+
+**Previous version:** `Archive/Schema_Reference__Kernel_v1__v2.10__2026-05-27.md`
 
 ### v2.10 — 2026-03-22
 

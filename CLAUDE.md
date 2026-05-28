@@ -241,6 +241,7 @@ Before writing ANY SQL:
 ✅ **Data types** match exactly (uuid vs text, jsonb vs json, etc.)?
 ✅ **NOT NULL constraints** satisfied?
 ✅ **CHECK constraints** respected (artifact_type enum, priority range, etc.)?
+✅ **Supabase Data API exposure (new public tables only)** — If a new `public` table is intentionally exposed to `anon`/`authenticated` Data API clients (PostgREST, GraphQL, `supabase-js`), include explicit `GRANT` statements scoped to the specific roles and operations required. Required for new tables in existing projects after 2026-10-30. Explicit GRANTs are not default boilerplate for every new public table; default to no GRANT and route through the Gateway when in doubt. GRANTs provide access eligibility for non-`service_role` Data API clients; RLS remains the row-level authorization boundary. See [docs/schema/Schema_Reference__Kernel_v1__v2.10.md](docs/schema/Schema_Reference__Kernel_v1__v2.10.md) §"Operational Notes — Supabase Data API Grant Defaults".
 
 ### Supporting Documentation
 
@@ -337,19 +338,14 @@ When user's **first message** contains any of these phrases:
      powershell -File "scripts/CC-Gateway-Query.ps1" -Action list -ArtifactType snapshot -Tags "session-end" -Limit 1 -Hydrate -Raw
      ```
    - If Gateway unavailable or no snapshot exists: proceed without prior session context (non-blocking)
-2. **Run `/cmdctr-briefing` for Qwrk Prime and Q@W:**
-   - Execute `cmdctr_operator_briefing()` for Prime (`be0d3a48-...`)
-   - Execute `cmdctr_operator_briefing('635bb8d7-...')` for Q@W
-   - Present forest health, active surface (blocked/stalled/ready), and delta summary
-   - Generate QSB-ready snapshot save payload for each workspace (see CmdCtr Snapshot Contract below)
-   - If briefing reveals structural issues (cycles, stalls, orphans), flag before asking for session intent
-   - If MCP/SQL unavailable: skip silently (non-blocking), note in handoff summary
+2. **CmdCtr briefing — SKIPPED by default (on-demand only):**
+   - CmdCtr is no longer auto-invoked at session start. See "CmdCtr Diagnostic Mode" below.
+   - To invoke explicitly: user says "run cmdctr" / "cmdctr briefing" or invokes `/cmdctr-briefing`. When invoked, follow the Snapshot Contract.
 3. **Present handoff summary:**
    - Last session summary (from session-end snapshot `context` + `next_session_entry`)
    - Open threads from `OPEN_THREADS.md`
-   - CmdCtr briefing highlights (from step 2)
    - Any blockers or carry-over reminders (from snapshot `open_loops`)
-4. **Ask for session intent** — Offer options derived from open threads + CmdCtr active surface
+4. **Ask for session intent** — Offer options derived from open threads + last session-end `next_session_entry`
 5. **Rolling Memory Verification (DB-backed)** — Query latest `rolling-memory` snapshot per active workspace. Verification only — do NOT regenerate.
 
    **Qwrk Personal (Prime — `be0d3a48-c764-44f9-90c8-e846d9dbbd0a`):**
@@ -408,9 +404,29 @@ When user's **first message** contains any of these phrases:
    - Auto-saved entries should be logged in the session summary (so Joel can audit)
    - If an auto-save contradicts an existing MEMORY.md entry, **delete the old entry and write the new one** (delete-on-contradiction, not accumulate)
 
+### CmdCtr Diagnostic Mode (On-Demand)
+
+**Effective Date:** 2026-05-13 (v35)
+
+CmdCtr is no longer a daily startup briefing. Repositioned as an **exception detector and cleanup radar** invoked on demand.
+
+**Use cases (when to invoke):**
+- Execution hygiene sweeps (stale in-progress items, lifecycle drift)
+- Blocker / stall investigation across a workspace forest
+- Pre-build sanity check on a forest before a substantive session
+- Weekly maintenance cadence (recommended, not enforced)
+
+**Invocation:** User says "run cmdctr" / "cmdctr briefing" or invokes `/cmdctr-briefing`. Workspace defaults to Prime + Q@W unless otherwise specified.
+
+**Why demoted (2026-05-13, session 144):**
+- Output is workspace-scoped inventory (1000+ artifacts / raw counts), not session-relevance-ranked operator intelligence — "fog machine wearing a dashboard hat" (Q WSY)
+- Morning Flow + last session-end `next_session_entry` + Rolling Memory together already provide better daily orientation
+- Underlying Supabase function `cmdctr_operator_briefing()` and Snapshot Contract retained intact — only the auto-invocation removed
+- Redesign tracked in T211 (CmdCtr Operator Briefing v2 — Relevance-Aware Redesign)
+
 ### CmdCtr Snapshot Contract (Locked)
 
-After each CmdCtr briefing run (step 2), CC generates a QSB-ready snapshot save payload per workspace.
+After each on-demand CmdCtr briefing run, CC generates a QSB-ready snapshot save payload per workspace.
 
 **Payload rules (non-negotiable):**
 
@@ -1012,6 +1028,59 @@ If execution reveals the plan needs to change: STOP execution, report what chang
 ---
 
 ## CHANGELOG - CLAUDE.md Updates
+
+### v36 - 2026-05-27
+**What changed:** Pre-Flight Checklist: added Supabase Data API explicit-grant checklist clarification (8th bullet) under §"Schema Truth Policy — DDL-as-Truth" → "Pre-Flight Checklist (Required Before SQL Generation)". Pointer added to Schema Reference §"Operational Notes — Supabase Data API Grant Defaults" (v2.10.1 doc-only sub-revision).
+
+**Why:**
+- Supabase announced (2026-05-27) that new `public` schema tables in existing projects will require explicit `GRANT` statements for Data API access after 2026-10-30 enforcement
+- Adding the bullet to the existing Pre-Flight Checklist ensures future Qwrk DDL authoring treats Data API exposure as a discrete, intentional decision
+- Anti-overgranting language explicit: GRANTs are not default boilerplate; default to no GRANT and route through the Gateway when in doubt
+- GRANT vs RLS distinction preserved: GRANTs provide access eligibility for non-`service_role` clients; RLS remains the row-level authorization boundary
+
+**Scope of impact:** Documentation-only; no DDL, Gateway, RLS, or runtime behavior change. Single new bullet appended to existing Pre-Flight Checklist. No other CLAUDE.md sections changed. No changes to governance rules §1–§11, session management, Schema Truth Policy body, or any other surface. Project `npymhacpmxdnkqdzgxll` existing table grants unchanged.
+
+**How to validate:**
+- Grep CLAUDE.md Pre-Flight Checklist for "Supabase Data API exposure" — present as 8th bullet
+- Existing 7 checklist bullets unchanged
+- Pointer link to Schema Reference §"Operational Notes" present
+- Schema Reference v2.10.1 CHANGELOG entry present
+
+**Hard scope boundary:** Documentation-only. No DDL execution, no Gateway change, no RLS change, no GRANT applied to any existing table, no fix to pre-existing `NoFail_Inserts` filename drift (separate sweep), no new standalone doc.
+
+**Source:** Supabase customer email / changelog announcement received 2026-05-27 regarding Data API explicit grants for `public` schema tables. See [docs/schema/Schema_Reference__Kernel_v1__v2.10.md](docs/schema/Schema_Reference__Kernel_v1__v2.10.md) §"Operational Notes — Supabase Data API Grant Defaults".
+
+**Previous version:** `Archive/CLAUDE__v35__2026-05-27.md`
+
+### v35 - 2026-05-13
+**What changed:** Demoted CmdCtr from auto-run session-start briefing (step 2) to on-demand diagnostic mode. Added §"CmdCtr Diagnostic Mode" before §"CmdCtr Snapshot Contract." Adjusted Session Trigger step 3 (handoff summary) and step 4 (intent) to drop CmdCtr inputs.
+
+**Why:**
+- Q WSY analysis (2026-05-13): CmdCtr output is workspace-scoped inventory dump (1000+ artifacts / raw counts), not session-relevance-ranked operator intelligence — "fog machine wearing a dashboard hat"
+- Morning Flow + last session-end `next_session_entry` + Rolling Memory together already provide better daily orientation
+- Underlying Supabase function `cmdctr_operator_briefing()` and Snapshot Contract retained intact — only the auto-invocation removed
+- Posture: CmdCtr now serves as exception detector / cleanup radar / pre-build sanity check, not daily morning briefing
+- Redesign tracked in T211 (CmdCtr Operator Briefing v2 — Relevance-Aware Redesign)
+
+**Scope of impact:**
+- §Required Behavior on Session Trigger step 2: rewritten as "SKIPPED by default (on-demand only)" pointer
+- §Required Behavior on Session Trigger step 3: removed "CmdCtr briefing highlights" line from handoff summary
+- §Required Behavior on Session Trigger step 4: replaced "CmdCtr active surface" with "last session-end `next_session_entry`"
+- §CmdCtr Snapshot Contract intro: reframed as "on-demand" rather than "step 2"
+- ADDED: §CmdCtr Diagnostic Mode (On-Demand) section before §CmdCtr Snapshot Contract
+- Unchanged: Subsession protocol (already skipped CmdCtr); CmdCtr Snapshot Contract payload rules; CmdCtr Limb thread (T103); `cmdctr_operator_briefing()` SQL function; CmdCtr workspaces in scope (Prime + Q@W); all governance rules §1–§11
+- Unchanged: Rolling Memory verification (step 5); for-cc work queue sweep (step 6); CC Memory Harvest (step 7); all numbered protocol steps after step 4
+
+**How to validate:**
+- Grep CLAUDE.md for "SKIPPED by default (on-demand only)" — present at step 2
+- Grep for "### CmdCtr Diagnostic Mode" — present before "### CmdCtr Snapshot Contract"
+- Confirm step 4 reads "session-end `next_session_entry`" not "CmdCtr active surface"
+- CmdCtr Snapshot Contract payload table unchanged
+- Subsession protocol §Skipped list unchanged
+
+**Hard scope boundary:** Session start protocol + CmdCtr posture only. No governance rule changes (§1–§11 untouched); no DDL changes; no Gateway changes; no SQL function changes; no Snapshot Contract payload changes.
+
+**Previous version:** `Archive/CLAUDE__v34__2026-05-13.md`
 
 ### v34 - 2026-05-12
 **What changed:** Drift cleanup — removed stale snapshot UUID references for Artifact Discovery Playbook.
