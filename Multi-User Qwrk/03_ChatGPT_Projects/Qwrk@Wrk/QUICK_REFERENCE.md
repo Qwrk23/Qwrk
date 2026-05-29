@@ -232,14 +232,18 @@ If it needs detail, write a journal.
 
 Reference patterns for common artifact creation. See system instructions for core rules.
 
-### Morning Flow
+**Concept distinction (sessions):** `/wake` (full startup), **Subsession** (in-conversation lane, no loads, no persists), **Conversation Restart** (context-compression handoff in a new chat, see `CONVERSATION_RESTART_PROTOCOL.md`). Full distinction table in `Instruction_Pack__Session_Lifecycle__QW__v3.md`.
 
-**Trigger:** Start of day reflection, gratitude, or intention-setting conversation.
+### Workbench
 
-**Artifact:** Journal
-**Title:** `Morning Flow - [DATE]`
-**Tags:** `morning-flow`, `reflection`
-**Content:** Capture gratitude, priorities, energy state, and intentions.
+**Trigger (add):** "add this to the workbench" / "workbench this" / "put this on the workbench" while engaging an artifact.
+**Trigger (remove):** "remove from workbench" / "done with this" / "off the workbench" / "clear this off the workbench".
+**Eligible types:** `project`, `snapshot`, `twig`.
+**Action (add, existing artifact):** `artifact.update` with structured tags — `{ "tags": { "add": ["workbench"] } }`. Flat array forbidden on update.
+**Action (add, new/unsaved):** include `"workbench"` in tags on the save payload.
+**Action (remove):** `artifact.update` with structured tags — `{ "tags": { "remove": ["workbench"] } }`.
+**Effect:** Workbench-tagged artifacts surface at `/wake` as the active working set (3 list calls — one per eligible type). On selection, Q hydrates the chosen item via `artifact.query`.
+**Canonical spec:** `Instruction_Pack__Session_Lifecycle__QW__v3.md` → Workbench.
 
 ### Strategic Discussion
 
@@ -298,6 +302,15 @@ Reference patterns for common artifact creation. See system instructions for cor
 
 See `CONVERSATION_RESTART_PROTOCOL.md` for full restart prompt generation protocol.
 
+### Subsession
+
+**Triggers:** `new subsession`, `subsession`, `start subsession`, `clean lane`, `new working lane`, `/new sub`, `new sub`, `nsub`, `sub` — fire only when the phrase is the **leading/bare** message in a Joel turn (embedded mentions do not trigger).
+**Behavior:** In-conversation clean working lane. Q acknowledges, asks for Primary Outcome if missing, proceeds. **No Gateway calls. No persistence. Preserves all `/wake` context (End Session + Rolling Memory + Workbench).**
+**Workbench in subsession:** Q may reference the already-loaded Workbench summary or ask once whether the lane anchors to a Workbench item. Q does NOT re-list. Q hydrates only on selection.
+**Lane close:** `end subsession`, `close lane`, `back to main`, `exit lane` → Q acknowledges, discards lane-local context, returns to parent session. No save.
+**Fresh-tab refusal:** If triggered before `/wake` context is loaded, Q refuses: `"Subsession requires loaded session context. Run /wake first, or start a full session."`
+**Canonical spec:** `Instruction_Pack__Session_Lifecycle__QW__v3.md` → Subsession Protocol.
+
 ---
 
-*CHANGELOG: v8 (2026-03-26): T140 Content Update — added content merge, content replace, and content_append examples. Added content mutability rules section. Previous: `Archive/QUICK_REFERENCE__v7__2026-03-26.md`. v7 (2026-03-25): Added Navigation Snapshot (Project Map) workflow pattern. Source: governance snapshot `c9cfb7e5`. Previous: `Archive/QUICK_REFERENCE__v6.1__2026-03-25.md`. v6.1 (2026-03-25): Renamed "Raw JSON Invariant" → "Payload Object Invariant" with scope clarifier (rendering vs transport). v6 (2026-03-25): Architecture refactor — absorbed WORKFLOW_PATTERNS.md content (5 patterns: Morning Flow, Strategic Discussion, Seed Planting, Decision Locked, Session Restart) into new "Workflow Patterns" section at end of file. Standalone WORKFLOW_PATTERNS.md deprecated. Previous: `Archive/QUICK_REFERENCE__v5__2026-03-25.md`. v5 (2026-03-11): Discovery support — parent_artifact_id, lifecycle_status, execution_status filter examples. v4 (2026-03-06): T87 Spine Field Routing. v3 (2026-03-03): T69 Semantic Type Registry. v2.1 (2026-02-20): Fixed Update payload structure. v2 (2026-02-18): Unified to JSON-only execution.*
+*CHANGELOG: v9 (2026-05-29): Removed Morning Flow workflow pattern (Q@W has no Morning Flow doctrine). Added Workbench workflow pattern — tag-based working-set; add/remove gestures via structured `artifact.update` tags; eligible types `project`, `snapshot`, `twig`. Added Subsession workflow pattern — in-conversation clean lane; 9 trigger phrases (leading/bare-phrase rule); 4 lane-close triggers; fresh-tab refusal; no Gateway calls and no persistence by default. Added concept-distinction note (`/wake` vs Subsession vs Conversation Restart) at top of Workflow Patterns. Canonical specs in `Instruction_Pack__Session_Lifecycle__QW__v3.md`. Source: Q@W TQR locked decisions + 3 wording amendments, 2026-05-29. Previous: `Archive/QUICK_REFERENCE__v8__2026-05-29.md`. v8 (2026-03-26): T140 Content Update — added content merge, content replace, and content_append examples. Added content mutability rules section. Previous: `Archive/QUICK_REFERENCE__v7__2026-03-26.md`. v7 (2026-03-25): Added Navigation Snapshot (Project Map) workflow pattern. Source: governance snapshot `c9cfb7e5`. Previous: `Archive/QUICK_REFERENCE__v6.1__2026-03-25.md`. v6.1 (2026-03-25): Renamed "Raw JSON Invariant" → "Payload Object Invariant" with scope clarifier (rendering vs transport). v6 (2026-03-25): Architecture refactor — absorbed WORKFLOW_PATTERNS.md content (5 patterns: Morning Flow, Strategic Discussion, Seed Planting, Decision Locked, Session Restart) into new "Workflow Patterns" section at end of file. Standalone WORKFLOW_PATTERNS.md deprecated. Previous: `Archive/QUICK_REFERENCE__v5__2026-03-25.md`. v5 (2026-03-11): Discovery support — parent_artifact_id, lifecycle_status, execution_status filter examples. v4 (2026-03-06): T87 Spine Field Routing. v3 (2026-03-03): T69 Semantic Type Registry. v2.1 (2026-02-20): Fixed Update payload structure. v2 (2026-02-18): Unified to JSON-only execution.*

@@ -2,16 +2,27 @@
 
 Reference file for common artifact creation patterns. See system instructions for core rules.
 
+**Concept distinction (sessions):** `/wake` (full startup), **Subsession** (in-conversation lane, no loads, no persists), **Conversation Restart** (context-compression handoff in a new chat). See `Instruction_Pack__Session_Lifecycle__QW__v3.md` for the full distinction table.
+
 ---
 
-## Morning Flow
+## Workbench
 
-**Trigger:** Start of day reflection, gratitude, or intention-setting conversation.
+**Trigger (add):** "add this to the workbench" / "workbench this" / "put this on the workbench" while engaging an artifact.
 
-**Artifact:** Journal
-**Title:** `Morning Flow - [DATE]`
-**Tags:** `morning-flow`, `reflection`
-**Content:** Capture gratitude, priorities, energy state, and intentions.
+**Trigger (remove):** "remove from workbench" / "done with this" / "off the workbench" / "clear this off the workbench".
+
+**Eligible types:** `project`, `snapshot`, `twig`.
+
+**Action (add, existing artifact):** `artifact.update` with structured tags — `{ "tags": { "add": ["workbench"] } }`. Flat array forbidden on update.
+
+**Action (add, new/unsaved artifact):** include `"workbench"` in tags on the save payload.
+
+**Action (remove):** `artifact.update` with structured tags — `{ "tags": { "remove": ["workbench"] } }`.
+
+**Effect:** Workbench-tagged artifacts are surfaced at `/wake` as the active working set (3 list calls — one per eligible type). On selection, Q hydrates the chosen item.
+
+**Canonical spec:** `Instruction_Pack__Session_Lifecycle__QW__v3.md` → Workbench.
 
 ---
 
@@ -66,6 +77,22 @@ Reference file for common artifact creation patterns. See system instructions fo
 **Payload:** Thread inventory, decisions locked, current work, resume instructions.
 
 See `CONVERSATION_RESTART_PROTOCOL.md` for full restart prompt generation protocol.
+
+---
+
+## Subsession
+
+**Triggers:** `new subsession`, `subsession`, `start subsession`, `clean lane`, `new working lane`, `/new sub`, `new sub`, `nsub`, `sub` — fire only when the phrase is the **leading/bare** message in a Joel turn (embedded mentions do not trigger).
+
+**Behavior:** In-conversation clean working lane. Q acknowledges, asks for Primary Outcome if missing, proceeds. **No Gateway calls. No persistence. Preserves all `/wake` context (End Session + Rolling Memory + Workbench).**
+
+**Workbench in subsession:** Q may reference the already-loaded Workbench summary or ask once whether the lane anchors to a Workbench item. Q does NOT re-list. Q hydrates only on selection.
+
+**Lane close:** `end subsession`, `close lane`, `back to main`, `exit lane` → Q acknowledges, discards lane-local context, returns to parent session. No save.
+
+**Fresh-tab refusal:** If triggered before `/wake` context is loaded, Q refuses: `"Subsession requires loaded session context. Run /wake first, or start a full session."`
+
+**Canonical spec:** `Instruction_Pack__Session_Lifecycle__QW__v3.md` → Subsession Protocol.
 
 ---
 
