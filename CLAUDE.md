@@ -318,7 +318,18 @@ When user's **first message** contains any of these phrases:
 1. **Read `sessions/OPEN_THREADS.md`** — active surface table only
 2. **Present lightweight context:**
    - Active surface thread table
-   - Last session ID + date (from latest `session-end` snapshot title — query with `-Limit 1`, do NOT hydrate; if unavailable, skip)
+   - Last session ID + date — retrieve via **two-query client-side union** (lightweight; mirrors Session Lifecycle IP v2.3 §1.3 Step 4 + §1.8; rationale: Rolling Memory v16 G coordination flag, sister twig `b14f8027-5ab9-4010-a4f0-ab9461f79599`):
+     ```
+     powershell -File "scripts/CC-Gateway-Query.ps1" -Action list -ArtifactType snapshot -Tags "session-end" -Limit 3 -Raw
+     powershell -File "scripts/CC-Gateway-Query.ps1" -Action list -ArtifactType snapshot -Tags "end-session" -Limit 3 -Raw
+     ```
+   - **Merge algorithm** (caller-side, no script change — Option A): union both result sets by `artifact_id` (an artifact carrying both tags appears once; record tag-source as `both`); sort merged set by `created_at` descending; deterministic tiebreaker for identical timestamps is `artifact_id` ascending lexicographic. `created_at` is the sole recency authority — do NOT use `updated_at` or `version`.
+   - **Spine-only schema check** (do NOT hydrate): valid title format `End Session — <YYYY-MM-DD> — session <session_id>`; tags contain `session-end` and/or `end-session`. Scan merged set from top for first spine-valid candidate.
+   - **Invalid-latest handling:** if the top candidate is spine-invalid but an older candidate is spine-valid, use the older valid candidate and surface a one-line observation in the lightweight context. Do NOT silently bury the malformed latest.
+   - **Tag-source classification:** top valid candidate carries `session-end` (with or without `end-session`) → canonical (or `canonical-plus-transitional` if both); top valid candidate carries only `end-session` → transitional. Surface a concise observation: *"End Session bookmark loaded via transitional tag `end-session` only (sister twig `b14f8027`; mirrors IP v2.3 §1.8)."*
+   - **Fallback (K=3 → K=10):** if no spine-valid candidate in merged K=3 window, retry both queries with `-Limit 10`. If still none, skip silently.
+   - **Gateway behavior note:** `tags_any` with multi-element arrays returns intersection in Gateway v2, not union — see sister twig `b14f8027`. Two-query client-side merge is the structural workaround. Do NOT attempt single-query `-Tags "session-end,end-session"` — it returns only artifacts carrying both tags.
+   - If unavailable, skip silently.
 3. **Ask for session intent** — or jump directly to referenced thread if user included a T-number (e.g., "go T150")
 
 **Skipped (daily items — run only on full session):**
@@ -333,11 +344,22 @@ When user's **first message** contains any of these phrases:
 
 1. **Read prior context:**
    - Load `sessions/OPEN_THREADS.md` (canonical thread list)
-   - Query latest session-end snapshot from Prime:
+   - Query latest end-session bookmark from Prime via **two-query client-side union** (transitional retrieval — mirrors Session Lifecycle IP v2.3 §1.2 Step 2 + §1.8; rationale: Rolling Memory v16 G coordination flag, sister twig `b14f8027-5ab9-4010-a4f0-ab9461f79599`):
      ```
-     powershell -File "scripts/CC-Gateway-Query.ps1" -Action list -ArtifactType snapshot -Tags "session-end" -Limit 1 -Hydrate -Raw
+     powershell -File "scripts/CC-Gateway-Query.ps1" -Action list -ArtifactType snapshot -Tags "session-end" -Limit 3 -Hydrate -Raw
+     powershell -File "scripts/CC-Gateway-Query.ps1" -Action list -ArtifactType snapshot -Tags "end-session" -Limit 3 -Hydrate -Raw
      ```
-   - If Gateway unavailable or no snapshot exists: proceed without prior session context (non-blocking)
+   - **Merge algorithm** (caller-side, no script change — Option A): union both result sets by `artifact_id` (an artifact carrying both tags appears once; record tag-source as `both`); sort merged set by `created_at` descending; deterministic tiebreaker for identical timestamps is `artifact_id` ascending lexicographic. `created_at` is the sole recency authority — do NOT use `updated_at` or `version`.
+   - **Schema-valid scan:** scan merged set from top, validate each candidate's `extension.payload` against the End Session Snapshot schema (current `schema_version: v1` per IP v2.3 §5.2/§5.3 — required fields present, `session_scope` value valid, `session_id` ISO-8601 second-level format, `open_threads[].status` enum-valid). First schema-valid candidate becomes the bookmark.
+   - **Invalid-latest handling:** if the top (latest by `created_at`) candidate is schema-invalid but an older candidate is schema-valid, use the older valid bookmark and surface a one-line observation in the handoff summary noting the invalid-latest. Do NOT silently bury the malformed latest.
+   - **Tag-source classification:**
+     - Top valid candidate carries `session-end` (with or without `end-session`): canonical (or `canonical-plus-transitional` if both). Standard handoff summary.
+     - Top valid candidate carries only `end-session`: transitional. Surface a concise observation in the handoff summary: *"End Session bookmark loaded via transitional tag `end-session` only (sister twig `b14f8027`; mirrors IP v2.3 §1.8)."*
+   - **Fallback (K=3 → K=10):** if no schema-valid candidate in the merged K=3 window (up to 6 pre-dedupe candidates), retry both queries with `-Limit 10` (up to 20 pre-dedupe). If still none, proceed without prior session context (non-blocking — same posture as the v36 fallback).
+   - **Genuine absence:** both queries return zero results in both K=3 and K=10 retry → proceed without prior session context (non-blocking).
+   - **Gateway behavior note:** `tags_any` with multi-element arrays returns intersection in Gateway v2, not union — see sister twig `b14f8027`. Two-query client-side merge is the structural workaround. Do NOT attempt single-query `-Tags "session-end,end-session"` — it returns only artifacts carrying both tags.
+   - **Narrowing trigger:** when Session Lifecycle IP v2.4 lands (per IP v2.3 §1.8 narrowing trigger criteria — N=5 consecutive new End Session saves across Prime + Q@W carry `session-end` and zero carry `end-session`, AND ≥30 days elapsed, AND Q@W parity), narrow back to single `session-end` query in a coincident CLAUDE.md v38 patch.
+   - If Gateway unavailable: proceed without prior session context (non-blocking)
 2. **CmdCtr briefing — SKIPPED by default (on-demand only):**
    - CmdCtr is no longer auto-invoked at session start. See "CmdCtr Diagnostic Mode" below.
    - To invoke explicitly: user says "run cmdctr" / "cmdctr briefing" or invokes `/cmdctr-briefing`. When invoked, follow the Snapshot Contract.
@@ -1028,6 +1050,31 @@ If execution reveals the plan needs to change: STOP execution, report what chang
 ---
 
 ## CHANGELOG - CLAUDE.md Updates
+
+### v37 - 2026-06-10
+**What changed:** Two surfaces patched to mirror Session Lifecycle IP v2.3 retrieval semantics:
+- §"Required Behavior on Session Trigger" → step 1 (Primary surface): replaced single-tag `session-end` retrieval with two-query client-side union (`session-end` + `end-session`) + merge algorithm (union by `artifact_id`, sort `created_at` DESC, deterministic tiebreaker `artifact_id` ASC, schema-valid scan per IP v2.3 §5.2/§5.3, invalid-latest handling, tag-source classification, K=10 bounded retry, transitional observation in handoff summary). Script `scripts/CC-Gateway-Query.ps1` unchanged (Option A — caller-side two-invocation pattern).
+- §"Required Behavior on Subsession Trigger" → step 2 (Subsession surface): same two-query union with lightweight (no hydration) variant; spine-only schema check; transitional observation in lightweight context.
+
+**Why:** G coordination flag surfaced 2026-06-10 during Rolling Memory v16 cleanup — the 2026-06-09 end-session snapshot `36e86798-0074-4ad2-b957-b86b39033543` was saved with tag `end-session` (singular) while v2.2 §5.1 canonical is `session-end`. CC's single-tag canonical retrieval was silently returning the older 2026-06-08 snapshot `15375b5a-e080-4f1f-82df-be5463b4801d`. Empirical Gateway v2 test (sister twig `b14f8027-5ab9-4010-a4f0-ab9461f79599`) confirmed `tags_any` with multi-element arrays returns intersection, not union — so a single dual-tag broaden would silently return zero (or only intersection-set) results. Two-query client-side union is the structural response. Mirrors Q-side patch landed same day as Session Lifecycle IP v2.3 (governance lane: project `46142606-ac00-416c-95a0-2e81e997b9e4`).
+
+**Scope of impact:**
+- **Changed:** §"Required Behavior on Session Trigger" → step 1; §"Required Behavior on Subsession Trigger" → step 2; addition of this v37 changelog entry.
+- **Unchanged:** all other §"Session Management" steps (CmdCtr Diagnostic Mode, Rolling Memory verification step 5, for-cc Work Queue Sweep step 6, CC Memory Harvest step 7); §"Subsession Trigger Phrases"; §"Uncertainty Rule"; §"Session End"; §"Session End Snapshot Contract"; §"Session Checkpoint Protocol"; §"Rolling Memory (DB-backed)"; §"Tier A Memory Compaction Protocol"; §"Artifact Registry (Deprecated)"; §"Important Constraints"; all New Qwrk Governance Rules §1–§11; §"Instruction File Drift Rule"; CHANGELOG entries v2–v36.
+- **Script unchanged:** `scripts/CC-Gateway-Query.ps1` (Option A — caller-side two-invocation pattern; script enhancement deferred to a separate change).
+- **Known consistency gap (not patched here):** §"Session End Snapshot Contract (Locked)" → "Retrieval" sub-section retains the single-tag `-Tags "session-end" -Limit 1` example. That block documents the canonical-save contract (correct: §5.1 frozen at `["session-end", "for-q"]`); the transitional retrieval gap only affects startup recovery of pre-canonicalization or in-flight drift snapshots. If the v2.3 narrowing trigger fires (v2.4 lands), this gap closes naturally. If kept open longer, address in a future v38 patch.
+
+**How to validate:**
+- At next session start (Primary), observe two retrieval queries fire; confirm merged set returns 2026-06-09 `36e86798` as the latest valid bookmark (previously invisible to single-tag canonical query); confirm transitional observation appears in handoff summary because `36e86798` is tagged `end-session` only.
+- At next subsession trigger (e.g., `/nsub`, `go`), observe the same two-query lightweight pattern fire; confirm spine-only valid bookmark recovered; confirm transitional observation appears in lightweight context.
+- Confirm `5e1578c1` (snapshot carrying both tags) appears once in merged set, not duplicated.
+- When IP v2.4 narrowing trigger fires (per IP v2.3 §1.8 criteria), file CLAUDE.md v38 narrowing patch.
+
+**Hard scope boundary:** Documentation-only on CLAUDE.md. No Gateway change. No DB change. No script change. No Q-side IP change (that landed today as v2.3 under the governance lane). No CmdCtr rules change. No Workbench doctrine change. No T185 mitigation change. No Rolling Memory contract change. No memory write (auto-memory directory remains permission-blocked; MEMORY.md drift-log capture for the `end-session`/`session-end` tag drift remains queued for separate landing once that permission is unblocked).
+
+**Cross-references:** IP v2.3 (Session Lifecycle Protocol, landed 2026-06-10 under T212 gate); governance lane project `46142606-ac00-416c-95a0-2e81e997b9e4`; sister twig `b14f8027-5ab9-4010-a4f0-ab9461f79599` (Gateway `tags_any` intersection finding); related downstream branch `dd702a7f-9113-43ee-ab9f-cea1fdedacc0` (End Session Search Enrichment — Session Receipt Ledger). Rolling Memory v16 `b24f16d4-df52-41f5-a100-1d0017d51669` §retrieval_anchors.current_end_session_bookmark hardcoded anchor `36e86798` continues as live stopgap until v37 + IP v2.3 both stabilize and the latest end-session save round establishes drift convergence.
+
+**Previous version:** `Archive/CLAUDE__v36__2026-06-10.md`
 
 ### v36 - 2026-05-27
 **What changed:** Pre-Flight Checklist: added Supabase Data API explicit-grant checklist clarification (8th bullet) under §"Schema Truth Policy — DDL-as-Truth" → "Pre-Flight Checklist (Required Before SQL Generation)". Pointer added to Schema Reference §"Operational Notes — Supabase Data API Grant Defaults" (v2.10.1 doc-only sub-revision).
